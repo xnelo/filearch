@@ -1,0 +1,53 @@
+plugins {
+    id "com.diffplug.spotless" version "$SPOTLESS_VERSION"
+}
+
+allprojects {
+    apply plugin: "idea"
+    apply plugin: "java"
+    apply plugin: "com.diffplug.spotless"
+
+    repositories {
+        mavenCentral()
+        mavenLocal()
+    }
+
+    group 'com.xnelo.filearch'
+    version '1.0.0'
+
+    spotless {
+        java {
+            target("src/*/java/**/*.java")
+            googleJavaFormat("1.25.2")
+            removeUnusedImports()
+            //toggleOffOn()
+            //targetExclude("**/api/contracts/*.java")
+        }
+    }
+
+    spotlessCheck {
+        dependsOn(spotlessApply)
+    }
+
+    compileJava {
+        dependsOn(spotlessCheck)
+    }
+
+    java {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+
+    compileJava {
+        options.encoding = 'UTF-8'
+        options.compilerArgs << '-parameters'
+    }
+
+    compileTestJava {
+        options.encoding = 'UTF-8'
+    }
+
+    test {
+        systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
+    }
+}
