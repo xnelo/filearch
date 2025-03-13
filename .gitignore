@@ -29,5 +29,3 @@ replay_pid*
 .gradle
 .data
 build
-rest-api/build
-infra/containers/keycloak/keycloak-with-db/.data
