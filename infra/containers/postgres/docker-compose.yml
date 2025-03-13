@@ -1,0 +1,13 @@
+services:
+  postgres:
+    image: postgres:17.4
+    container_name: postgres-dev
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-xnelo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-buttmunch}
+      POSTGRES_DB: filearch
+    volumes:
+      - ../.data/postgres:/var/lib/postgresql/data:delegated
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"

@@ -27,3 +27,7 @@ replay_pid*
 .idea
 .quarkus
 .gradle
+.data
+build
+rest-api/build
+infra/containers/keycloak/keycloak-with-db/.data
