@@ -1,0 +1,16 @@
+plugins {
+    id 'io.quarkus'
+    id("org.kordamp.gradle.jandex") version "2.1.0"
+}
+
+dependencies {
+    implementation enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}")
+    implementation "io.quarkus:quarkus-oidc"
+
+    compileOnly "org.projectlombok:lombok:$LOMBOK_VERSION"
+
+    annotationProcessor "org.projectlombok:lombok:$LOMBOK_VERSION"
+
+    testImplementation(platform("org.junit:junit-bom:5.10.0"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+}
