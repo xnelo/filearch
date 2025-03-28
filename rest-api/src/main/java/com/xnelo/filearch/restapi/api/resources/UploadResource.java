@@ -1,8 +1,10 @@
 package com.xnelo.filearch.restapi.api.resources;
 
 import com.xnelo.filearch.common.user.UserHandler;
-import com.xnelo.filearch.restapi.api.contracts.FileResource;
+import com.xnelo.filearch.restapi.api.contracts.UploadFileResource;
+import com.xnelo.filearch.restapi.service.UploadService;
 import io.quarkus.logging.Log;
+import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
@@ -15,13 +17,16 @@ import jakarta.ws.rs.core.Response;
 public class UploadResource {
 
   @Inject UserHandler userhandler;
+  @Inject UploadService uploadService;
 
   @POST
   @RolesAllowed("user")
   @Consumes(MediaType.MULTIPART_FORM_DATA)
-  public Response uploadFile(@BeanParam FileResource upload) {
+  public Uni<Response> uploadFile(@BeanParam UploadFileResource upload) {
     Log.infof("File path: %s", upload.file.getAbsolutePath());
     Log.infof("Calling User: %s", userhandler.getUserInfo().getId());
-    return Response.ok().build();
+    return uploadService
+        .uploadFile(upload, userhandler.getUserInfo())
+        .map(result -> Response.ok(result).build());
   }
 }
