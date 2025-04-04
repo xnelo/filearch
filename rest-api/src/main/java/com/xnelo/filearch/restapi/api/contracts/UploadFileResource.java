@@ -1,9 +1,9 @@
 package com.xnelo.filearch.restapi.api.contracts;
 
 import jakarta.ws.rs.FormParam;
-import java.io.File;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 public class UploadFileResource {
   @FormParam("file")
-  public File file;
+  public FileUpload file;
 }

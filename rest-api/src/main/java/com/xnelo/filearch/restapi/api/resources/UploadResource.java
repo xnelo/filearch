@@ -23,7 +23,7 @@ public class UploadResource {
   @RolesAllowed("user")
   @Consumes(MediaType.MULTIPART_FORM_DATA)
   public Uni<Response> uploadFile(@BeanParam UploadFileResource upload) {
-    Log.infof("File path: %s", upload.file.getAbsolutePath());
+    Log.debugf("Temporary file path: %s", upload.file.filePath());
     Log.infof("Calling User: %s", userhandler.getUserInfo().getId());
     return uploadService
         .uploadFile(upload, userhandler.getUserInfo())

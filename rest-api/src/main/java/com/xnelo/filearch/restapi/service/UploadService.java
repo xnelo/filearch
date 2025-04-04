@@ -4,6 +4,7 @@ import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.user.User;
 import com.xnelo.filearch.restapi.api.contracts.UploadFileResource;
 import com.xnelo.filearch.restapi.api.contracts.UploadResponse;
+import com.xnelo.filearch.restapi.data.SequenceRepo;
 import com.xnelo.filearch.restapi.service.storage.StorageService;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
@@ -12,23 +13,31 @@ import jakarta.inject.Inject;
 @RequestScoped
 public class UploadService {
   @Inject StorageService storageService;
+  @Inject SequenceRepo sequenceRepo;
 
   public Uni<UploadResponse> uploadFile(UploadFileResource toUpload, User user) {
-    // create the key to save the file to its final location
+    return createStorageKey(user, toUpload)
+        .chain(uploadKey -> storageService.save(toUpload, uploadKey))
+        .map(UploadService::toUploadResponse);
+  }
 
-    return storageService
-        .save()
+  Uni<String> createStorageKey(final User user, final UploadFileResource toUpload) {
+    return sequenceRepo
+        .getNextFileUploadNumber()
         .map(
-            storeResult -> {
-              if (storeResult != ErrorCode.OK) {
-                return UploadResponse.builder()
-                    .success(false)
-                    .errorCode(storeResult)
-                    .errorMessage("Error storing file.")
-                    .build();
-              } else {
-                return UploadResponse.SUCCESS;
-              }
-            });
+            fileUploadNumber ->
+                user.getId() + "/" + fileUploadNumber + "_" + toUpload.file.fileName());
+  }
+
+  static UploadResponse toUploadResponse(ErrorCode result) {
+    if (result == ErrorCode.OK) {
+      return UploadResponse.SUCCESS;
+    } else {
+      return UploadResponse.builder()
+          .success(false)
+          .errorCode(result)
+          .errorMessage("Error storing file.")
+          .build();
+    }
   }
 }
