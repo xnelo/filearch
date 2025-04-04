@@ -12,8 +12,8 @@ allprojects {
         mavenLocal()
     }
 
-    group 'com.xnelo.filearch'
-    version '1.0.0'
+    group = 'com.xnelo.filearch'
+    version = '1.0.0'
 
     spotless {
         java {

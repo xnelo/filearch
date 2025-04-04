@@ -8,7 +8,16 @@ dependencies {
     implementation 'io.quarkus:quarkus-rest:3.18.4'
     implementation "io.quarkus:quarkus-smallrye-openapi"
     implementation "io.quarkus:quarkus-oidc"
+    implementation("io.quarkus:quarkus-rest-jackson")
     implementation project(":common")
+    implementation project(":jooq")
+    implementation "org.jooq:jooq:$JOOQ_VERSION"
+    implementation("io.quarkus:quarkus-jdbc-postgresql")
+
+    compileOnly "org.projectlombok:lombok:$LOMBOK_VERSION"
+
+    annotationProcessor "org.projectlombok:lombok:$LOMBOK_VERSION"
+
     testImplementation 'io.quarkus:quarkus-junit5'
 }
 
