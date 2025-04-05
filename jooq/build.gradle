@@ -11,6 +11,8 @@ spotlessCheck {
     enabled = false
 }
 
+String DB_HOST_ADDRESS = System.getenv("FILEARCH_DB_HOST_ADDRESS") ?: "localhost"
+
 jooq {
     version = "$JOOQ_VERSION"
     edition = nu.studer.gradle.jooq.JooqEdition.OSS  // the default (can be omitted)
@@ -23,7 +25,7 @@ jooq {
                 //logging = Logging.WARN
                 jdbc {
                     driver = 'org.postgresql.Driver'
-                    url = 'jdbc:postgresql://localhost:5432/filearch'
+                    url = 'jdbc:postgresql://' + DB_HOST_ADDRESS + ':5432/filearch'
                     user = 'xnelo'
                     password = 'buttmunch'
                 }

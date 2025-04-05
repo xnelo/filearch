@@ -1,9 +1,15 @@
-CREATE TABLE IF NOT EXISTS test_table
+CREATE TABLE IF NOT EXISTS users
 (
-  id   INT,
-  name VARCHAR(20)
+    id  INT PRIMARY KEY,
+    external_id VARCHAR(255)
 );
-INSERT INTO test_table(id, name)
-VALUES (1, 'QUARKED');
+
+CREATE TABLE IF NOT EXISTS stored_files
+(
+  id   INT PRIMARY KEY,
+  owner_user_id INT,
+  storage_type VARCHAR(3),
+  storage_key VARCHAR
+);
 
 CREATE SEQUENCE IF NOT EXISTS seq_file_upload_number;

@@ -5,5 +5,7 @@ import com.xnelo.filearch.restapi.api.contracts.UploadFileResource;
 import io.smallrye.mutiny.Uni;
 
 public interface StorageService {
+  String getStorageType();
+
   Uni<ErrorCode> save(UploadFileResource toUpload, String key);
 }

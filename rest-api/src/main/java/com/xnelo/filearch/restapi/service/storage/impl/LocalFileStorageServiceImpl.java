@@ -15,10 +15,17 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 @DefaultBean
 @RequestScoped
 public class LocalFileStorageServiceImpl implements StorageService {
+  public static final String LOCAL_FILE_SYSTEM_STORAGE_TYPE = "LFS";
+
   @ConfigProperty(
       name = "filearch.localfilestorage.localstoragebase",
       defaultValue = "./upload_data_storage")
   String localStorageBase;
+
+  @Override
+  public String getStorageType() {
+    return LOCAL_FILE_SYSTEM_STORAGE_TYPE;
+  }
 
   @Override
   public Uni<ErrorCode> save(UploadFileResource toUpload, String key) {
@@ -36,11 +43,17 @@ public class LocalFileStorageServiceImpl implements StorageService {
               }
 
               try {
-                Log.infof("Copying temp file to permanent storage: original=%s destination=%s", toUpload.file.uploadedFile(), localStorageLocation);
+                Log.infof(
+                    "Copying temp file to permanent storage: original=%s destination=%s",
+                    toUpload.file.uploadedFile(), localStorageLocation);
                 Files.copy(toUpload.file.uploadedFile(), localStorageLocation);
                 return ErrorCode.OK;
               } catch (IOException e2) {
-                Log.errorf(e2, "Unable to save file: original=%s destination=%s", toUpload.file.uploadedFile(), localStorageLocation);
+                Log.errorf(
+                    e2,
+                    "Unable to save file: original=%s destination=%s",
+                    toUpload.file.uploadedFile(),
+                    localStorageLocation);
                 return ErrorCode.UNABLE_TO_SAVE_FILE;
               }
             });
