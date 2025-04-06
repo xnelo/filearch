@@ -1,6 +1,6 @@
 package com.xnelo.filearch.restapi.api.resources;
 
-import com.xnelo.filearch.common.user.UserHandler;
+import com.xnelo.filearch.common.usertoken.UserTokenHandler;
 import com.xnelo.filearch.restapi.api.contracts.UploadFileResource;
 import com.xnelo.filearch.restapi.service.UploadService;
 import io.quarkus.logging.Log;
@@ -16,7 +16,8 @@ import jakarta.ws.rs.core.Response;
 @Path("upload")
 public class UploadResource {
 
-  @Inject UserHandler userhandler;
+  @Inject
+  UserTokenHandler userhandler;
   @Inject UploadService uploadService;
 
   @POST
