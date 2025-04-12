@@ -19,6 +19,22 @@ public class UserTokenHandlerImpl implements UserTokenHandler {
   }
 
   private static UserToken createNewUser(JsonWebToken token) {
-    return UserTokenImpl.builder().id(token.getSubject()).build();
+    UserTokenImpl.UserTokenImplBuilder builder = UserTokenImpl.builder();
+
+    builder.id(token.getSubject());
+
+    if (token.getClaim("given_name") != null && token.getClaim("family_name") != null) {
+      builder.firstName(token.getClaim("given_name")).lastName(token.getClaim("family_name"));
+    }
+
+    if (token.getClaim("preferred_username") != null) {
+      builder.username(token.getClaim("preferred_username"));
+    }
+
+    if (token.getClaim("email") != null) {
+      builder.email(token.getClaim("email"));
+    }
+
+    return builder.build();
   }
 }

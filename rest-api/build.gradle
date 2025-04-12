@@ -12,11 +12,15 @@ dependencies {
     implementation project(":common")
     implementation project(":jooq")
     implementation "org.jooq:jooq:$JOOQ_VERSION"
+    implementation "org.mapstruct:mapstruct:${MAPSTRUCT_VERSION}"
     implementation("io.quarkus:quarkus-jdbc-postgresql")
+    implementation("io.quarkus:quarkus-hibernate-validator")
+
 
     compileOnly "org.projectlombok:lombok:$LOMBOK_VERSION"
 
     annotationProcessor "org.projectlombok:lombok:$LOMBOK_VERSION"
+    annotationProcessor "org.mapstruct:mapstruct-processor:${MAPSTRUCT_VERSION}"
 
     testImplementation 'io.quarkus:quarkus-junit5'
 }

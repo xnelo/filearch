@@ -10,13 +10,26 @@ dependencies {
     implementation "io.quarkus:quarkus-oidc"
     implementation("io.quarkus:quarkus-rest-jackson")
     implementation("org.flywaydb:flyway-database-postgresql")
-    implementation "org.jooq:jooq:$JOOQ_VERSION"
+    implementation "org.jooq:jooq:${JOOQ_VERSION}"
+    implementation "org.mapstruct:mapstruct:${MAPSTRUCT_VERSION}"
+    implementation project(":jooq")
 
+    compileOnly "org.projectlombok:lombok:${LOMBOK_VERSION}"
 
-    compileOnly "org.projectlombok:lombok:$LOMBOK_VERSION"
-
-    annotationProcessor "org.projectlombok:lombok:$LOMBOK_VERSION"
+    annotationProcessor "org.projectlombok:lombok:${LOMBOK_VERSION}"
+    annotationProcessor "org.mapstruct:mapstruct-processor:${MAPSTRUCT_VERSION}"
 
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+}
+
+compileJava {
+    options.compilerArgs += [
+            '-Amapstruct.unmappedTargetPolicy=ERROR',
+            '-Amapstruct.verbose=true'
+    ]
+}
+
+quarkusDependenciesBuild {
+    dependsOn("jandex")
 }

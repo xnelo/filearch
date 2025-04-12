@@ -16,8 +16,7 @@ import jakarta.ws.rs.core.Response;
 @Path("upload")
 public class UploadResource {
 
-  @Inject
-  UserTokenHandler userhandler;
+  @Inject UserTokenHandler userhandler;
   @Inject UploadService uploadService;
 
   @POST

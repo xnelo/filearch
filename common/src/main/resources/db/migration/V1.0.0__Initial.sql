@@ -1,6 +1,10 @@
 CREATE TABLE IF NOT EXISTS users
 (
     id  INT PRIMARY KEY,
+    username VARCHAR(64),
+    first_name VARCHAR(96),
+    last_name VARCHAR(96),
+    email VARCHAR(255),
     external_id VARCHAR(255)
 );
 

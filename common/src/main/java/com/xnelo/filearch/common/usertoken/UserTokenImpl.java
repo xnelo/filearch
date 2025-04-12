@@ -9,4 +9,8 @@ import lombok.Getter;
 @AllArgsConstructor
 public class UserTokenImpl implements UserToken {
   private final String id;
+  private final String firstName;
+  private final String lastName;
+  private final String username;
+  private final String email;
 }
