@@ -10,7 +10,9 @@ import com.xnelo.filearch.restapi.data.UserRepo;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RequestScoped
 public class UserService {
@@ -22,6 +24,26 @@ public class UserService {
 
   public Uni<ServiceResponse<User>> getUserFromUserToken(final UserToken userToken) {
     return userRepo.getUserFromExternalId(userToken.getId()).map(UserService::toServiceResponse);
+  }
+
+  public Uni<ServiceResponse<User>> getUserById(final int userId) {
+    return userRepo
+        .getUserFromId(userId)
+        .map(
+            user -> {
+              if (user == null) {
+                return new ServiceResponse<>(
+                    User.USER_RESOURCE_TYPE,
+                    List.of(
+                        ServiceError.builder()
+                            .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
+                            .errorMessage("User doesn't exist.")
+                            .httpCode(404)
+                            .build()));
+              } else {
+                return toServiceResponse(user);
+              }
+            });
   }
 
   private User createUserObject(final UserContract inputData, final UserToken token) {
@@ -91,5 +113,86 @@ public class UserService {
                     .map(UserService::toServiceResponse);
               }
             });
+  }
+
+  public Uni<ServiceResponse<User>> updateUser(
+      final UserContract toUpdate, final UserToken userToken) {
+    if (toUpdate.getUsername() != null) {
+      return Uni.createFrom()
+          .item(
+              new ServiceResponse<>(
+                  User.USER_RESOURCE_TYPE,
+                  List.of(
+                      ServiceError.builder()
+                          .errorCode(ErrorCode.USERNAME_CANNOT_BE_UPDATED)
+                          .errorMessage("Username cannot be updated.")
+                          .httpCode(400)
+                          .build())));
+    } else if (toUpdate.getId() != null) {
+      return Uni.createFrom()
+          .item(
+              new ServiceResponse<>(
+                  User.USER_RESOURCE_TYPE,
+                  List.of(
+                      ServiceError.builder()
+                          .errorCode(ErrorCode.USER_ID_CANNOT_BE_UPDATED)
+                          .errorMessage("User ID cannot be updated.")
+                          .httpCode(400)
+                          .build())));
+    }
+
+    return userRepo
+        .getUserFromExternalId(userToken.getId())
+        .chain(
+            user -> {
+              if (user == null) {
+                return Uni.createFrom()
+                    .item(
+                        new ServiceResponse<>(
+                            User.USER_RESOURCE_TYPE,
+                            List.of(
+                                ServiceError.builder()
+                                    .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
+                                    .errorMessage(
+                                        "The user you are trying to update does not exist.")
+                                    .httpCode(404)
+                                    .build())));
+              }
+
+              Map<String, Object> userUpdateMap = toUpdateMap(toUpdate);
+              if (userUpdateMap.isEmpty()) {
+                return Uni.createFrom()
+                    .item(
+                        new ServiceResponse<>(
+                            User.USER_RESOURCE_TYPE,
+                            List.of(
+                                ServiceError.builder()
+                                    .errorCode(ErrorCode.NO_FIELDS_TO_UPDATE)
+                                    .errorMessage("No fields to update")
+                                    .httpCode(400)
+                                    .build())));
+              }
+              return userRepo
+                  .updateUser(user.getId(), userUpdateMap)
+                  .map(UserService::toServiceResponse);
+            });
+  }
+
+  private Map<String, Object> toUpdateMap(final UserContract toUpdate) {
+    Map<String, Object> updateMap = new HashMap<>();
+
+    if (toUpdate.getEmail() != null) {
+      updateMap.put(UserRepo.EMAIL_COLUMN_NAME, toUpdate.getEmail());
+    }
+
+    if (toUpdate.getLastName() != null) {
+      updateMap.put(UserRepo.LAST_NAME_COLUMN_NAME, toUpdate.getLastName());
+    }
+
+    if (toUpdate.getFirstName() != null) {
+      updateMap.put(UserRepo.FIRST_NAME_COLUMN_NAME, toUpdate.getFirstName());
+    }
+
+    return updateMap;
   }
 }

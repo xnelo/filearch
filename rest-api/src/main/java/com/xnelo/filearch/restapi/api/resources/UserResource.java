@@ -13,8 +13,7 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.Path;
+import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Response;
 import org.mapstruct.factory.Mappers;
 
@@ -25,6 +24,17 @@ public class UserResource {
   @Inject UserService userService;
   private final ContractMapper contractMapper = Mappers.getMapper(ContractMapper.class);
 
+  @GET
+  @RolesAllowed("user")
+  @Path("{id}")
+  public Uni<Response> getUser(@PathParam("id") int userId) {
+    return userService
+        .getUserById(userId)
+        .map(
+            serviceResponse ->
+                contractMapper.toApiResponse(serviceResponse, contractMapper::toUserContract));
+  }
+
   @POST
   @RolesAllowed("user")
   public Uni<Response> createUser(@Valid final UserContract userContract) {
@@ -33,6 +43,19 @@ public class UserResource {
         "Create User: input=%s token=%s", toJsonString(userContract), toJsonString(userToken));
     return userService
         .createUser(userContract, userToken)
+        .map(
+            serviceResponse ->
+                contractMapper.toApiResponse(serviceResponse, contractMapper::toUserContract));
+  }
+
+  @PATCH
+  @RolesAllowed("user")
+  public Uni<Response> updateUser(@Valid final UserContract userContract) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    Log.infof(
+        "Updating user: input=%s token=%s", toJsonString(userContract), toJsonString(userToken));
+    return userService
+        .updateUser(userContract, userToken)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toUserContract));
