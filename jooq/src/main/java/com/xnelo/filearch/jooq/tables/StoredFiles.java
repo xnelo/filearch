@@ -9,6 +9,7 @@ import com.xnelo.filearch.jooq.tables.records.StoredFilesRecord;
 import java.util.Collection;
 import org.jooq.Condition;
 import org.jooq.Field;
+import org.jooq.Identity;
 import org.jooq.Name;
 import org.jooq.PlainSQL;
 import org.jooq.QueryPart;
@@ -40,12 +41,12 @@ public class StoredFiles extends TableImpl<StoredFilesRecord> {
   }
 
   /** The column <code>FILEARCH.stored_files.id</code>. */
-  public final TableField<StoredFilesRecord, Integer> ID =
-      createField(DSL.name("id"), SQLDataType.INTEGER.nullable(false), this, "");
+  public final TableField<StoredFilesRecord, Long> ID =
+      createField(DSL.name("id"), SQLDataType.BIGINT.nullable(false).identity(true), this, "");
 
   /** The column <code>FILEARCH.stored_files.owner_user_id</code>. */
-  public final TableField<StoredFilesRecord, Integer> OWNER_USER_ID =
-      createField(DSL.name("owner_user_id"), SQLDataType.INTEGER, this, "");
+  public final TableField<StoredFilesRecord, Long> OWNER_USER_ID =
+      createField(DSL.name("owner_user_id"), SQLDataType.BIGINT, this, "");
 
   /** The column <code>FILEARCH.stored_files.storage_type</code>. */
   public final TableField<StoredFilesRecord, String> STORAGE_TYPE =
@@ -82,6 +83,11 @@ public class StoredFiles extends TableImpl<StoredFilesRecord> {
   @Override
   public Schema getSchema() {
     return aliased() ? null : Filearch.FILEARCH;
+  }
+
+  @Override
+  public Identity<StoredFilesRecord, Long> getIdentity() {
+    return (Identity<StoredFilesRecord, Long>) super.getIdentity();
   }
 
   @Override

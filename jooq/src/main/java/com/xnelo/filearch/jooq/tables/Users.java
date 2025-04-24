@@ -9,6 +9,7 @@ import com.xnelo.filearch.jooq.tables.records.UsersRecord;
 import java.util.Collection;
 import org.jooq.Condition;
 import org.jooq.Field;
+import org.jooq.Identity;
 import org.jooq.Name;
 import org.jooq.PlainSQL;
 import org.jooq.QueryPart;
@@ -40,24 +41,24 @@ public class Users extends TableImpl<UsersRecord> {
   }
 
   /** The column <code>FILEARCH.users.id</code>. */
-  public final TableField<UsersRecord, Integer> ID =
-      createField(DSL.name("id"), SQLDataType.INTEGER.nullable(false), this, "");
+  public final TableField<UsersRecord, Long> ID =
+      createField(DSL.name("id"), SQLDataType.BIGINT.nullable(false).identity(true), this, "");
 
   /** The column <code>FILEARCH.users.username</code>. */
-  public final TableField<UsersRecord, String> USERNAME =
-      createField(DSL.name("username"), SQLDataType.VARCHAR(64), this, "");
+  public final TableField<UsersRecord, byte[]> USERNAME =
+      createField(DSL.name("username"), SQLDataType.BLOB, this, "");
 
   /** The column <code>FILEARCH.users.first_name</code>. */
-  public final TableField<UsersRecord, String> FIRST_NAME =
-      createField(DSL.name("first_name"), SQLDataType.VARCHAR(96), this, "");
+  public final TableField<UsersRecord, byte[]> FIRST_NAME =
+      createField(DSL.name("first_name"), SQLDataType.BLOB, this, "");
 
   /** The column <code>FILEARCH.users.last_name</code>. */
-  public final TableField<UsersRecord, String> LAST_NAME =
-      createField(DSL.name("last_name"), SQLDataType.VARCHAR(96), this, "");
+  public final TableField<UsersRecord, byte[]> LAST_NAME =
+      createField(DSL.name("last_name"), SQLDataType.BLOB, this, "");
 
   /** The column <code>FILEARCH.users.email</code>. */
-  public final TableField<UsersRecord, String> EMAIL =
-      createField(DSL.name("email"), SQLDataType.VARCHAR(255), this, "");
+  public final TableField<UsersRecord, byte[]> EMAIL =
+      createField(DSL.name("email"), SQLDataType.BLOB, this, "");
 
   /** The column <code>FILEARCH.users.external_id</code>. */
   public final TableField<UsersRecord, String> EXTERNAL_ID =
@@ -89,6 +90,11 @@ public class Users extends TableImpl<UsersRecord> {
   @Override
   public Schema getSchema() {
     return aliased() ? null : Filearch.FILEARCH;
+  }
+
+  @Override
+  public Identity<UsersRecord, Long> getIdentity() {
+    return (Identity<UsersRecord, Long>) super.getIdentity();
   }
 
   @Override

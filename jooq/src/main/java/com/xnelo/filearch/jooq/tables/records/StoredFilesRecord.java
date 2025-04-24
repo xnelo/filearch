@@ -14,25 +14,25 @@ public class StoredFilesRecord extends UpdatableRecordImpl<StoredFilesRecord> {
   private static final long serialVersionUID = 1L;
 
   /** Setter for <code>FILEARCH.stored_files.id</code>. */
-  public StoredFilesRecord setId(Integer value) {
+  public StoredFilesRecord setId(Long value) {
     set(0, value);
     return this;
   }
 
   /** Getter for <code>FILEARCH.stored_files.id</code>. */
-  public Integer getId() {
-    return (Integer) get(0);
+  public Long getId() {
+    return (Long) get(0);
   }
 
   /** Setter for <code>FILEARCH.stored_files.owner_user_id</code>. */
-  public StoredFilesRecord setOwnerUserId(Integer value) {
+  public StoredFilesRecord setOwnerUserId(Long value) {
     set(1, value);
     return this;
   }
 
   /** Getter for <code>FILEARCH.stored_files.owner_user_id</code>. */
-  public Integer getOwnerUserId() {
-    return (Integer) get(1);
+  public Long getOwnerUserId() {
+    return (Long) get(1);
   }
 
   /** Setter for <code>FILEARCH.stored_files.storage_type</code>. */
@@ -62,7 +62,7 @@ public class StoredFilesRecord extends UpdatableRecordImpl<StoredFilesRecord> {
   // -------------------------------------------------------------------------
 
   @Override
-  public Record1<Integer> key() {
+  public Record1<Long> key() {
     return (Record1) super.key();
   }
 
@@ -76,7 +76,7 @@ public class StoredFilesRecord extends UpdatableRecordImpl<StoredFilesRecord> {
   }
 
   /** Create a detached, initialised StoredFilesRecord */
-  public StoredFilesRecord(Integer id, Integer ownerUserId, String storageType, String storageKey) {
+  public StoredFilesRecord(Long id, Long ownerUserId, String storageType, String storageKey) {
     super(StoredFiles.STORED_FILES);
 
     setId(id);

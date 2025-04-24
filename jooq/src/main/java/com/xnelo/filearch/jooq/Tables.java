@@ -4,8 +4,13 @@
 package com.xnelo.filearch.jooq;
 
 import com.xnelo.filearch.jooq.tables.FlywaySchemaHistory;
+import com.xnelo.filearch.jooq.tables.PgpArmorHeaders;
 import com.xnelo.filearch.jooq.tables.StoredFiles;
 import com.xnelo.filearch.jooq.tables.Users;
+import com.xnelo.filearch.jooq.tables.records.PgpArmorHeadersRecord;
+import org.jooq.Configuration;
+import org.jooq.Field;
+import org.jooq.Result;
 
 /** Convenience access to all tables in FILEARCH. */
 @SuppressWarnings({"all", "unchecked", "rawtypes", "this-escape"})
@@ -14,6 +19,28 @@ public class Tables {
   /** The table <code>FILEARCH.flyway_schema_history</code>. */
   public static final FlywaySchemaHistory FLYWAY_SCHEMA_HISTORY =
       FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY;
+
+  /** The table <code>FILEARCH.pgp_armor_headers</code>. */
+  public static final PgpArmorHeaders PGP_ARMOR_HEADERS = PgpArmorHeaders.PGP_ARMOR_HEADERS;
+
+  /** Call <code>FILEARCH.pgp_armor_headers</code>. */
+  public static Result<PgpArmorHeadersRecord> PGP_ARMOR_HEADERS(
+      Configuration configuration, String __1) {
+    return configuration
+        .dsl()
+        .selectFrom(com.xnelo.filearch.jooq.tables.PgpArmorHeaders.PGP_ARMOR_HEADERS.call(__1))
+        .fetch();
+  }
+
+  /** Get <code>FILEARCH.pgp_armor_headers</code> as a table. */
+  public static PgpArmorHeaders PGP_ARMOR_HEADERS(String __1) {
+    return com.xnelo.filearch.jooq.tables.PgpArmorHeaders.PGP_ARMOR_HEADERS.call(__1);
+  }
+
+  /** Get <code>FILEARCH.pgp_armor_headers</code> as a table. */
+  public static PgpArmorHeaders PGP_ARMOR_HEADERS(Field<String> __1) {
+    return com.xnelo.filearch.jooq.tables.PgpArmorHeaders.PGP_ARMOR_HEADERS.call(__1);
+  }
 
   /** The table <code>FILEARCH.stored_files</code>. */
   public static final StoredFiles STORED_FILES = StoredFiles.STORED_FILES;

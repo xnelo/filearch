@@ -14,58 +14,58 @@ public class UsersRecord extends UpdatableRecordImpl<UsersRecord> {
   private static final long serialVersionUID = 1L;
 
   /** Setter for <code>FILEARCH.users.id</code>. */
-  public UsersRecord setId(Integer value) {
+  public UsersRecord setId(Long value) {
     set(0, value);
     return this;
   }
 
   /** Getter for <code>FILEARCH.users.id</code>. */
-  public Integer getId() {
-    return (Integer) get(0);
+  public Long getId() {
+    return (Long) get(0);
   }
 
   /** Setter for <code>FILEARCH.users.username</code>. */
-  public UsersRecord setUsername(String value) {
+  public UsersRecord setUsername(byte[] value) {
     set(1, value);
     return this;
   }
 
   /** Getter for <code>FILEARCH.users.username</code>. */
-  public String getUsername() {
-    return (String) get(1);
+  public byte[] getUsername() {
+    return (byte[]) get(1);
   }
 
   /** Setter for <code>FILEARCH.users.first_name</code>. */
-  public UsersRecord setFirstName(String value) {
+  public UsersRecord setFirstName(byte[] value) {
     set(2, value);
     return this;
   }
 
   /** Getter for <code>FILEARCH.users.first_name</code>. */
-  public String getFirstName() {
-    return (String) get(2);
+  public byte[] getFirstName() {
+    return (byte[]) get(2);
   }
 
   /** Setter for <code>FILEARCH.users.last_name</code>. */
-  public UsersRecord setLastName(String value) {
+  public UsersRecord setLastName(byte[] value) {
     set(3, value);
     return this;
   }
 
   /** Getter for <code>FILEARCH.users.last_name</code>. */
-  public String getLastName() {
-    return (String) get(3);
+  public byte[] getLastName() {
+    return (byte[]) get(3);
   }
 
   /** Setter for <code>FILEARCH.users.email</code>. */
-  public UsersRecord setEmail(String value) {
+  public UsersRecord setEmail(byte[] value) {
     set(4, value);
     return this;
   }
 
   /** Getter for <code>FILEARCH.users.email</code>. */
-  public String getEmail() {
-    return (String) get(4);
+  public byte[] getEmail() {
+    return (byte[]) get(4);
   }
 
   /** Setter for <code>FILEARCH.users.external_id</code>. */
@@ -84,7 +84,7 @@ public class UsersRecord extends UpdatableRecordImpl<UsersRecord> {
   // -------------------------------------------------------------------------
 
   @Override
-  public Record1<Integer> key() {
+  public Record1<Long> key() {
     return (Record1) super.key();
   }
 
@@ -99,11 +99,11 @@ public class UsersRecord extends UpdatableRecordImpl<UsersRecord> {
 
   /** Create a detached, initialised UsersRecord */
   public UsersRecord(
-      Integer id,
-      String username,
-      String firstName,
-      String lastName,
-      String email,
+      Long id,
+      byte[] username,
+      byte[] firstName,
+      byte[] lastName,
+      byte[] email,
       String externalId) {
     super(Users.USERS);
 

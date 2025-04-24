@@ -11,8 +11,8 @@ public class StoredFiles implements Serializable {
 
   private static final long serialVersionUID = 1L;
 
-  private final Integer id;
-  private final Integer ownerUserId;
+  private final Long id;
+  private final Long ownerUserId;
   private final String storageType;
   private final String storageKey;
 
@@ -23,7 +23,7 @@ public class StoredFiles implements Serializable {
     this.storageKey = value.storageKey;
   }
 
-  public StoredFiles(Integer id, Integer ownerUserId, String storageType, String storageKey) {
+  public StoredFiles(Long id, Long ownerUserId, String storageType, String storageKey) {
     this.id = id;
     this.ownerUserId = ownerUserId;
     this.storageType = storageType;
@@ -31,12 +31,12 @@ public class StoredFiles implements Serializable {
   }
 
   /** Getter for <code>FILEARCH.stored_files.id</code>. */
-  public Integer getId() {
+  public Long getId() {
     return this.id;
   }
 
   /** Getter for <code>FILEARCH.stored_files.owner_user_id</code>. */
-  public Integer getOwnerUserId() {
+  public Long getOwnerUserId() {
     return this.ownerUserId;
   }
 

@@ -4,11 +4,16 @@
 package com.xnelo.filearch.jooq;
 
 import com.xnelo.filearch.jooq.tables.FlywaySchemaHistory;
+import com.xnelo.filearch.jooq.tables.PgpArmorHeaders;
 import com.xnelo.filearch.jooq.tables.StoredFiles;
 import com.xnelo.filearch.jooq.tables.Users;
+import com.xnelo.filearch.jooq.tables.records.PgpArmorHeadersRecord;
 import java.util.Arrays;
 import java.util.List;
 import org.jooq.Catalog;
+import org.jooq.Configuration;
+import org.jooq.Field;
+import org.jooq.Result;
 import org.jooq.Sequence;
 import org.jooq.Table;
 import org.jooq.impl.DSL;
@@ -26,6 +31,28 @@ public class Filearch extends SchemaImpl {
   /** The table <code>FILEARCH.flyway_schema_history</code>. */
   public final FlywaySchemaHistory FLYWAY_SCHEMA_HISTORY =
       FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY;
+
+  /** The table <code>FILEARCH.pgp_armor_headers</code>. */
+  public final PgpArmorHeaders PGP_ARMOR_HEADERS = PgpArmorHeaders.PGP_ARMOR_HEADERS;
+
+  /** Call <code>FILEARCH.pgp_armor_headers</code>. */
+  public static Result<PgpArmorHeadersRecord> PGP_ARMOR_HEADERS(
+      Configuration configuration, String __1) {
+    return configuration
+        .dsl()
+        .selectFrom(com.xnelo.filearch.jooq.tables.PgpArmorHeaders.PGP_ARMOR_HEADERS.call(__1))
+        .fetch();
+  }
+
+  /** Get <code>FILEARCH.pgp_armor_headers</code> as a table. */
+  public static PgpArmorHeaders PGP_ARMOR_HEADERS(String __1) {
+    return com.xnelo.filearch.jooq.tables.PgpArmorHeaders.PGP_ARMOR_HEADERS.call(__1);
+  }
+
+  /** Get <code>FILEARCH.pgp_armor_headers</code> as a table. */
+  public static PgpArmorHeaders PGP_ARMOR_HEADERS(Field<String> __1) {
+    return com.xnelo.filearch.jooq.tables.PgpArmorHeaders.PGP_ARMOR_HEADERS.call(__1);
+  }
 
   /** The table <code>FILEARCH.stored_files</code>. */
   public final StoredFiles STORED_FILES = StoredFiles.STORED_FILES;
@@ -45,12 +72,16 @@ public class Filearch extends SchemaImpl {
 
   @Override
   public final List<Sequence<?>> getSequences() {
-    return Arrays.asList(Sequences.SEQ_FILE_UPLOAD_NUMBER);
+    return Arrays.asList(
+        Sequences.SEQ_FILE_UPLOAD_NUMBER, Sequences.STORED_FILES_ID_SEQ, Sequences.USERS_ID_SEQ);
   }
 
   @Override
   public final List<Table<?>> getTables() {
     return Arrays.asList(
-        FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY, StoredFiles.STORED_FILES, Users.USERS);
+        FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY,
+        PgpArmorHeaders.PGP_ARMOR_HEADERS,
+        StoredFiles.STORED_FILES,
+        Users.USERS);
   }
 }

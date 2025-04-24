@@ -10,7 +10,7 @@ import lombok.Getter;
 public class User {
   public static final ResourceType USER_RESOURCE_TYPE = ResourceType.USER;
 
-  private int id;
+  private long id;
   private String externalId;
   private String username;
   private String firstName;
