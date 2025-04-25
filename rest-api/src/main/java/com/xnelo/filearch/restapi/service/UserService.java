@@ -1,7 +1,9 @@
 package com.xnelo.filearch.restapi.service;
 
+import com.xnelo.filearch.common.model.ActionType;
 import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.User;
+import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.usertoken.UserToken;
@@ -18,12 +20,16 @@ import java.util.Map;
 public class UserService {
   @Inject UserRepo userRepo;
 
-  private static ServiceResponse<User> toServiceResponse(final User user) {
-    return new ServiceResponse<>(User.USER_RESOURCE_TYPE, user);
+  private static ServiceResponse<User> toServiceResponse(
+      final ActionType actionType, final User user) {
+    return new ServiceResponse<>(
+        new ServiceActionResponse<>(User.USER_RESOURCE_TYPE, actionType, user));
   }
 
   public Uni<ServiceResponse<User>> getUserFromUserToken(final UserToken userToken) {
-    return userRepo.getUserFromExternalId(userToken.getId()).map(UserService::toServiceResponse);
+    return userRepo
+        .getUserFromExternalId(userToken.getId())
+        .map(user -> toServiceResponse(ActionType.GET, user));
   }
 
   public Uni<ServiceResponse<User>> getUserById(final int userId) {
@@ -33,15 +39,17 @@ public class UserService {
             user -> {
               if (user == null) {
                 return new ServiceResponse<>(
-                    User.USER_RESOURCE_TYPE,
-                    List.of(
-                        ServiceError.builder()
-                            .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
-                            .errorMessage("User doesn't exist.")
-                            .httpCode(404)
-                            .build()));
+                    new ServiceActionResponse<>(
+                        User.USER_RESOURCE_TYPE,
+                        ActionType.GET,
+                        List.of(
+                            ServiceError.builder()
+                                .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
+                                .errorMessage("User doesn't exist.")
+                                .httpCode(404)
+                                .build())));
               } else {
-                return toServiceResponse(user);
+                return toServiceResponse(ActionType.GET, user);
               }
             });
   }
@@ -75,14 +83,18 @@ public class UserService {
                 return Uni.createFrom()
                     .item(
                         new ServiceResponse<>(
-                            User.USER_RESOURCE_TYPE,
-                            List.of(
-                                ServiceError.builder()
-                                    .errorCode(ErrorCode.USERNAME_MUST_BE_UNIQUE)
-                                    .errorMessage(
-                                        "Username '" + inputData.getUsername() + "' is not unique.")
-                                    .httpCode(400)
-                                    .build())));
+                            new ServiceActionResponse<>(
+                                User.USER_RESOURCE_TYPE,
+                                ActionType.CREATE,
+                                List.of(
+                                    ServiceError.builder()
+                                        .errorCode(ErrorCode.USERNAME_MUST_BE_UNIQUE)
+                                        .errorMessage(
+                                            "Username '"
+                                                + inputData.getUsername()
+                                                + "' is not unique.")
+                                        .httpCode(400)
+                                        .build()))));
               } else {
                 return createUserIfNotExist(inputData, token);
               }
@@ -99,18 +111,20 @@ public class UserService {
                 return Uni.createFrom()
                     .item(
                         new ServiceResponse<>(
-                            User.USER_RESOURCE_TYPE,
-                            List.of(
-                                ServiceError.builder()
-                                    .errorCode(ErrorCode.USER_ALREADY_EXISTS)
-                                    .errorMessage(
-                                        "An account already exists for this user. You cannot create another.")
-                                    .httpCode(400)
-                                    .build())));
+                            new ServiceActionResponse<>(
+                                User.USER_RESOURCE_TYPE,
+                                ActionType.CREATE,
+                                List.of(
+                                    ServiceError.builder()
+                                        .errorCode(ErrorCode.USER_ALREADY_EXISTS)
+                                        .errorMessage(
+                                            "An account already exists for this user. You cannot create another.")
+                                        .httpCode(400)
+                                        .build()))));
               } else {
                 return userRepo
                     .createNewUser(createUserObject(inputData, token))
-                    .map(UserService::toServiceResponse);
+                    .map(user -> toServiceResponse(ActionType.CREATE, user));
               }
             });
   }
@@ -121,24 +135,28 @@ public class UserService {
       return Uni.createFrom()
           .item(
               new ServiceResponse<>(
-                  User.USER_RESOURCE_TYPE,
-                  List.of(
-                      ServiceError.builder()
-                          .errorCode(ErrorCode.USERNAME_CANNOT_BE_UPDATED)
-                          .errorMessage("Username cannot be updated.")
-                          .httpCode(400)
-                          .build())));
+                  new ServiceActionResponse<>(
+                      User.USER_RESOURCE_TYPE,
+                      ActionType.UPDATE,
+                      List.of(
+                          ServiceError.builder()
+                              .errorCode(ErrorCode.USERNAME_CANNOT_BE_UPDATED)
+                              .errorMessage("Username cannot be updated.")
+                              .httpCode(400)
+                              .build()))));
     } else if (toUpdate.getId() != null) {
       return Uni.createFrom()
           .item(
               new ServiceResponse<>(
-                  User.USER_RESOURCE_TYPE,
-                  List.of(
-                      ServiceError.builder()
-                          .errorCode(ErrorCode.USER_ID_CANNOT_BE_UPDATED)
-                          .errorMessage("User ID cannot be updated.")
-                          .httpCode(400)
-                          .build())));
+                  new ServiceActionResponse<>(
+                      User.USER_RESOURCE_TYPE,
+                      ActionType.UPDATE,
+                      List.of(
+                          ServiceError.builder()
+                              .errorCode(ErrorCode.USER_ID_CANNOT_BE_UPDATED)
+                              .errorMessage("User ID cannot be updated.")
+                              .httpCode(400)
+                              .build()))));
     }
 
     return userRepo
@@ -149,14 +167,16 @@ public class UserService {
                 return Uni.createFrom()
                     .item(
                         new ServiceResponse<>(
-                            User.USER_RESOURCE_TYPE,
-                            List.of(
-                                ServiceError.builder()
-                                    .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
-                                    .errorMessage(
-                                        "The user you are trying to update does not exist.")
-                                    .httpCode(404)
-                                    .build())));
+                            new ServiceActionResponse<>(
+                                User.USER_RESOURCE_TYPE,
+                                ActionType.UPDATE,
+                                List.of(
+                                    ServiceError.builder()
+                                        .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
+                                        .errorMessage(
+                                            "The user you are trying to update does not exist.")
+                                        .httpCode(404)
+                                        .build()))));
               }
 
               Map<String, Object> userUpdateMap = toUpdateMap(toUpdate);
@@ -164,17 +184,19 @@ public class UserService {
                 return Uni.createFrom()
                     .item(
                         new ServiceResponse<>(
-                            User.USER_RESOURCE_TYPE,
-                            List.of(
-                                ServiceError.builder()
-                                    .errorCode(ErrorCode.NO_FIELDS_TO_UPDATE)
-                                    .errorMessage("No fields to update")
-                                    .httpCode(400)
-                                    .build())));
+                            new ServiceActionResponse<>(
+                                User.USER_RESOURCE_TYPE,
+                                ActionType.UPDATE,
+                                List.of(
+                                    ServiceError.builder()
+                                        .errorCode(ErrorCode.NO_FIELDS_TO_UPDATE)
+                                        .errorMessage("No fields to update")
+                                        .httpCode(400)
+                                        .build()))));
               }
               return userRepo
                   .updateUser(user.getId(), userUpdateMap)
-                  .map(UserService::toServiceResponse);
+                  .map(userReturn -> toServiceResponse(ActionType.UPDATE, userReturn));
             });
   }
 
