@@ -11,4 +11,8 @@ public class ServiceResponse<T> {
   public ServiceResponse(ServiceActionResponse<T>... actionResponses) {
     this.actionResponses = List.of(actionResponses);
   }
+
+  public ServiceResponse(List<ServiceActionResponse<T>> actionResponses) {
+    this.actionResponses = actionResponses;
+  }
 }

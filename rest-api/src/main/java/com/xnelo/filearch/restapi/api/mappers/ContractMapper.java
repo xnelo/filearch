@@ -1,13 +1,11 @@
 package com.xnelo.filearch.restapi.api.mappers;
 
+import com.xnelo.filearch.common.model.File;
 import com.xnelo.filearch.common.model.User;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
-import com.xnelo.filearch.restapi.api.contracts.FilearchApiActionResponse;
-import com.xnelo.filearch.restapi.api.contracts.FilearchApiErrorResponse;
-import com.xnelo.filearch.restapi.api.contracts.FilearchApiResponse;
-import com.xnelo.filearch.restapi.api.contracts.UserContract;
+import com.xnelo.filearch.restapi.api.contracts.*;
 import jakarta.ws.rs.core.Response;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +16,8 @@ import org.mapstruct.Mapping;
 @Mapper
 public interface ContractMapper {
   UserContract toUserContract(User user);
+
+  FileContract toFileContract(File file);
 
   // Filearch API mappers
   @Mapping(target = "errorCode", expression = "java( error.getErrorCode().getCode() )")

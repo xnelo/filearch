@@ -8,7 +8,7 @@ import lombok.Getter;
 @Getter
 public class UserContract {
   @JsonProperty("id")
-  private final Integer id;
+  private final Long id;
 
   @JsonProperty("first_name")
   private final String firstName;
