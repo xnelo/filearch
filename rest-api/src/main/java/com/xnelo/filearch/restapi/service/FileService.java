@@ -14,6 +14,7 @@ import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 @RequestScoped
@@ -115,5 +116,155 @@ public class FileService {
     return sequenceRepo
         .getNextFileUploadNumber()
         .map(fileUploadNumber -> user.getId() + "/" + fileUploadNumber + "_" + filename);
+  }
+
+  Uni<ServiceResponse<File>> checkUserExist(
+      final UserToken userInfo,
+      ActionType actionType,
+      final Function<User, Uni<ServiceResponse<File>>> userExistAction) {
+    return userService
+        .getUserFromUserToken(userInfo)
+        .chain(
+            userResponse -> {
+              User user = userResponse.getActionResponses().getFirst().getData();
+              if (user == null) {
+                return Uni.createFrom()
+                    .item(
+                        new ServiceResponse<>(
+                            new ServiceActionResponse<>(
+                                ResourceType.FILE,
+                                actionType,
+                                List.of(
+                                    ServiceError.builder()
+                                        .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
+                                        .errorMessage(
+                                            "Cannot "
+                                                + actionType
+                                                + " file because user does not exist.")
+                                        .httpCode(404)
+                                        .build()))));
+              }
+
+              return userExistAction.apply(user);
+            });
+  }
+
+  public Uni<ServiceResponse<File>> getFileMetadata(final long fileId, final UserToken userInfo) {
+    return userService
+        .getUserFromUserToken(userInfo)
+        .chain(
+            userResponse -> {
+              User user = userResponse.getActionResponses().getFirst().getData();
+              if (user == null) {
+                return Uni.createFrom()
+                    .item(
+                        new ServiceResponse<>(
+                            new ServiceActionResponse<>(
+                                ResourceType.FILE,
+                                ActionType.GET,
+                                List.of(
+                                    ServiceError.builder()
+                                        .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
+                                        .errorMessage(
+                                            "Cannot retrieve file because user does not exist.")
+                                        .httpCode(404)
+                                        .build()))));
+              }
+
+              return storedFilesRepo
+                  .getStoredFile(fileId, user.getId())
+                  .chain(
+                      file -> {
+                        if (file == null) {
+                          return Uni.createFrom()
+                              .item(
+                                  new ServiceResponse<>(
+                                      new ServiceActionResponse<>(
+                                          ResourceType.FILE,
+                                          ActionType.GET,
+                                          List.of(
+                                              ServiceError.builder()
+                                                  .errorCode(ErrorCode.FILE_DOES_NOT_EXIST)
+                                                  .errorMessage("File was not found.")
+                                                  .httpCode(404)
+                                                  .build()))));
+                        }
+
+                        return Uni.createFrom()
+                            .item(
+                                new ServiceResponse<>(
+                                    new ServiceActionResponse<>(
+                                        ResourceType.FILE, ActionType.GET, file)));
+                      });
+            });
+  }
+
+  public Uni<ServiceResponse<File>> deleteFile(final long fileId, final UserToken userInfo) {
+    return checkUserExist(
+        userInfo,
+        ActionType.DELETE,
+        user ->
+            storedFilesRepo
+                .getStoredFile(fileId, user.getId())
+                .chain(
+                    file -> {
+                      if (file == null) {
+                        return Uni.createFrom()
+                            .item(
+                                new ServiceResponse<>(
+                                    new ServiceActionResponse<>(
+                                        ResourceType.FILE,
+                                        ActionType.DELETE,
+                                        List.of(
+                                            ServiceError.builder()
+                                                .errorCode(ErrorCode.FILE_DOES_NOT_EXIST)
+                                                .errorMessage("File does not exist.")
+                                                .httpCode(404)
+                                                .build()))));
+                      }
+
+                      return storageService
+                          .delete(file.getStorageKey())
+                          .chain(
+                              storageDeleteResult -> {
+                                if (storageDeleteResult != ErrorCode.OK) {
+                                  return Uni.createFrom()
+                                      .item(
+                                          new ServiceResponse<>(
+                                              new ServiceActionResponse<>(
+                                                  ResourceType.FILE,
+                                                  ActionType.DELETE,
+                                                  List.of(
+                                                      ServiceError.builder()
+                                                          .errorCode(storageDeleteResult)
+                                                          .errorMessage("Error deleting file.")
+                                                          .httpCode(500)
+                                                          .build()))));
+                                }
+
+                                return storedFilesRepo
+                                    .deleteStoredFile(fileId, user.getId())
+                                    .map(
+                                        deleteSuccessful -> {
+                                          if (!deleteSuccessful) {
+                                            return new ServiceResponse<>(
+                                                new ServiceActionResponse<>(
+                                                    ResourceType.FILE,
+                                                    ActionType.DELETE,
+                                                    List.of(
+                                                        ServiceError.builder()
+                                                            .errorCode(
+                                                                ErrorCode.UNABLE_TO_DELETE_FILE)
+                                                            .errorMessage("Unable to delete file")
+                                                            .httpCode(400)
+                                                            .build())));
+                                          }
+
+                                          return new ServiceResponse<>(
+                                              new ServiceActionResponse<>(
+                                                  ResourceType.FILE, ActionType.DELETE, file));
+                                        });
+                              });
+                    }));
   }
 }

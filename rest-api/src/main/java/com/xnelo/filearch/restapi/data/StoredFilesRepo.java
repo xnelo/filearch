@@ -36,4 +36,32 @@ public class StoredFilesRepo {
         .item(context.insertInto(StoredFiles.STORED_FILES).set(toInsert).returning().fetchOne())
         .map(mapper::toFile);
   }
+
+  public Uni<File> getStoredFile(final long fileId, final long userId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .selectFrom(StoredFiles.STORED_FILES)
+                .where(
+                    StoredFiles.STORED_FILES
+                        .ID
+                        .eq(fileId)
+                        .and(StoredFiles.STORED_FILES.OWNER_USER_ID.eq(userId)))
+                .fetchOne())
+        .map(mapper::toFile);
+  }
+
+  public Uni<Boolean> deleteStoredFile(final long fileId, final long userId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .deleteFrom(StoredFiles.STORED_FILES)
+                .where(
+                    StoredFiles.STORED_FILES
+                        .ID
+                        .eq(fileId)
+                        .and(StoredFiles.STORED_FILES.OWNER_USER_ID.eq(userId)))
+                .execute())
+        .map(recordsDeleted -> recordsDeleted == 1);
+  }
 }

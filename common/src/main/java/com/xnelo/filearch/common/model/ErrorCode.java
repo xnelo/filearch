@@ -8,7 +8,7 @@ public enum ErrorCode {
   OK(0),
   NO_FIELDS_TO_UPDATE(50),
 
-  // USER Service Errors 100 - 200
+  // USER Service Errors 100 - 199
   USERNAME_MUST_BE_UNIQUE(100),
   USER_ALREADY_EXISTS(101),
   USER_DOES_NOT_EXIST(102),
@@ -16,9 +16,14 @@ public enum ErrorCode {
   USER_ID_CANNOT_BE_UPDATED(104),
   // END USER Service Errors
 
+  // FILE Service Errors 200 - 299
+  FILE_DOES_NOT_EXIST(200),
+  // END FILE Service Errors
+
   // IO ERRORS 500 - 600
   UNABLE_TO_CREATE_DIR(500),
-  UNABLE_TO_SAVE_FILE(501);
+  UNABLE_TO_SAVE_FILE(501),
+  UNABLE_TO_DELETE_FILE(502);
   // END IO ERRORS
 
   @JsonValue final int code;

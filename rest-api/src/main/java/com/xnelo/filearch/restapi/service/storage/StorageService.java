@@ -9,4 +9,6 @@ public interface StorageService {
   StorageType getStorageType();
 
   Uni<ErrorCode> save(final FileUpload toUpload, final String key);
+
+  Uni<ErrorCode> delete(final String key);
 }

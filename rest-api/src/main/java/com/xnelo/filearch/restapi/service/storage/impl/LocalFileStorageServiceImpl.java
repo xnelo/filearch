@@ -57,4 +57,21 @@ public class LocalFileStorageServiceImpl implements StorageService {
               }
             });
   }
+
+  @Override
+  public Uni<ErrorCode> delete(final String key) {
+    Path localStorageLocation = Path.of(localStorageBase, key);
+    return Uni.createFrom()
+        .item(
+            () -> {
+              try {
+                Log.infof("Deleting file from Local Storage System: file=%s", localStorageLocation);
+                Files.delete(localStorageLocation);
+                return ErrorCode.OK;
+              } catch (IOException e) {
+                Log.errorf(e, "Unable to delete file: file=%s", localStorageLocation);
+                return ErrorCode.UNABLE_TO_DELETE_FILE;
+              }
+            });
+  }
 }
