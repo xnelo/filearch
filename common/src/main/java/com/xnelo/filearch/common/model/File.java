@@ -14,4 +14,5 @@ public class File {
   private long ownerId;
   private StorageType storageType;
   private String storageKey;
+  private String originalFilename;
 }

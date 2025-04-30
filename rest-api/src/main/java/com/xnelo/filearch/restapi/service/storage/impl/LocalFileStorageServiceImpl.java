@@ -8,6 +8,7 @@ import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -73,5 +74,12 @@ public class LocalFileStorageServiceImpl implements StorageService {
                 return ErrorCode.UNABLE_TO_DELETE_FILE;
               }
             });
+  }
+
+  @Override
+  public Uni<InputStream> getFileData(final String key) throws IOException {
+    Path localStorageLocation = Path.of(localStorageBase, key);
+    Log.infof("Getting input stream for file. file=%s", localStorageLocation);
+    return Uni.createFrom().item(Files.newInputStream(localStorageLocation));
   }
 }

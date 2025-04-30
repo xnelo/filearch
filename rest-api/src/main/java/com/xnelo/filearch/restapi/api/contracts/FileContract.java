@@ -19,4 +19,7 @@ public class FileContract {
 
   @JsonProperty("storage_key")
   private final String storageKey;
+
+  @JsonProperty("original_filename")
+  private final String originalFilename;
 }

@@ -9,9 +9,11 @@ import com.xnelo.filearch.restapi.api.contracts.FileUploadContract;
 import com.xnelo.filearch.restapi.data.SequenceRepo;
 import com.xnelo.filearch.restapi.data.StoredFilesRepo;
 import com.xnelo.filearch.restapi.service.storage.StorageService;
+import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
@@ -78,7 +80,7 @@ public class FileService {
 
   Uni<ServiceActionResponse<File>> uploadIndividualFile(
       final User user, final String location, final FileUpload fileToUpload) {
-    return createStorageKey(user, fileToUpload.fileName())
+    return createStorageKey(user)
         .chain(
             uploadKey ->
                 storageService
@@ -103,7 +105,10 @@ public class FileService {
                           } else {
                             return storedFilesRepo
                                 .createStoredFile(
-                                    user.getId(), storageService.getStorageType(), uploadKey)
+                                    user.getId(),
+                                    storageService.getStorageType(),
+                                    uploadKey,
+                                    fileToUpload.fileName())
                                 .map(
                                     dbFile ->
                                         new ServiceActionResponse<>(
@@ -112,16 +117,16 @@ public class FileService {
                         }));
   }
 
-  Uni<String> createStorageKey(final User user, final String filename) {
+  Uni<String> createStorageKey(final User user) {
     return sequenceRepo
         .getNextFileUploadNumber()
-        .map(fileUploadNumber -> user.getId() + "/" + fileUploadNumber + "_" + filename);
+        .map(fileUploadNumber -> user.getId() + "/" + fileUploadNumber);
   }
 
-  Uni<ServiceResponse<File>> checkUserExist(
+  <T> Uni<ServiceResponse<T>> checkUserExist(
       final UserToken userInfo,
       ActionType actionType,
-      final Function<User, Uni<ServiceResponse<File>>> userExistAction) {
+      final Function<User, Uni<ServiceResponse<T>>> userExistAction) {
     return userService
         .getUserFromUserToken(userInfo)
         .chain(
@@ -265,6 +270,66 @@ public class FileService {
                                                   ResourceType.FILE, ActionType.DELETE, file));
                                         });
                               });
+                    }));
+  }
+
+  public Uni<ServiceResponse<DownloadData>> getFileForDownload(
+      final long fileId, final UserToken userInfo) {
+    return checkUserExist(
+        userInfo,
+        ActionType.DOWNLOAD,
+        user ->
+            storedFilesRepo
+                .getStoredFile(fileId, user.getId())
+                .chain(
+                    fileMetadata -> {
+                      if (fileMetadata == null) {
+                        return Uni.createFrom()
+                            .item(
+                                new ServiceResponse<>(
+                                    new ServiceActionResponse<>(
+                                        ResourceType.FILE,
+                                        ActionType.DOWNLOAD,
+                                        List.of(
+                                            ServiceError.builder()
+                                                .errorCode(ErrorCode.FILE_DOES_NOT_EXIST)
+                                                .errorMessage("File does not exist")
+                                                .httpCode(404)
+                                                .build()))));
+                      }
+
+                      try {
+                        return storageService
+                            .getFileData(fileMetadata.getStorageKey())
+                            .map(
+                                fileDataStream ->
+                                    new ServiceResponse<>(
+                                        new ServiceActionResponse<>(
+                                            ResourceType.FILE,
+                                            ActionType.DOWNLOAD,
+                                            new DownloadData(
+                                                fileMetadata.getOriginalFilename(),
+                                                fileDataStream))));
+                      } catch (IOException e) {
+                        Log.errorf(
+                            e,
+                            "Exception encountered while opening file inputstream. fileId:%d fileStorageKey:%s",
+                            fileMetadata.getId(),
+                            fileMetadata.getStorageKey());
+                        return Uni.createFrom()
+                            .item(
+                                new ServiceResponse<>(
+                                    new ServiceActionResponse<>(
+                                        ResourceType.FILE,
+                                        ActionType.DOWNLOAD,
+                                        List.of(
+                                            ServiceError.builder()
+                                                .errorCode(ErrorCode.UNABLE_TO_OPEN_INPUT_STREAM)
+                                                .errorMessage(
+                                                    "Unable to open Input Stream for file.")
+                                                .httpCode(500)
+                                                .build()))));
+                      }
                     }));
   }
 }

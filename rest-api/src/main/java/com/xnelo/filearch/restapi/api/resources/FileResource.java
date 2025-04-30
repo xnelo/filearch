@@ -1,9 +1,13 @@
 package com.xnelo.filearch.restapi.api.resources;
 
+import com.xnelo.filearch.common.model.DownloadData;
+import com.xnelo.filearch.common.service.ServiceActionResponse;
+import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.usertoken.UserTokenHandler;
 import com.xnelo.filearch.restapi.api.contracts.FileUploadContract;
 import com.xnelo.filearch.restapi.api.mappers.ContractMapper;
+import com.xnelo.filearch.restapi.api.mappers.HttpStatusCodeMapper;
 import com.xnelo.filearch.restapi.service.FileService;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
@@ -66,5 +70,42 @@ public class FileResource {
         .map(
             fileServiceResponse ->
                 contractMapper.toApiResponse(fileServiceResponse, contractMapper::toFileContract));
+  }
+
+  @GET
+  @Path("{id}/download")
+  @RolesAllowed("user")
+  @Produces(MediaType.APPLICATION_OCTET_STREAM)
+  public Uni<Response> downloadFile(@PathParam("id") long fileId) {
+    UserToken userInfo = userhandler.getUserInfo();
+    return fileService
+        .getFileForDownload(fileId, userInfo)
+        .map(
+            downloadFileServiceResponse -> {
+              if (downloadFileServiceResponse.getActionResponses().size() != 1) {
+                return Response.status(Response.Status.INTERNAL_SERVER_ERROR).build();
+              }
+
+              ServiceActionResponse<DownloadData> a =
+                  downloadFileServiceResponse.getActionResponses().getFirst();
+              if (a.hasErrors()) {
+                int finalHttpStatus = HttpStatusCodeMapper.INITIAL_STATUS_CODE;
+                for (ServiceError error : a.getErrors()) {
+                  Log.errorf(
+                      "ErrorCode=%d ErrorMessage=%s",
+                      error.getErrorCode(), error.getErrorMessage());
+                  finalHttpStatus =
+                      HttpStatusCodeMapper.combineStatusCode(finalHttpStatus, error.getHttpCode());
+                }
+                return Response.status(finalHttpStatus).build();
+              } else {
+                DownloadData downloadData = a.getData();
+                return Response.ok(downloadData.getData())
+                    .header(
+                        "Content-Disposition",
+                        "attachment; filename=\"" + downloadData.getFilename() + "\"")
+                    .build();
+              }
+            });
   }
 }

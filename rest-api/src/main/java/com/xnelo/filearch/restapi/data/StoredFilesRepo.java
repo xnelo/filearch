@@ -1,54 +1,88 @@
 package com.xnelo.filearch.restapi.data;
 
+import static com.xnelo.filearch.common.encryption.JooqFields.decryptField;
+import static com.xnelo.filearch.common.encryption.JooqFields.encryptField;
+
 import com.xnelo.filearch.common.model.File;
 import com.xnelo.filearch.common.model.StorageType;
-import com.xnelo.filearch.common.model.mappers.FileMapper;
 import com.xnelo.filearch.jooq.tables.StoredFiles;
-import com.xnelo.filearch.jooq.tables.records.StoredFilesRecord;
 import io.agroal.api.AgroalDataSource;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
+import java.util.List;
+import java.util.Map;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
+import org.jooq.SelectField;
 import org.jooq.impl.DSL;
-import org.mapstruct.factory.Mappers;
 
 @RequestScoped
 public class StoredFilesRepo {
+  public static final String DECRYPTED_ORIGINAL_FILENAME = "DECRYPT_ORIGINAL_FILENAME";
+
   private final DSLContext context;
-  private final FileMapper mapper;
+  private final String encryptionKey;
+  private final List<? extends SelectField<?>> allFields;
 
   @Inject
-  public StoredFilesRepo(final AgroalDataSource dataSource) {
+  public StoredFilesRepo(
+      final AgroalDataSource dataSource,
+      @ConfigProperty(name = "filearch.encryption-key", defaultValue = "LOCAL_DEV_ENCRYPTION_KEY")
+          final String encryptionKey) {
     this.context = DSL.using(dataSource, SQLDialect.POSTGRES);
-    this.mapper = Mappers.getMapper(FileMapper.class);
+    this.encryptionKey = encryptionKey;
+
+    this.allFields =
+        List.of(
+            StoredFiles.STORED_FILES.ID,
+            StoredFiles.STORED_FILES.OWNER_USER_ID,
+            StoredFiles.STORED_FILES.STORAGE_TYPE,
+            StoredFiles.STORED_FILES.STORAGE_KEY,
+            decryptField(StoredFiles.STORED_FILES.ORIGINAL_FILENAME, encryptionKey)
+                .as(DECRYPTED_ORIGINAL_FILENAME));
   }
 
   public Uni<File> createStoredFile(
-      final long userId, final StorageType storageType, final String storageKey) {
-    StoredFilesRecord toInsert = new StoredFilesRecord();
-    toInsert.setOwnerUserId(userId);
-    toInsert.setStorageType(storageType.getDbValue());
-    toInsert.setStorageKey(storageKey);
+      final long userId,
+      final StorageType storageType,
+      final String storageKey,
+      final String originalFilename) {
+    Map<String, Object> insertFields =
+        Map.of(
+            StoredFiles.STORED_FILES.OWNER_USER_ID.getName(),
+            userId,
+            StoredFiles.STORED_FILES.STORAGE_TYPE.getName(),
+            storageType.getDbValue(),
+            StoredFiles.STORED_FILES.STORAGE_KEY.getName(),
+            storageKey,
+            StoredFiles.STORED_FILES.ORIGINAL_FILENAME.getName(),
+            encryptField(originalFilename, encryptionKey));
 
     return Uni.createFrom()
-        .item(context.insertInto(StoredFiles.STORED_FILES).set(toInsert).returning().fetchOne())
-        .map(mapper::toFile);
+        .item(
+            context
+                .insertInto(StoredFiles.STORED_FILES)
+                .set(insertFields)
+                .returningResult(allFields)
+                .fetchOne())
+        .map(this::toFileModel);
   }
 
   public Uni<File> getStoredFile(final long fileId, final long userId) {
     return Uni.createFrom()
         .item(
             context
-                .selectFrom(StoredFiles.STORED_FILES)
+                .select(allFields)
+                .from(StoredFiles.STORED_FILES)
                 .where(
                     StoredFiles.STORED_FILES
                         .ID
                         .eq(fileId)
                         .and(StoredFiles.STORED_FILES.OWNER_USER_ID.eq(userId)))
                 .fetchOne())
-        .map(mapper::toFile);
+        .map(this::toFileModel);
   }
 
   public Uni<Boolean> deleteStoredFile(final long fileId, final long userId) {
@@ -63,5 +97,15 @@ public class StoredFilesRepo {
                         .and(StoredFiles.STORED_FILES.OWNER_USER_ID.eq(userId)))
                 .execute())
         .map(recordsDeleted -> recordsDeleted == 1);
+  }
+
+  File toFileModel(final org.jooq.Record toConvert) {
+    return File.builder()
+        .id(toConvert.get(StoredFiles.STORED_FILES.ID))
+        .ownerId(toConvert.get(StoredFiles.STORED_FILES.OWNER_USER_ID))
+        .storageType(StorageType.fromString(toConvert.get(StoredFiles.STORED_FILES.STORAGE_TYPE)))
+        .storageKey(toConvert.get(StoredFiles.STORED_FILES.STORAGE_KEY))
+        .originalFilename(toConvert.get(DECRYPTED_ORIGINAL_FILENAME, String.class))
+        .build();
   }
 }
