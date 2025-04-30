@@ -18,10 +18,10 @@ $$ LANGUAGE plpgsql;
 CREATE TABLE IF NOT EXISTS users
 (
     id  BIGSERIAL PRIMARY KEY,
-    username BYTEA,
-    first_name BYTEA,
-    last_name BYTEA,
-    email BYTEA,
+    username BYTEA, -- ENCRYPTED
+    first_name BYTEA, -- ENCRYPTED
+    last_name BYTEA, -- ENCRYPTED
+    email BYTEA, -- ENCRYPTED
     external_id VARCHAR(255)
 );
 
@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS stored_files
   id   BIGSERIAL PRIMARY KEY,
   owner_user_id BIGINT,
   storage_type VARCHAR(3),
-  storage_key VARCHAR
+  storage_key VARCHAR,
+  original_filename BYTEA -- ENCRYPTED
 );
 
 CREATE SEQUENCE IF NOT EXISTS seq_file_upload_number;

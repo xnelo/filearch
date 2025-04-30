@@ -3,54 +3,31 @@
  */
 package com.xnelo.filearch.jooq;
 
+
 import org.jooq.Sequence;
 import org.jooq.impl.DSL;
 import org.jooq.impl.Internal;
 import org.jooq.impl.SQLDataType;
 
-/** Convenience access to all sequences in FILEARCH. */
-@SuppressWarnings({"all", "unchecked", "rawtypes", "this-escape"})
+
+/**
+ * Convenience access to all sequences in FILEARCH.
+ */
+@SuppressWarnings({ "all", "unchecked", "rawtypes", "this-escape" })
 public class Sequences {
 
-  /** The sequence <code>FILEARCH.seq_file_upload_number</code> */
-  public static final Sequence<Long> SEQ_FILE_UPLOAD_NUMBER =
-      Internal.createSequence(
-          "seq_file_upload_number",
-          Filearch.FILEARCH,
-          DSL.comment(""),
-          SQLDataType.BIGINT.nullable(false),
-          null,
-          null,
-          null,
-          null,
-          false,
-          null);
+    /**
+     * The sequence <code>FILEARCH.seq_file_upload_number</code>
+     */
+    public static final Sequence<Long> SEQ_FILE_UPLOAD_NUMBER = Internal.createSequence("seq_file_upload_number", Filearch.FILEARCH, DSL.comment(""), SQLDataType.BIGINT.nullable(false), null, null, null, null, false, null);
 
-  /** The sequence <code>FILEARCH.stored_files_id_seq</code> */
-  public static final Sequence<Long> STORED_FILES_ID_SEQ =
-      Internal.createSequence(
-          "stored_files_id_seq",
-          Filearch.FILEARCH,
-          DSL.comment(""),
-          SQLDataType.BIGINT.nullable(false),
-          null,
-          null,
-          null,
-          null,
-          false,
-          null);
+    /**
+     * The sequence <code>FILEARCH.stored_files_id_seq</code>
+     */
+    public static final Sequence<Long> STORED_FILES_ID_SEQ = Internal.createSequence("stored_files_id_seq", Filearch.FILEARCH, DSL.comment(""), SQLDataType.BIGINT.nullable(false), null, null, null, null, false, null);
 
-  /** The sequence <code>FILEARCH.users_id_seq</code> */
-  public static final Sequence<Long> USERS_ID_SEQ =
-      Internal.createSequence(
-          "users_id_seq",
-          Filearch.FILEARCH,
-          DSL.comment(""),
-          SQLDataType.BIGINT.nullable(false),
-          null,
-          null,
-          null,
-          null,
-          false,
-          null);
+    /**
+     * The sequence <code>FILEARCH.users_id_seq</code>
+     */
+    public static final Sequence<Long> USERS_ID_SEQ = Internal.createSequence("users_id_seq", Filearch.FILEARCH, DSL.comment(""), SQLDataType.BIGINT.nullable(false), null, null, null, null, false, null);
 }

@@ -3,38 +3,32 @@
  */
 package com.xnelo.filearch.jooq;
 
+
 import com.xnelo.filearch.jooq.tables.FlywaySchemaHistory;
 import com.xnelo.filearch.jooq.tables.StoredFiles;
 import com.xnelo.filearch.jooq.tables.Users;
 import com.xnelo.filearch.jooq.tables.records.FlywaySchemaHistoryRecord;
 import com.xnelo.filearch.jooq.tables.records.StoredFilesRecord;
 import com.xnelo.filearch.jooq.tables.records.UsersRecord;
+
 import org.jooq.TableField;
 import org.jooq.UniqueKey;
 import org.jooq.impl.DSL;
 import org.jooq.impl.Internal;
 
-/** A class modelling foreign key relationships and constraints of tables in FILEARCH. */
-@SuppressWarnings({"all", "unchecked", "rawtypes", "this-escape"})
+
+/**
+ * A class modelling foreign key relationships and constraints of tables in
+ * FILEARCH.
+ */
+@SuppressWarnings({ "all", "unchecked", "rawtypes", "this-escape" })
 public class Keys {
 
-  // -------------------------------------------------------------------------
-  // UNIQUE and PRIMARY KEY definitions
-  // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // UNIQUE and PRIMARY KEY definitions
+    // -------------------------------------------------------------------------
 
-  public static final UniqueKey<FlywaySchemaHistoryRecord> FLYWAY_SCHEMA_HISTORY_PK =
-      Internal.createUniqueKey(
-          FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY,
-          DSL.name("flyway_schema_history_pk"),
-          new TableField[] {FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY.INSTALLED_RANK},
-          true);
-  public static final UniqueKey<StoredFilesRecord> STORED_FILES_PKEY =
-      Internal.createUniqueKey(
-          StoredFiles.STORED_FILES,
-          DSL.name("stored_files_pkey"),
-          new TableField[] {StoredFiles.STORED_FILES.ID},
-          true);
-  public static final UniqueKey<UsersRecord> USERS_PKEY =
-      Internal.createUniqueKey(
-          Users.USERS, DSL.name("users_pkey"), new TableField[] {Users.USERS.ID}, true);
+    public static final UniqueKey<FlywaySchemaHistoryRecord> FLYWAY_SCHEMA_HISTORY_PK = Internal.createUniqueKey(FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY, DSL.name("flyway_schema_history_pk"), new TableField[] { FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY.INSTALLED_RANK }, true);
+    public static final UniqueKey<StoredFilesRecord> STORED_FILES_PKEY = Internal.createUniqueKey(StoredFiles.STORED_FILES, DSL.name("stored_files_pkey"), new TableField[] { StoredFiles.STORED_FILES.ID }, true);
+    public static final UniqueKey<UsersRecord> USERS_PKEY = Internal.createUniqueKey(Users.USERS, DSL.name("users_pkey"), new TableField[] { Users.USERS.ID }, true);
 }
