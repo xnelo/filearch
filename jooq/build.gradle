@@ -11,6 +11,14 @@ spotlessCheck {
     enabled = false
 }
 
+spotlessJavaApply{
+    enabled = false
+}
+
+spotlessJavaCheck{
+    enabled = false
+}
+
 String DB_HOST_ADDRESS = System.getenv("FILEARCH_DB_HOST_ADDRESS") ?: "localhost"
 
 jooq {
