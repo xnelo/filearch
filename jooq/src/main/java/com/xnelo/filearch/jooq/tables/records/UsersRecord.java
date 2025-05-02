@@ -108,6 +108,21 @@ public class UsersRecord extends UpdatableRecordImpl<UsersRecord> {
         return (String) get(5);
     }
 
+    /**
+     * Setter for <code>FILEARCH.users.root_folder_id</code>.
+     */
+    public UsersRecord setRootFolderId(Long value) {
+        set(6, value);
+        return this;
+    }
+
+    /**
+     * Getter for <code>FILEARCH.users.root_folder_id</code>.
+     */
+    public Long getRootFolderId() {
+        return (Long) get(6);
+    }
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -131,7 +146,7 @@ public class UsersRecord extends UpdatableRecordImpl<UsersRecord> {
     /**
      * Create a detached, initialised UsersRecord
      */
-    public UsersRecord(Long id, byte[] username, byte[] firstName, byte[] lastName, byte[] email, String externalId) {
+    public UsersRecord(Long id, byte[] username, byte[] firstName, byte[] lastName, byte[] email, String externalId, Long rootFolderId) {
         super(Users.USERS);
 
         setId(id);
@@ -140,6 +155,7 @@ public class UsersRecord extends UpdatableRecordImpl<UsersRecord> {
         setLastName(lastName);
         setEmail(email);
         setExternalId(externalId);
+        setRootFolderId(rootFolderId);
         resetTouchedOnNotNull();
     }
 
@@ -156,6 +172,7 @@ public class UsersRecord extends UpdatableRecordImpl<UsersRecord> {
             setLastName(value.getLastName());
             setEmail(value.getEmail());
             setExternalId(value.getExternalId());
+            setRootFolderId(value.getRootFolderId());
             resetTouchedOnNotNull();
         }
     }

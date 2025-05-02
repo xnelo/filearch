@@ -17,21 +17,31 @@ $$ LANGUAGE plpgsql;
 
 CREATE TABLE IF NOT EXISTS users
 (
-    id  BIGSERIAL PRIMARY KEY,
-    username BYTEA, -- ENCRYPTED
-    first_name BYTEA, -- ENCRYPTED
-    last_name BYTEA, -- ENCRYPTED
-    email BYTEA, -- ENCRYPTED
-    external_id VARCHAR(255)
+    id              BIGSERIAL PRIMARY KEY,
+    username        BYTEA, -- ENCRYPTED
+    first_name      BYTEA, -- ENCRYPTED
+    last_name       BYTEA, -- ENCRYPTED
+    email           BYTEA, -- ENCRYPTED
+    external_id     VARCHAR(255),
+    root_folder_id  BIGINT
 );
 
 CREATE TABLE IF NOT EXISTS stored_files
 (
-  id   BIGSERIAL PRIMARY KEY,
-  owner_user_id BIGINT,
-  storage_type VARCHAR(3),
-  storage_key VARCHAR,
+  id                BIGSERIAL PRIMARY KEY,
+  owner_user_id     BIGINT,
+  folder_id         BIGINT,
+  storage_type      VARCHAR(3),
+  storage_key       VARCHAR,
   original_filename BYTEA -- ENCRYPTED
+);
+
+CREATE TABLE IF NOT EXISTS folders
+(
+    id              BIGSERIAL PRIMARY KEY,
+    owner_user_id   BIGINT,
+    parent_id       BIGINT,
+    name            BYTEA --ENCRYPTED
 );
 
 CREATE SEQUENCE IF NOT EXISTS seq_file_upload_number;

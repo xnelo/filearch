@@ -80,6 +80,11 @@ public class Users extends TableImpl<UsersRecord> {
      */
     public final TableField<UsersRecord, String> EXTERNAL_ID = createField(DSL.name("external_id"), SQLDataType.VARCHAR(255), this, "");
 
+    /**
+     * The column <code>FILEARCH.users.root_folder_id</code>.
+     */
+    public final TableField<UsersRecord, Long> ROOT_FOLDER_ID = createField(DSL.name("root_folder_id"), SQLDataType.BIGINT, this, "");
+
     private Users(Name alias, Table<UsersRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);
     }

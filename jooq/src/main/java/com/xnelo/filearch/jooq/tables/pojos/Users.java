@@ -22,6 +22,7 @@ public class Users implements Serializable {
     private final byte[] lastName;
     private final byte[] email;
     private final String externalId;
+    private final Long rootFolderId;
 
     public Users(Users value) {
         this.id = value.id;
@@ -30,6 +31,7 @@ public class Users implements Serializable {
         this.lastName = value.lastName;
         this.email = value.email;
         this.externalId = value.externalId;
+        this.rootFolderId = value.rootFolderId;
     }
 
     public Users(
@@ -38,7 +40,8 @@ public class Users implements Serializable {
         byte[] firstName,
         byte[] lastName,
         byte[] email,
-        String externalId
+        String externalId,
+        Long rootFolderId
     ) {
         this.id = id;
         this.username = username;
@@ -46,6 +49,7 @@ public class Users implements Serializable {
         this.lastName = lastName;
         this.email = email;
         this.externalId = externalId;
+        this.rootFolderId = rootFolderId;
     }
 
     /**
@@ -88,6 +92,13 @@ public class Users implements Serializable {
      */
     public String getExternalId() {
         return this.externalId;
+    }
+
+    /**
+     * Getter for <code>FILEARCH.users.root_folder_id</code>.
+     */
+    public Long getRootFolderId() {
+        return this.rootFolderId;
     }
 
     @Override
@@ -135,6 +146,12 @@ public class Users implements Serializable {
         }
         else if (!this.externalId.equals(other.externalId))
             return false;
+        if (this.rootFolderId == null) {
+            if (other.rootFolderId != null)
+                return false;
+        }
+        else if (!this.rootFolderId.equals(other.rootFolderId))
+            return false;
         return true;
     }
 
@@ -148,6 +165,7 @@ public class Users implements Serializable {
         result = prime * result + ((this.lastName == null) ? 0 : Arrays.hashCode(this.lastName));
         result = prime * result + ((this.email == null) ? 0 : Arrays.hashCode(this.email));
         result = prime * result + ((this.externalId == null) ? 0 : this.externalId.hashCode());
+        result = prime * result + ((this.rootFolderId == null) ? 0 : this.rootFolderId.hashCode());
         return result;
     }
 
@@ -161,6 +179,7 @@ public class Users implements Serializable {
         sb.append(", ").append("[binary...]");
         sb.append(", ").append("[binary...]");
         sb.append(", ").append(externalId);
+        sb.append(", ").append(rootFolderId);
 
         sb.append(")");
         return sb.toString();

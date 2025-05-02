@@ -5,6 +5,7 @@ package com.xnelo.filearch.jooq;
 
 
 import com.xnelo.filearch.jooq.tables.FlywaySchemaHistory;
+import com.xnelo.filearch.jooq.tables.Folders;
 import com.xnelo.filearch.jooq.tables.PgpArmorHeaders;
 import com.xnelo.filearch.jooq.tables.StoredFiles;
 import com.xnelo.filearch.jooq.tables.Users;
@@ -25,6 +26,11 @@ public class Tables {
      * The table <code>FILEARCH.flyway_schema_history</code>.
      */
     public static final FlywaySchemaHistory FLYWAY_SCHEMA_HISTORY = FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY;
+
+    /**
+     * The table <code>FILEARCH.folders</code>.
+     */
+    public static final Folders FOLDERS = Folders.FOLDERS;
 
     /**
      * The table <code>FILEARCH.pgp_armor_headers</code>.

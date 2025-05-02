@@ -49,10 +49,25 @@ public class StoredFilesRecord extends UpdatableRecordImpl<StoredFilesRecord> {
     }
 
     /**
+     * Setter for <code>FILEARCH.stored_files.folder_id</code>.
+     */
+    public StoredFilesRecord setFolderId(Long value) {
+        set(2, value);
+        return this;
+    }
+
+    /**
+     * Getter for <code>FILEARCH.stored_files.folder_id</code>.
+     */
+    public Long getFolderId() {
+        return (Long) get(2);
+    }
+
+    /**
      * Setter for <code>FILEARCH.stored_files.storage_type</code>.
      */
     public StoredFilesRecord setStorageType(String value) {
-        set(2, value);
+        set(3, value);
         return this;
     }
 
@@ -60,14 +75,14 @@ public class StoredFilesRecord extends UpdatableRecordImpl<StoredFilesRecord> {
      * Getter for <code>FILEARCH.stored_files.storage_type</code>.
      */
     public String getStorageType() {
-        return (String) get(2);
+        return (String) get(3);
     }
 
     /**
      * Setter for <code>FILEARCH.stored_files.storage_key</code>.
      */
     public StoredFilesRecord setStorageKey(String value) {
-        set(3, value);
+        set(4, value);
         return this;
     }
 
@@ -75,14 +90,14 @@ public class StoredFilesRecord extends UpdatableRecordImpl<StoredFilesRecord> {
      * Getter for <code>FILEARCH.stored_files.storage_key</code>.
      */
     public String getStorageKey() {
-        return (String) get(3);
+        return (String) get(4);
     }
 
     /**
      * Setter for <code>FILEARCH.stored_files.original_filename</code>.
      */
     public StoredFilesRecord setOriginalFilename(byte[] value) {
-        set(4, value);
+        set(5, value);
         return this;
     }
 
@@ -90,7 +105,7 @@ public class StoredFilesRecord extends UpdatableRecordImpl<StoredFilesRecord> {
      * Getter for <code>FILEARCH.stored_files.original_filename</code>.
      */
     public byte[] getOriginalFilename() {
-        return (byte[]) get(4);
+        return (byte[]) get(5);
     }
 
     // -------------------------------------------------------------------------
@@ -116,11 +131,12 @@ public class StoredFilesRecord extends UpdatableRecordImpl<StoredFilesRecord> {
     /**
      * Create a detached, initialised StoredFilesRecord
      */
-    public StoredFilesRecord(Long id, Long ownerUserId, String storageType, String storageKey, byte[] originalFilename) {
+    public StoredFilesRecord(Long id, Long ownerUserId, Long folderId, String storageType, String storageKey, byte[] originalFilename) {
         super(StoredFiles.STORED_FILES);
 
         setId(id);
         setOwnerUserId(ownerUserId);
+        setFolderId(folderId);
         setStorageType(storageType);
         setStorageKey(storageKey);
         setOriginalFilename(originalFilename);
@@ -136,6 +152,7 @@ public class StoredFilesRecord extends UpdatableRecordImpl<StoredFilesRecord> {
         if (value != null) {
             setId(value.getId());
             setOwnerUserId(value.getOwnerUserId());
+            setFolderId(value.getFolderId());
             setStorageType(value.getStorageType());
             setStorageKey(value.getStorageKey());
             setOriginalFilename(value.getOriginalFilename());

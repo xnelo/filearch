@@ -61,6 +61,11 @@ public class StoredFiles extends TableImpl<StoredFilesRecord> {
     public final TableField<StoredFilesRecord, Long> OWNER_USER_ID = createField(DSL.name("owner_user_id"), SQLDataType.BIGINT, this, "");
 
     /**
+     * The column <code>FILEARCH.stored_files.folder_id</code>.
+     */
+    public final TableField<StoredFilesRecord, Long> FOLDER_ID = createField(DSL.name("folder_id"), SQLDataType.BIGINT, this, "");
+
+    /**
      * The column <code>FILEARCH.stored_files.storage_type</code>.
      */
     public final TableField<StoredFilesRecord, String> STORAGE_TYPE = createField(DSL.name("storage_type"), SQLDataType.VARCHAR(3), this, "");

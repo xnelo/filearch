@@ -18,6 +18,7 @@ public class StoredFiles implements Serializable {
 
     private final Long id;
     private final Long ownerUserId;
+    private final Long folderId;
     private final String storageType;
     private final String storageKey;
     private final byte[] originalFilename;
@@ -25,6 +26,7 @@ public class StoredFiles implements Serializable {
     public StoredFiles(StoredFiles value) {
         this.id = value.id;
         this.ownerUserId = value.ownerUserId;
+        this.folderId = value.folderId;
         this.storageType = value.storageType;
         this.storageKey = value.storageKey;
         this.originalFilename = value.originalFilename;
@@ -33,12 +35,14 @@ public class StoredFiles implements Serializable {
     public StoredFiles(
         Long id,
         Long ownerUserId,
+        Long folderId,
         String storageType,
         String storageKey,
         byte[] originalFilename
     ) {
         this.id = id;
         this.ownerUserId = ownerUserId;
+        this.folderId = folderId;
         this.storageType = storageType;
         this.storageKey = storageKey;
         this.originalFilename = originalFilename;
@@ -56,6 +60,13 @@ public class StoredFiles implements Serializable {
      */
     public Long getOwnerUserId() {
         return this.ownerUserId;
+    }
+
+    /**
+     * Getter for <code>FILEARCH.stored_files.folder_id</code>.
+     */
+    public Long getFolderId() {
+        return this.folderId;
     }
 
     /**
@@ -100,6 +111,12 @@ public class StoredFiles implements Serializable {
         }
         else if (!this.ownerUserId.equals(other.ownerUserId))
             return false;
+        if (this.folderId == null) {
+            if (other.folderId != null)
+                return false;
+        }
+        else if (!this.folderId.equals(other.folderId))
+            return false;
         if (this.storageType == null) {
             if (other.storageType != null)
                 return false;
@@ -127,6 +144,7 @@ public class StoredFiles implements Serializable {
         int result = 1;
         result = prime * result + ((this.id == null) ? 0 : this.id.hashCode());
         result = prime * result + ((this.ownerUserId == null) ? 0 : this.ownerUserId.hashCode());
+        result = prime * result + ((this.folderId == null) ? 0 : this.folderId.hashCode());
         result = prime * result + ((this.storageType == null) ? 0 : this.storageType.hashCode());
         result = prime * result + ((this.storageKey == null) ? 0 : this.storageKey.hashCode());
         result = prime * result + ((this.originalFilename == null) ? 0 : Arrays.hashCode(this.originalFilename));
@@ -139,6 +157,7 @@ public class StoredFiles implements Serializable {
 
         sb.append(id);
         sb.append(", ").append(ownerUserId);
+        sb.append(", ").append(folderId);
         sb.append(", ").append(storageType);
         sb.append(", ").append(storageKey);
         sb.append(", ").append("[binary...]");
