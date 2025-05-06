@@ -21,4 +21,7 @@ public class UserContract {
 
   @JsonProperty("email")
   private final String email;
+
+  @JsonProperty("root_folder_id")
+  private final Long rootFolderId;
 }

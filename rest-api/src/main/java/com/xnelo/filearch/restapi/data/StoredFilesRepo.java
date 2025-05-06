@@ -32,12 +32,15 @@ public class StoredFilesRepo {
       @ConfigProperty(name = "filearch.encryption-key", defaultValue = "LOCAL_DEV_ENCRYPTION_KEY")
           final String encryptionKey) {
     this.context = DSL.using(dataSource, SQLDialect.POSTGRES);
+    this.context.setSchema("FILEARCH").execute();
+
     this.encryptionKey = encryptionKey;
 
     this.allFields =
         List.of(
             StoredFiles.STORED_FILES.ID,
             StoredFiles.STORED_FILES.OWNER_USER_ID,
+            StoredFiles.STORED_FILES.FOLDER_ID,
             StoredFiles.STORED_FILES.STORAGE_TYPE,
             StoredFiles.STORED_FILES.STORAGE_KEY,
             decryptField(StoredFiles.STORED_FILES.ORIGINAL_FILENAME, encryptionKey)
@@ -46,6 +49,7 @@ public class StoredFilesRepo {
 
   public Uni<File> createStoredFile(
       final long userId,
+      final long folderId,
       final StorageType storageType,
       final String storageKey,
       final String originalFilename) {
@@ -53,6 +57,8 @@ public class StoredFilesRepo {
         Map.of(
             StoredFiles.STORED_FILES.OWNER_USER_ID.getName(),
             userId,
+            StoredFiles.STORED_FILES.FOLDER_ID.getName(),
+            folderId,
             StoredFiles.STORED_FILES.STORAGE_TYPE.getName(),
             storageType.getDbValue(),
             StoredFiles.STORED_FILES.STORAGE_KEY.getName(),
@@ -103,6 +109,7 @@ public class StoredFilesRepo {
     return File.builder()
         .id(toConvert.get(StoredFiles.STORED_FILES.ID))
         .ownerId(toConvert.get(StoredFiles.STORED_FILES.OWNER_USER_ID))
+        .folderId(toConvert.get(StoredFiles.STORED_FILES.FOLDER_ID))
         .storageType(StorageType.fromString(toConvert.get(StoredFiles.STORED_FILES.STORAGE_TYPE)))
         .storageKey(toConvert.get(StoredFiles.STORED_FILES.STORAGE_KEY))
         .originalFilename(toConvert.get(DECRYPTED_ORIGINAL_FILENAME, String.class))

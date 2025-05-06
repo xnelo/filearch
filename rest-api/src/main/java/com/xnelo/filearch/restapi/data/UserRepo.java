@@ -53,7 +53,8 @@ public class UserRepo {
             Users.USERS.ID,
             decryptField(Users.USERS.EMAIL, encryptionKey).as(DECRYPTED_EMAIL_FIELD),
             decryptField(Users.USERS.FIRST_NAME, encryptionKey).as(DECRYPTED_FIRSTNAME_FIELD),
-            decryptField(Users.USERS.LAST_NAME, encryptionKey).as(DECRYPTED_LASTNAME_FIELD));
+            decryptField(Users.USERS.LAST_NAME, encryptionKey).as(DECRYPTED_LASTNAME_FIELD),
+            Users.USERS.ROOT_FOLDER_ID);
   }
 
   public Uni<User> createNewUser(final User newUser) {
@@ -150,12 +151,20 @@ public class UserRepo {
       return null;
     }
 
-    return User.builder()
-        .id(toConvert.get(Users.USERS.ID))
-        .email(toConvert.get(DECRYPTED_EMAIL_FIELD, String.class))
-        .firstName(toConvert.get(DECRYPTED_FIRSTNAME_FIELD, String.class))
-        .lastName(toConvert.get(DECRYPTED_LASTNAME_FIELD, String.class))
-        .username(toConvert.get(DECRYPTED_USERNAME_FIELD, String.class))
-        .build();
+    User.UserBuilder builder =
+        User.builder()
+            .id(toConvert.get(Users.USERS.ID))
+            .email(toConvert.get(DECRYPTED_EMAIL_FIELD, String.class))
+            .firstName(toConvert.get(DECRYPTED_FIRSTNAME_FIELD, String.class))
+            .lastName(toConvert.get(DECRYPTED_LASTNAME_FIELD, String.class))
+            .username(toConvert.get(DECRYPTED_USERNAME_FIELD, String.class));
+
+    // The root folder id is null when frist created.
+    Long rootFolderId = toConvert.get(Users.USERS.ROOT_FOLDER_ID);
+    if (rootFolderId != null) {
+      builder.rootFolderId(rootFolderId);
+    }
+
+    return builder.build();
   }
 }

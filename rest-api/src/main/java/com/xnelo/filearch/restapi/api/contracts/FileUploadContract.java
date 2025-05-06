@@ -8,6 +8,6 @@ public class FileUploadContract {
   @FormParam("files")
   public List<FileUpload> files;
 
-  @FormParam("location")
-  public String location;
+  @FormParam("folderId")
+  public Long folderId;
 }

@@ -31,7 +31,7 @@ public class FileResource {
   @RolesAllowed("user")
   @Consumes(MediaType.MULTIPART_FORM_DATA)
   public Uni<Response> uploadFile(FileUploadContract upload) {
-    Log.debugf("Upload Location: %s", upload.location);
+    Log.debugf("Upload Location: folder_id=%d", upload.folderId);
     Log.debug("FILES >>>>>>>>>>>>>>>>");
     for (FileUpload file : upload.files) {
       Log.debugf("Filename: %s", file.fileName());

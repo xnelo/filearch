@@ -14,6 +14,9 @@ public class FileContract {
   @JsonProperty("owner_id")
   private final Long ownerId;
 
+  @JsonProperty("folder_id")
+  private final Long folderId;
+
   @JsonProperty("storage_type")
   private final StorageType storageType;
 

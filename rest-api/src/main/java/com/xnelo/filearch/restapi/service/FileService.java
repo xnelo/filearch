@@ -25,6 +25,7 @@ public class FileService {
   @Inject SequenceRepo sequenceRepo;
   @Inject StorageService storageService;
   @Inject StoredFilesRepo storedFilesRepo;
+  @Inject FolderService folderService;
 
   public Uni<ServiceResponse<File>> uploadFiles(
       final FileUploadContract toUpload, final UserToken uploadingUser) {
@@ -49,15 +50,44 @@ public class FileService {
                                         .build()))));
               }
 
-              ArrayList<Uni<ServiceActionResponse<File>>> uploadResults = new ArrayList<>();
-              for (final FileUpload fileToUpload : toUpload.files) {
-                uploadResults.add(uploadIndividualFile(user, toUpload.location, fileToUpload));
+              if (toUpload.folderId != null) {
+                return folderService
+                    .getFolderById(toUpload.folderId, user.getId())
+                    .chain(
+                        folderServiceResponse -> {
+                          Folder folder =
+                              folderServiceResponse.getActionResponses().getFirst().getData();
+                          if (folder == null) {
+                            return Uni.createFrom()
+                                .item(
+                                    new ServiceResponse<>(
+                                        new ServiceActionResponse<>(
+                                            ResourceType.FILE,
+                                            ActionType.UPLOAD,
+                                            List.of(
+                                                ServiceError.builder()
+                                                    .errorCode(ErrorCode.FOLDER_DOES_NOT_EXIST)
+                                                    .errorMessage(
+                                                        "Desired upload folder does not exist.")
+                                                    .httpCode(404)
+                                                    .build()))));
+                          }
+                          return uploadAllFiles(toUpload.files, user, folder.getId());
+                        });
+              } else {
+                return uploadAllFiles(toUpload.files, user, user.getRootFolderId());
               }
-              return Uni.combine()
-                  .all()
-                  .unis(uploadResults)
-                  .with(FileService::combineFileUploadUnis);
             });
+  }
+
+  Uni<ServiceResponse<File>> uploadAllFiles(
+      final List<FileUpload> files, final User user, final long folderId) {
+    ArrayList<Uni<ServiceActionResponse<File>>> uploadResults = new ArrayList<>();
+
+    for (final FileUpload fileToUpload : files) {
+      uploadResults.add(uploadIndividualFile(user, folderId, fileToUpload));
+    }
+    return Uni.combine().all().unis(uploadResults).with(FileService::combineFileUploadUnis);
   }
 
   @SuppressWarnings("unchecked")
@@ -79,7 +109,7 @@ public class FileService {
   }
 
   Uni<ServiceActionResponse<File>> uploadIndividualFile(
-      final User user, final String location, final FileUpload fileToUpload) {
+      final User user, final Long folderId, final FileUpload fileToUpload) {
     return createStorageKey(user)
         .chain(
             uploadKey ->
@@ -106,6 +136,7 @@ public class FileService {
                             return storedFilesRepo
                                 .createStoredFile(
                                     user.getId(),
+                                    folderId,
                                     storageService.getStorageType(),
                                     uploadKey,
                                     fileToUpload.fileName())

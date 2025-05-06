@@ -7,6 +7,7 @@ import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.usertoken.UserToken;
+import com.xnelo.filearch.jooq.tables.Users;
 import com.xnelo.filearch.restapi.api.contracts.UserContract;
 import com.xnelo.filearch.restapi.data.UserRepo;
 import io.smallrye.mutiny.Uni;
@@ -19,6 +20,7 @@ import java.util.Map;
 @RequestScoped
 public class UserService {
   @Inject UserRepo userRepo;
+  @Inject FolderService folderService;
 
   private static ServiceResponse<User> toServiceResponse(
       final ActionType actionType, final User user) {
@@ -124,9 +126,19 @@ public class UserService {
               } else {
                 return userRepo
                     .createNewUser(createUserObject(inputData, token))
+                    .chain(this::createRootFolder)
                     .map(user -> toServiceResponse(ActionType.CREATE, user));
               }
             });
+  }
+
+  Uni<User> createRootFolder(final User user) {
+    return folderService
+        .createRootFolderForUser(user.getId())
+        .chain(
+            folder ->
+                userRepo.updateUser(
+                    user.getId(), Map.of(Users.USERS.ROOT_FOLDER_ID.getName(), folder.getId())));
   }
 
   public Uni<ServiceResponse<User>> updateUser(
@@ -155,6 +167,19 @@ public class UserService {
                           ServiceError.builder()
                               .errorCode(ErrorCode.USER_ID_CANNOT_BE_UPDATED)
                               .errorMessage("User ID cannot be updated.")
+                              .httpCode(400)
+                              .build()))));
+    } else if (toUpdate.getRootFolderId() != null) {
+      return Uni.createFrom()
+          .item(
+              new ServiceResponse<>(
+                  new ServiceActionResponse<>(
+                      User.USER_RESOURCE_TYPE,
+                      ActionType.UPDATE,
+                      List.of(
+                          ServiceError.builder()
+                              .errorCode(ErrorCode.USER_ROOT_FOLDER_ID_CANNOT_BE_UPDATED)
+                              .errorMessage("User Root Folder Id cannot be updated.")
                               .httpCode(400)
                               .build()))));
     }

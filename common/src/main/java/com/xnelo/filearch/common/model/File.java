@@ -12,6 +12,7 @@ public class File {
 
   private long id;
   private long ownerId;
+  private long folderId;
   private StorageType storageType;
   private String storageKey;
   private String originalFilename;
