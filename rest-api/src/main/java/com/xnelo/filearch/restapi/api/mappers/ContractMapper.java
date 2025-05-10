@@ -1,6 +1,7 @@
 package com.xnelo.filearch.restapi.api.mappers;
 
 import com.xnelo.filearch.common.model.File;
+import com.xnelo.filearch.common.model.Folder;
 import com.xnelo.filearch.common.model.User;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
@@ -18,6 +19,8 @@ public interface ContractMapper {
   UserContract toUserContract(User user);
 
   FileContract toFileContract(File file);
+
+  FolderContract toFolderContract(Folder folder);
 
   // Filearch API mappers
   @Mapping(target = "errorCode", expression = "java( error.getErrorCode().getCode() )")

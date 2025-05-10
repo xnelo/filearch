@@ -2,6 +2,7 @@ package com.xnelo.filearch.restapi.service;
 
 import com.xnelo.filearch.common.model.ActionType;
 import com.xnelo.filearch.common.model.ErrorCode;
+import com.xnelo.filearch.common.model.ResourceType;
 import com.xnelo.filearch.common.model.User;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
@@ -16,6 +17,7 @@ import jakarta.inject.Inject;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 @RequestScoped
 public class UserService {
@@ -222,6 +224,39 @@ public class UserService {
               return userRepo
                   .updateUser(user.getId(), userUpdateMap)
                   .map(userReturn -> toServiceResponse(ActionType.UPDATE, userReturn));
+            });
+  }
+
+  public <T> Uni<ServiceResponse<T>> checkUserExist(
+      final UserToken userInfo,
+      final ResourceType resourceType,
+      final ActionType actionType,
+      final Function<User, Uni<ServiceResponse<T>>> userExistAction) {
+    return getUserFromUserToken(userInfo)
+        .chain(
+            userResponse -> {
+              User user = userResponse.getActionResponses().getFirst().getData();
+              if (user == null) {
+                return Uni.createFrom()
+                    .item(
+                        new ServiceResponse<>(
+                            new ServiceActionResponse<>(
+                                resourceType,
+                                actionType,
+                                List.of(
+                                    ServiceError.builder()
+                                        .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
+                                        .errorMessage(
+                                            "Cannot "
+                                                + actionType
+                                                + " "
+                                                + resourceType
+                                                + " because user does not exist.")
+                                        .httpCode(404)
+                                        .build()))));
+              }
+
+              return userExistAction.apply(user);
             });
   }
 

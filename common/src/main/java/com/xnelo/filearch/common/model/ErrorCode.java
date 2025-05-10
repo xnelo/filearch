@@ -23,6 +23,7 @@ public enum ErrorCode {
 
   // FOLDER Service Errors 300 - 399
   FOLDER_DOES_NOT_EXIST(300),
+  FOLDER_WITH_NAME_ALREADY_EXISTS(301),
   // END FOLDER Service Errors
 
   // IO ERRORS 500 - 600
