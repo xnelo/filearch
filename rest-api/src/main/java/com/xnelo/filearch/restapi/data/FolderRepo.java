@@ -6,9 +6,11 @@ import static com.xnelo.filearch.common.encryption.JooqFields.encryptField;
 import com.xnelo.filearch.common.model.Folder;
 import com.xnelo.filearch.jooq.tables.Folders;
 import io.agroal.api.AgroalDataSource;
+import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -20,7 +22,11 @@ import org.jooq.impl.DSL;
 
 @RequestScoped
 public class FolderRepo {
+  public static final String FOLDER_NAME_COLUMN_NAME = Folders.FOLDERS.NAME.getName();
+  public static final String PARENT_ID_COLUMN_NAME = Folders.FOLDERS.PARENT_ID.getName();
   public static final String DECRYPTED_NAME = "DECRYPT_NAME";
+
+  public static final List<String> FIELDS_TO_ENCRYPT = List.of(FOLDER_NAME_COLUMN_NAME);
 
   private final DSLContext context;
   private final String encryptionKey;
@@ -99,6 +105,43 @@ public class FolderRepo {
                 .and(decryptField(Folders.FOLDERS.NAME, encryptionKey).eq(nameToCheck))
                 .fetchOne())
         .map(dbRecord -> dbRecord.getValue(0, Integer.class) > 0);
+  }
+
+  public Uni<Folder> updateFolder(
+      final long folderId, final long userId, Map<String, Object> updateFields) {
+    Map<String, Object> encryptedUpdateFields = encryptFields(updateFields);
+    return Uni.createFrom()
+        .item(
+            context
+                .update(Folders.FOLDERS)
+                .set(encryptedUpdateFields)
+                .where(
+                    Folders.FOLDERS.ID.eq(folderId).and(Folders.FOLDERS.OWNER_USER_ID.eq(userId)))
+                .returningResult(allFields)
+                .fetchOne())
+        .map(this::toFolderModel);
+  }
+
+  Map<String, Object> encryptFields(Map<String, Object> fieldsMap) {
+    Map<String, Object> returnMap = new HashMap<>(fieldsMap.size());
+
+    fieldsMap.forEach(
+        (key, value) -> {
+          if (FIELDS_TO_ENCRYPT.contains(key)) {
+            if (value instanceof String stringValue) {
+              returnMap.put(key, encryptField(stringValue, encryptionKey));
+            } else {
+              Log.errorf(
+                  "Error encrypting field. Value was not a string. fieldname=%s type=%s",
+                  key, value.getClass().getName());
+              throw new RuntimeException("ERROR ENCRYPTING FIELD.");
+            }
+          } else {
+            returnMap.put(key, value);
+          }
+        });
+
+    return returnMap;
   }
 
   Folder toFolderModel(final Record toConvert) {

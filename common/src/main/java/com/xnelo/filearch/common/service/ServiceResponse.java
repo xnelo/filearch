@@ -15,4 +15,13 @@ public class ServiceResponse<T> {
   public ServiceResponse(List<ServiceActionResponse<T>> actionResponses) {
     this.actionResponses = actionResponses;
   }
+
+  public boolean hasError() {
+    for (ServiceActionResponse<T> action : actionResponses) {
+      if (action.hasErrors()) {
+        return true;
+      }
+    }
+    return false;
+  }
 }

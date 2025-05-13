@@ -47,4 +47,18 @@ public class FolderResource {
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toFolderContract));
   }
+
+  @PATCH
+  @RolesAllowed("user")
+  @Path("{id}")
+  public Uni<Response> updateFolder(
+      @PathParam("id") long folderId, final FolderContract folderData) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return folderService
+        .updateFolder(folderId, userToken, folderData)
+        .map(
+            folderServiceResponse ->
+                contractMapper.toApiResponse(
+                    folderServiceResponse, contractMapper::toFolderContract));
+  }
 }
