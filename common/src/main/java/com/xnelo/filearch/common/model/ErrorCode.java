@@ -7,6 +7,7 @@ import lombok.Getter;
 public enum ErrorCode {
   OK(0),
   NO_FIELDS_TO_UPDATE(50),
+  TOO_MANY_BULK_OPERATIONS(70),
   NOT_IMPLEMENTED(99),
 
   // USER Service Errors 100 - 199

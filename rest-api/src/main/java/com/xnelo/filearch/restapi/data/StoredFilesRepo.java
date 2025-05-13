@@ -118,6 +118,10 @@ public class StoredFilesRepo {
   }
 
   File toFileModel(final org.jooq.Record toConvert) {
+    if (toConvert == null) {
+      return null;
+    }
+
     return File.builder()
         .id(toConvert.get(StoredFiles.STORED_FILES.ID))
         .ownerId(toConvert.get(StoredFiles.STORED_FILES.OWNER_USER_ID))

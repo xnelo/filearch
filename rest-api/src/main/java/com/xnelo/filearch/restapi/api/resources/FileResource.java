@@ -5,6 +5,7 @@ import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.usertoken.UserTokenHandler;
+import com.xnelo.filearch.restapi.api.contracts.FileBulkDeleteContract;
 import com.xnelo.filearch.restapi.api.contracts.FileUploadContract;
 import com.xnelo.filearch.restapi.api.mappers.ContractMapper;
 import com.xnelo.filearch.restapi.api.mappers.HttpStatusCodeMapper;
@@ -107,5 +108,17 @@ public class FileResource {
                     .build();
               }
             });
+  }
+
+  @POST
+  @RolesAllowed("user")
+  @Path("bulk/delete")
+  public Uni<Response> bulkDeleteFiles(final FileBulkDeleteContract toDelete) {
+    UserToken userToken = userhandler.getUserInfo();
+    return fileService
+        .bulkDeleteFiles(toDelete.fileIdsToDelete(), userToken)
+        .map(
+            serviceResponse ->
+                contractMapper.toApiResponse(serviceResponse, contractMapper::toFileContract));
   }
 }
