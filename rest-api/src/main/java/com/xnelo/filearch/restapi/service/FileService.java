@@ -8,6 +8,7 @@ import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.restapi.api.contracts.FileUploadContract;
 import com.xnelo.filearch.restapi.data.SequenceRepo;
 import com.xnelo.filearch.restapi.data.StoredFilesRepo;
+import com.xnelo.filearch.restapi.service.folder.FolderService;
 import com.xnelo.filearch.restapi.service.storage.StorageService;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
@@ -332,5 +333,9 @@ public class FileService {
                                                 .build()))));
                       }
                     }));
+  }
+
+  public Uni<List<File>> getFilesInFoldersInternal(final List<Long> folderIds, final long userId) {
+    return storedFilesRepo.getFilesInFolders(folderIds, userId);
   }
 }

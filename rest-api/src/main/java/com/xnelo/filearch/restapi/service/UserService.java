@@ -11,6 +11,7 @@ import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.jooq.tables.Users;
 import com.xnelo.filearch.restapi.api.contracts.UserContract;
 import com.xnelo.filearch.restapi.data.UserRepo;
+import com.xnelo.filearch.restapi.service.folder.FolderService;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;

@@ -6,7 +6,7 @@ import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.usertoken.UserTokenHandler;
 import com.xnelo.filearch.restapi.api.contracts.FolderContract;
 import com.xnelo.filearch.restapi.api.mappers.ContractMapper;
-import com.xnelo.filearch.restapi.service.FolderService;
+import com.xnelo.filearch.restapi.service.folder.FolderService;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
@@ -60,5 +60,18 @@ public class FolderResource {
             folderServiceResponse ->
                 contractMapper.toApiResponse(
                     folderServiceResponse, contractMapper::toFolderContract));
+  }
+
+  @DELETE
+  @RolesAllowed("user")
+  @Path("{id}")
+  public Uni<Response> deleteFolder(@PathParam("id") long folderId) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return folderService
+        .deleteFolder(folderId, userToken)
+        .map(
+            folderServiceDeleted ->
+                contractMapper.toApiResponse(
+                    folderServiceDeleted, contractMapper::toFolderContract));
   }
 }

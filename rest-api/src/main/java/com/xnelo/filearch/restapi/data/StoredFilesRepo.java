@@ -105,6 +105,18 @@ public class StoredFilesRepo {
         .map(recordsDeleted -> recordsDeleted == 1);
   }
 
+  public Uni<List<File>> getFilesInFolders(final List<Long> folderIds, final long userId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .select(allFields)
+                .from(StoredFiles.STORED_FILES)
+                .where(StoredFiles.STORED_FILES.OWNER_USER_ID.eq(userId))
+                .and(StoredFiles.STORED_FILES.FOLDER_ID.in(folderIds))
+                .fetch()
+                .map(this::toFileModel));
+  }
+
   File toFileModel(final org.jooq.Record toConvert) {
     return File.builder()
         .id(toConvert.get(StoredFiles.STORED_FILES.ID))

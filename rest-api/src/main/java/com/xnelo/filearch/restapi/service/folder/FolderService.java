@@ -1,4 +1,4 @@
-package com.xnelo.filearch.restapi.service;
+package com.xnelo.filearch.restapi.service.folder;
 
 import com.xnelo.filearch.common.model.*;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
@@ -7,6 +7,8 @@ import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.restapi.api.contracts.FolderContract;
 import com.xnelo.filearch.restapi.data.FolderRepo;
+import com.xnelo.filearch.restapi.service.FileService;
+import com.xnelo.filearch.restapi.service.UserService;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
@@ -21,6 +23,7 @@ import lombok.Getter;
 public class FolderService {
   @Inject FolderRepo folderRepo;
   @Inject UserService userService;
+  @Inject FileService fileService;
 
   public Uni<Folder> createRootFolderForUser(final long userId) {
     return folderRepo.createRootFolder(userId);
@@ -335,6 +338,83 @@ public class FolderService {
             });
   }
 
+  public Uni<ServiceResponse<Folder>> deleteFolder(final long folderId, final UserToken userInfo) {
+    return userService
+        .getUserFromUserToken(userInfo)
+        .chain(
+            userServiceResponse -> {
+              if (userServiceResponse.hasError()) {
+                return updateErrorAndPassThrough(userServiceResponse);
+              }
+
+              User user = userServiceResponse.getActionResponses().getFirst().getData();
+
+              return getFolderById(folderId, user.getId())
+                  .chain(
+                      folderServiceResponse -> {
+                        if (folderServiceResponse.hasError()) {
+                          return updateErrorAndPassThrough(folderServiceResponse);
+                        }
+                        return getIdsToDelete(folderId, user.getId())
+                            .chain(this::deleteFolderInternal);
+                      });
+            });
+  }
+
+  private Uni<ServiceResponse<Folder>> deleteFolderInternal(
+      final FoldersAndFilesToDelete toDelete) {
+    return Uni.createFrom()
+        .item(
+            new ServiceResponse<>(
+                new ServiceActionResponse<>(
+                    ResourceType.FOLDER,
+                    ActionType.DELETE,
+                    List.of(
+                        ServiceError.builder()
+                            .errorCode(ErrorCode.NOT_IMPLEMENTED)
+                            .errorMessage("Deleting a folder is not implemented yet.")
+                            .httpCode(500)
+                            .build()))));
+  }
+
+  private Uni<FoldersAndFilesToDelete> getIdsToDelete(
+      final long folderIdToDelete, final long userId) {
+    return getFolderHierarchy(userId)
+        .map(hierarchy -> getFolderIdsToDelete(hierarchy, folderIdToDelete))
+        .chain(
+            folderIdsToDelete ->
+                getFileIdsToDelete(folderIdsToDelete, userId)
+                    .map(
+                        fileIdsToDelete ->
+                            new FoldersAndFilesToDelete(folderIdsToDelete, fileIdsToDelete)));
+  }
+
+  private Uni<List<Long>> getFileIdsToDelete(List<Long> folderIdsToDelete, final long userId) {
+    return fileService
+        .getFilesInFoldersInternal(folderIdsToDelete, userId)
+        .map(
+            filesToDelete -> {
+              List<Long> fileIdsToDelete = new ArrayList<>(filesToDelete.size());
+              filesToDelete.forEach(file -> fileIdsToDelete.add(file.getId()));
+              return fileIdsToDelete;
+            });
+  }
+
+  static List<Long> getFolderIdsToDelete(
+      final FolderHierarchy folderHierarchy, final long folderToDelete) {
+    FolderNode nodeToDelete = folderHierarchy.getNodeFromId(folderToDelete);
+    List<Long> idsToDelete = new ArrayList<>();
+    idsToDelete.add(folderToDelete);
+    for (FolderNode childNode : nodeToDelete.getChildren()) {
+      idsToDelete.addAll(getFolderIdsToDelete(folderHierarchy, childNode.getFolderId()));
+    }
+    return idsToDelete;
+  }
+
+  Uni<FolderHierarchy> getFolderHierarchy(final long userId) {
+    return folderRepo.getAllUserFolders(userId).map(FolderHierarchy::of);
+  }
+
   @Getter
   private static class FolderServiceException extends RuntimeException {
     private final ActionType actionType;
@@ -343,6 +423,17 @@ public class FolderService {
     public FolderServiceException(ActionType at, ServiceError error) {
       actionType = at;
       this.error = error;
+    }
+  }
+
+  @Getter
+  private static class FoldersAndFilesToDelete {
+    private final List<Long> folderIdsToDelete;
+    private final List<Long> fileIdsToDelete;
+
+    public FoldersAndFilesToDelete(List<Long> folderIdsToDelete, List<Long> fileIdsToDelete) {
+      this.folderIdsToDelete = folderIdsToDelete;
+      this.fileIdsToDelete = fileIdsToDelete;
     }
   }
 }

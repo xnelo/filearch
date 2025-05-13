@@ -144,6 +144,17 @@ public class FolderRepo {
     return returnMap;
   }
 
+  public Uni<List<Folder>> getAllUserFolders(final long userId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .select(allFields)
+                .from(Folders.FOLDERS)
+                .where(Folders.FOLDERS.OWNER_USER_ID.eq(userId))
+                .fetch()
+                .map(this::toFolderModel));
+  }
+
   Folder toFolderModel(final Record toConvert) {
     if (toConvert == null) {
       return null;
