@@ -10,6 +10,7 @@ import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -153,6 +154,17 @@ public class FolderRepo {
                 .where(Folders.FOLDERS.OWNER_USER_ID.eq(userId))
                 .fetch()
                 .map(this::toFolderModel));
+  }
+
+  public Uni<Boolean> deleteFolders(final Collection<Long> folderIdsToDelete, final long userId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .deleteFrom(Folders.FOLDERS)
+                .where(Folders.FOLDERS.OWNER_USER_ID.eq(userId))
+                .and(Folders.FOLDERS.ID.in(folderIdsToDelete))
+                .execute())
+        .map(foldersDeleted -> foldersDeleted == folderIdsToDelete.size());
   }
 
   Folder toFolderModel(final Record toConvert) {

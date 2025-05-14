@@ -6,6 +6,7 @@ import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.restapi.api.contracts.FileUploadContract;
+import com.xnelo.filearch.restapi.config.FilearchConfig;
 import com.xnelo.filearch.restapi.data.SequenceRepo;
 import com.xnelo.filearch.restapi.data.StoredFilesRepo;
 import com.xnelo.filearch.restapi.service.folder.FolderService;
@@ -17,7 +18,6 @@ import jakarta.inject.Inject;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 @RequestScoped
@@ -27,9 +27,7 @@ public class FileService {
   @Inject StorageService storageService;
   @Inject StoredFilesRepo storedFilesRepo;
   @Inject FolderService folderService;
-
-  @ConfigProperty(name = "filearch.bulk-actions.max-delete", defaultValue = "100")
-  long maxDeleteSize;
+  @Inject FilearchConfig config;
 
   public Uni<ServiceResponse<File>> uploadFiles(
       final FileUploadContract toUpload, final UserToken uploadingUser) {
@@ -361,7 +359,21 @@ public class FileService {
 
   public Uni<ServiceResponse<File>> bulkDeleteFiles(
       final List<Long> filesIdsToDelete, final UserToken userInfo) {
-    if (filesIdsToDelete.size() > maxDeleteSize) {
+    return userService
+        .getUserFromUserToken(userInfo)
+        .chain(
+            userResponse -> {
+              if (userResponse.hasError()) {
+                return updateErrorAndPassThrough(userResponse);
+              }
+              User user = userResponse.getActionResponses().getFirst().getData();
+              return bulkDeleteFiles(filesIdsToDelete, user.getId());
+            });
+  }
+
+  public Uni<ServiceResponse<File>> bulkDeleteFiles(
+      final List<Long> filesIdsToDelete, final long userId) {
+    if (filesIdsToDelete.size() > config.bulkActions().maxDelete()) {
       return Uni.createFrom()
           .item(
               new ServiceResponse<>(
@@ -373,7 +385,7 @@ public class FileService {
                               .errorCode(ErrorCode.TOO_MANY_BULK_OPERATIONS)
                               .errorMessage(
                                   "Maximum number of bulk operations for bulk delete is "
-                                      + maxDeleteSize
+                                      + config.bulkActions().maxDelete()
                                       + ". "
                                       + filesIdsToDelete.size()
                                       + " were passed in.")
@@ -381,23 +393,10 @@ public class FileService {
                               .build()))));
     }
 
-    return userService
-        .getUserFromUserToken(userInfo)
-        .chain(
-            userResponse -> {
-              if (userResponse.hasError()) {
-                return updateErrorAndPassThrough(userResponse);
-              }
-              User user = userResponse.getActionResponses().getFirst().getData();
-              ArrayList<Uni<ServiceActionResponse<File>>> fileDeleteUnis =
-                  new ArrayList<>(filesIdsToDelete.size());
-              filesIdsToDelete.forEach(
-                  fileIdToDelete ->
-                      fileDeleteUnis.add(deleteIndividualFile(fileIdToDelete, user.getId())));
-              return Uni.combine()
-                  .all()
-                  .unis(fileDeleteUnis)
-                  .with(FileService::combineFileActionUnis);
-            });
+    ArrayList<Uni<ServiceActionResponse<File>>> fileDeleteUnis =
+        new ArrayList<>(filesIdsToDelete.size());
+    filesIdsToDelete.forEach(
+        fileIdToDelete -> fileDeleteUnis.add(deleteIndividualFile(fileIdToDelete, userId)));
+    return Uni.combine().all().unis(fileDeleteUnis).with(FileService::combineFileActionUnis);
   }
 }

@@ -5,7 +5,9 @@ import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.usertoken.UserToken;
+import com.xnelo.filearch.common.utils.Lists;
 import com.xnelo.filearch.restapi.api.contracts.FolderContract;
+import com.xnelo.filearch.restapi.config.FilearchConfig;
 import com.xnelo.filearch.restapi.data.FolderRepo;
 import com.xnelo.filearch.restapi.service.FileService;
 import com.xnelo.filearch.restapi.service.UserService;
@@ -24,6 +26,7 @@ public class FolderService {
   @Inject FolderRepo folderRepo;
   @Inject UserService userService;
   @Inject FileService fileService;
+  @Inject FilearchConfig config;
 
   public Uni<Folder> createRootFolderForUser(final long userId) {
     return folderRepo.createRootFolder(userId);
@@ -356,25 +359,84 @@ public class FolderService {
                           return updateErrorAndPassThrough(folderServiceResponse);
                         }
                         return getIdsToDelete(folderId, user.getId())
-                            .chain(this::deleteFolderInternal);
+                            .chain(a -> deleteFolderInternal(a, user.getId()))
+                            .map(
+                                deleteError -> {
+                                  if (deleteError == null) {
+                                    return new ServiceResponse<>(
+                                        new ServiceActionResponse<>(
+                                            ResourceType.FOLDER,
+                                            ActionType.DELETE,
+                                            folderServiceResponse
+                                                .getActionResponses()
+                                                .getFirst()
+                                                .getData()));
+                                  } else {
+                                    return new ServiceResponse<>(
+                                        new ServiceActionResponse<>(
+                                            ResourceType.FOLDER,
+                                            ActionType.DELETE,
+                                            List.of(deleteError)));
+                                  }
+                                });
                       });
             });
   }
 
-  private Uni<ServiceResponse<Folder>> deleteFolderInternal(
-      final FoldersAndFilesToDelete toDelete) {
-    return Uni.createFrom()
-        .item(
-            new ServiceResponse<>(
-                new ServiceActionResponse<>(
-                    ResourceType.FOLDER,
-                    ActionType.DELETE,
-                    List.of(
-                        ServiceError.builder()
-                            .errorCode(ErrorCode.NOT_IMPLEMENTED)
-                            .errorMessage("Deleting a folder is not implemented yet.")
-                            .httpCode(500)
-                            .build()))));
+  private Uni<ServiceError> deleteFolderInternal(
+      final FoldersAndFilesToDelete toDelete, final long userId) {
+    List<List<Long>> filesToDeletePartitioned =
+        Lists.partitionList(toDelete.getFileIdsToDelete(), config.bulkActions().maxDelete());
+
+    ArrayList<Uni<ServiceResponse<File>>> fileDeleteUnis =
+        new ArrayList<>(filesToDeletePartitioned.size());
+
+    filesToDeletePartitioned.forEach(
+        toDeleteList -> fileDeleteUnis.add(fileService.bulkDeleteFiles(toDeleteList, userId)));
+
+    Uni<Boolean> fileDeleteResult =
+        Uni.combine()
+            .all()
+            .unis(fileDeleteUnis)
+            .with(
+                allServiceResponses -> {
+                  for (Object serviceResponse : allServiceResponses) {
+                    if (serviceResponse instanceof ServiceResponse<?> serviceResponseChecked) {
+                      if (serviceResponseChecked.hasError()) {
+                        return false;
+                      }
+                    }
+                  }
+                  return true;
+                });
+
+    return fileDeleteResult.chain(
+        allDeleted -> {
+          if (!allDeleted) {
+            return Uni.createFrom()
+                .item(
+                    ServiceError.builder()
+                        .errorCode(ErrorCode.FOLDER_DELETE_ERROR_FILES_COULD_NOT_BE_DELETED)
+                        .errorMessage("Error deleting all the files in folder.")
+                        .httpCode(400)
+                        .build());
+          }
+
+          return folderRepo
+              .deleteFolders(toDelete.getFolderIdsToDelete(), userId)
+              .map(
+                  folderDeleteSuccess -> {
+                    if (!folderDeleteSuccess) {
+                      return ServiceError.builder()
+                          .errorCode(ErrorCode.FOLDER_DELETE_ERROR)
+                          .errorMessage("Could not delete all folders.")
+                          .httpCode(400)
+                          .build();
+                    }
+
+                    return null;
+                  });
+        });
   }
 
   private Uni<FoldersAndFilesToDelete> getIdsToDelete(
