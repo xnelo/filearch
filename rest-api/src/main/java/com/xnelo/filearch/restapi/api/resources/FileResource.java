@@ -1,6 +1,7 @@
 package com.xnelo.filearch.restapi.api.resources;
 
 import com.xnelo.filearch.common.model.DownloadData;
+import com.xnelo.filearch.common.model.SortDirection;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.usertoken.UserToken;
@@ -27,6 +28,21 @@ public class FileResource {
   @Inject UserTokenHandler userhandler;
   @Inject FileService fileService;
   private final ContractMapper contractMapper = Mappers.getMapper(ContractMapper.class);
+
+  @GET
+  @RolesAllowed("user")
+  public Uni<Response> getAll(
+      @QueryParam("after") Long after,
+      @QueryParam("limit") Integer limit,
+      @QueryParam("direction") SortDirection dir) {
+    UserToken userToken = userhandler.getUserInfo();
+    return fileService
+        .getAllFiles(userToken, after, limit, dir)
+        .map(
+            listServiceResponse ->
+                contractMapper.toApiResponse(
+                    listServiceResponse, contractMapper::toFileContractList));
+  }
 
   @POST
   @RolesAllowed("user")

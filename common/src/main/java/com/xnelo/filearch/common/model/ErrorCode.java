@@ -6,6 +6,8 @@ import lombok.Getter;
 @Getter
 public enum ErrorCode {
   OK(0),
+  INVALID_RESPONSE_LIMIT(20),
+  INVALID_AFTER_VALUE(21),
   NO_FIELDS_TO_UPDATE(50),
   TOO_MANY_BULK_OPERATIONS(70),
   NOT_IMPLEMENTED(99),

@@ -4,6 +4,7 @@ import static com.xnelo.filearch.common.encryption.JooqFields.decryptField;
 import static com.xnelo.filearch.common.encryption.JooqFields.encryptField;
 
 import com.xnelo.filearch.common.model.File;
+import com.xnelo.filearch.common.model.SortDirection;
 import com.xnelo.filearch.common.model.StorageType;
 import com.xnelo.filearch.jooq.tables.StoredFiles;
 import io.agroal.api.AgroalDataSource;
@@ -13,9 +14,8 @@ import jakarta.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jooq.DSLContext;
-import org.jooq.SQLDialect;
-import org.jooq.SelectField;
+import org.jooq.*;
+import org.jooq.Record;
 import org.jooq.impl.DSL;
 
 @RequestScoped
@@ -45,6 +45,33 @@ public class StoredFilesRepo {
             StoredFiles.STORED_FILES.STORAGE_KEY,
             decryptField(StoredFiles.STORED_FILES.ORIGINAL_FILENAME, encryptionKey)
                 .as(DECRYPTED_ORIGINAL_FILENAME));
+  }
+
+  public Uni<List<File>> getAll(
+      final long userId, final Long after, final Integer limit, final SortDirection sortDirection) {
+    SelectConditionStep<?> selectStatement =
+        context
+            .select(allFields)
+            .from(StoredFiles.STORED_FILES)
+            .where(StoredFiles.STORED_FILES.OWNER_USER_ID.eq(userId));
+
+    SortField<?> sortField;
+    if (sortDirection == null || sortDirection == SortDirection.ASCENDING) {
+      if (after != null && after >= 0) {
+        selectStatement = selectStatement.and(StoredFiles.STORED_FILES.ID.gt(after));
+      }
+      sortField = StoredFiles.STORED_FILES.ID.asc();
+    } else {
+      if (after != null && after >= 0) {
+        selectStatement = selectStatement.and(StoredFiles.STORED_FILES.ID.lt(after));
+      }
+      sortField = StoredFiles.STORED_FILES.ID.desc();
+    }
+
+    SelectLimitPercentStep<?> finalQuery =
+        selectStatement.orderBy(sortField).limit(limit != null && limit > 0 ? limit : 20);
+
+    return Uni.createFrom().item(finalQuery.fetch().map(this::toFileModel));
   }
 
   public Uni<File> createStoredFile(
@@ -117,7 +144,7 @@ public class StoredFilesRepo {
                 .map(this::toFileModel));
   }
 
-  File toFileModel(final org.jooq.Record toConvert) {
+  File toFileModel(final Record toConvert) {
     if (toConvert == null) {
       return null;
     }

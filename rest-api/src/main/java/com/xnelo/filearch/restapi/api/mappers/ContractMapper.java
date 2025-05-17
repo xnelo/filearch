@@ -20,6 +20,8 @@ public interface ContractMapper {
 
   FileContract toFileContract(File file);
 
+  List<FileContract> toFileContractList(List<File> files);
+
   FolderContract toFolderContract(Folder folder);
 
   // Filearch API mappers
