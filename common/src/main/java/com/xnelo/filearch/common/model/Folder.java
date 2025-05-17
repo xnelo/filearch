@@ -14,4 +14,8 @@ public class Folder {
   private long ownerId;
   private Long parentId;
   private String folderName;
+
+  public boolean isRootFolder() {
+    return parentId == null;
+  }
 }

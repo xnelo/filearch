@@ -358,6 +358,26 @@ public class FolderService {
                         if (folderServiceResponse.hasError()) {
                           return updateErrorAndPassThrough(folderServiceResponse);
                         }
+
+                        Folder folderData =
+                            folderServiceResponse.getActionResponses().getFirst().getData();
+
+                        if (folderData.isRootFolder()) {
+                          return Uni.createFrom()
+                              .item(
+                                  new ServiceResponse<>(
+                                      new ServiceActionResponse<>(
+                                          ResourceType.FOLDER,
+                                          ActionType.DELETE,
+                                          List.of(
+                                              ServiceError.builder()
+                                                  .errorCode(
+                                                      ErrorCode.ROOT_FOLDER_CANNOT_BE_DELETED)
+                                                  .errorMessage("Root folder cannot be deleted.")
+                                                  .httpCode(400)
+                                                  .build()))));
+                        }
+
                         return getIdsToDelete(folderId, user.getId())
                             .chain(a -> deleteFolderInternal(a, user.getId()))
                             .map(
@@ -365,12 +385,7 @@ public class FolderService {
                                   if (deleteError == null) {
                                     return new ServiceResponse<>(
                                         new ServiceActionResponse<>(
-                                            ResourceType.FOLDER,
-                                            ActionType.DELETE,
-                                            folderServiceResponse
-                                                .getActionResponses()
-                                                .getFirst()
-                                                .getData()));
+                                            ResourceType.FOLDER, ActionType.DELETE, folderData));
                                   } else {
                                     return new ServiceResponse<>(
                                         new ServiceActionResponse<>(
