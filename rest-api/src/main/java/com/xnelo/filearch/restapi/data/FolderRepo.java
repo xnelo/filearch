@@ -4,6 +4,7 @@ import static com.xnelo.filearch.common.encryption.JooqFields.decryptField;
 import static com.xnelo.filearch.common.encryption.JooqFields.encryptField;
 
 import com.xnelo.filearch.common.model.Folder;
+import com.xnelo.filearch.common.model.SortDirection;
 import com.xnelo.filearch.jooq.tables.Folders;
 import io.agroal.api.AgroalDataSource;
 import io.quarkus.logging.Log;
@@ -15,10 +16,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jooq.DSLContext;
+import org.jooq.*;
 import org.jooq.Record;
-import org.jooq.SQLDialect;
-import org.jooq.SelectField;
 import org.jooq.impl.DSL;
 
 @RequestScoped
@@ -49,6 +48,20 @@ public class FolderRepo {
             Folders.FOLDERS.OWNER_USER_ID,
             Folders.FOLDERS.PARENT_ID,
             decryptField(Folders.FOLDERS.NAME, encryptionKey).as(DECRYPTED_NAME));
+  }
+
+  public Uni<List<Folder>> getAll(
+      final long userId, final Long after, final Integer limit, final SortDirection sortDirection) {
+    SelectConditionStep<?> selectStatement =
+        context
+            .select(allFields)
+            .from(Folders.FOLDERS)
+            .where(Folders.FOLDERS.OWNER_USER_ID.eq(userId));
+
+    SelectLimitPercentStep<?> finalQuery =
+        RepoUtils.addPagination(selectStatement, Folders.FOLDERS.ID, after, limit, sortDirection);
+
+    return Uni.createFrom().item(finalQuery.fetch().map(this::toFolderModel));
   }
 
   public Uni<Folder> createRootFolder(final long userId) {

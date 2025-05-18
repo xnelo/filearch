@@ -24,6 +24,8 @@ public interface ContractMapper {
 
   FolderContract toFolderContract(Folder folder);
 
+  List<FolderContract> toFolderContractList(List<Folder> folders);
+
   // Filearch API mappers
   @Mapping(target = "errorCode", expression = "java( error.getErrorCode().getCode() )")
   FilearchApiErrorResponse toErrorResponse(ServiceError error);

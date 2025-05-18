@@ -2,6 +2,7 @@ package com.xnelo.filearch.restapi.api.resources;
 
 import static com.xnelo.filearch.common.json.JsonUtil.toJsonString;
 
+import com.xnelo.filearch.common.model.SortDirection;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.usertoken.UserTokenHandler;
 import com.xnelo.filearch.restapi.api.contracts.FolderContract;
@@ -22,6 +23,21 @@ public class FolderResource {
   @Inject UserTokenHandler userTokenHandler;
   @Inject FolderService folderService;
   private final ContractMapper contractMapper = Mappers.getMapper(ContractMapper.class);
+
+  @GET
+  @RolesAllowed("user")
+  public Uni<Response> getAll(
+      @QueryParam("after") Long after,
+      @QueryParam("limit") Integer limit,
+      @QueryParam("direction") SortDirection dir) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return folderService
+        .getAllFolders(userToken, after, limit, dir)
+        .map(
+            listServiceResponse ->
+                contractMapper.toApiResponse(
+                    listServiceResponse, contractMapper::toFolderContractList));
+  }
 
   @POST
   @RolesAllowed("user")

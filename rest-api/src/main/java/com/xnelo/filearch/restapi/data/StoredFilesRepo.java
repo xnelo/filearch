@@ -55,21 +55,9 @@ public class StoredFilesRepo {
             .from(StoredFiles.STORED_FILES)
             .where(StoredFiles.STORED_FILES.OWNER_USER_ID.eq(userId));
 
-    SortField<?> sortField;
-    if (sortDirection == null || sortDirection == SortDirection.ASCENDING) {
-      if (after != null && after >= 0) {
-        selectStatement = selectStatement.and(StoredFiles.STORED_FILES.ID.gt(after));
-      }
-      sortField = StoredFiles.STORED_FILES.ID.asc();
-    } else {
-      if (after != null && after >= 0) {
-        selectStatement = selectStatement.and(StoredFiles.STORED_FILES.ID.lt(after));
-      }
-      sortField = StoredFiles.STORED_FILES.ID.desc();
-    }
-
     SelectLimitPercentStep<?> finalQuery =
-        selectStatement.orderBy(sortField).limit(limit != null && limit > 0 ? limit : 20);
+        RepoUtils.addPagination(
+            selectStatement, StoredFiles.STORED_FILES.ID, after, limit, sortDirection);
 
     return Uni.createFrom().item(finalQuery.fetch().map(this::toFileModel));
   }
