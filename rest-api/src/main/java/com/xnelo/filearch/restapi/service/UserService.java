@@ -261,6 +261,18 @@ public class UserService {
             });
   }
 
+  public Uni<ServiceResponse<User>> deleteUser(final UserToken userInfo) {
+    return userRepo
+        .getUserFromExternalId(userInfo.getId())
+        .chain(user->{
+          if (user==null){
+            return Uni.createFrom().item(new ServiceResponse<>(new ServiceActionResponse<>(ResourceType.USER, ActionType.DELETE, List.of(ServiceError.builder().errorCode(ErrorCode.USER_DOES_NOT_EXIST).errorMessage("User does not exist").httpCode(404).build()))));
+          }
+
+
+        });
+  }
+
   private Map<String, Object> toUpdateMap(final UserContract toUpdate) {
     Map<String, Object> updateMap = new HashMap<>();
 
