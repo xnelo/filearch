@@ -8,6 +8,7 @@ import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.usertoken.UserToken;
+import com.xnelo.filearch.common.utils.ServiceResponseUtils;
 import com.xnelo.filearch.jooq.tables.Users;
 import com.xnelo.filearch.restapi.api.contracts.UserContract;
 import com.xnelo.filearch.restapi.data.UserRepo;
@@ -264,13 +265,58 @@ public class UserService {
   public Uni<ServiceResponse<User>> deleteUser(final UserToken userInfo) {
     return userRepo
         .getUserFromExternalId(userInfo.getId())
-        .chain(user->{
-          if (user==null){
-            return Uni.createFrom().item(new ServiceResponse<>(new ServiceActionResponse<>(ResourceType.USER, ActionType.DELETE, List.of(ServiceError.builder().errorCode(ErrorCode.USER_DOES_NOT_EXIST).errorMessage("User does not exist").httpCode(404).build()))));
-          }
+        .chain(
+            user -> {
+              if (user == null) {
+                return Uni.createFrom()
+                    .item(
+                        new ServiceResponse<>(
+                            new ServiceActionResponse<>(
+                                ResourceType.USER,
+                                ActionType.DELETE,
+                                List.of(
+                                    ServiceError.builder()
+                                        .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
+                                        .errorMessage("User does not exist")
+                                        .httpCode(404)
+                                        .build()))));
+              }
 
+              return folderService
+                  .deleteRootFolder(user.getRootFolderId(), user.getId())
+                  .chain(
+                      deleteFolderResponse -> {
+                        if (deleteFolderResponse.hasError()) {
+                          return Uni.createFrom()
+                              .item(
+                                  ServiceResponseUtils.updateErrorAndPassThrough(
+                                      deleteFolderResponse, ResourceType.USER));
+                        }
 
-        });
+                        return userRepo
+                            .deleteUser(user.getId())
+                            .map(
+                                deletedUser -> {
+                                  if (deletedUser == null) {
+                                    return new ServiceResponse<>(
+                                        new ServiceActionResponse<>(
+                                            ResourceType.USER,
+                                            ActionType.DELETE,
+                                            List.of(
+                                                ServiceError.builder()
+                                                    .errorCode(ErrorCode.USER_DELETE_ERROR)
+                                                    .errorMessage(
+                                                        "Error deleting user from database.")
+                                                    .httpCode(500)
+                                                    .build())));
+                                  }
+
+                                  return new ServiceResponse<>(
+                                      new ServiceActionResponse<>(
+                                          ResourceType.USER, ActionType.DELETE, deletedUser));
+                                });
+                      });
+            });
   }
 
   private Map<String, Object> toUpdateMap(final UserContract toUpdate) {

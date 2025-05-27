@@ -32,6 +32,10 @@ public class FolderService {
     return folderRepo.createRootFolder(userId);
   }
 
+  public Uni<ServiceResponse<Folder>> deleteRootFolder(final long folderId, final long userId) {
+    return deleteIfFolderExists(folderId, userId, false);
+  }
+
   public Uni<ServiceResponse<List<Folder>>> getAllFolders(
       final UserToken userInfo,
       final Long after,
@@ -420,11 +424,12 @@ public class FolderService {
 
               User user = userServiceResponse.getActionResponses().getFirst().getData();
 
-              return deleteIfFolderExists(folderId, user.getId());
+              return deleteIfFolderExists(folderId, user.getId(), true);
             });
   }
 
-  private Uni<ServiceResponse<Folder>> deleteIfFolderExists(final long folderId, final long userId) {
+  private Uni<ServiceResponse<Folder>> deleteIfFolderExists(
+      final long folderId, final long userId, final boolean preventRootDelete) {
     return getFolderById(folderId, userId)
         .chain(
             folderServiceResponse -> {
@@ -432,10 +437,9 @@ public class FolderService {
                 return updateErrorAndPassThrough(folderServiceResponse);
               }
 
-              Folder folderData =
-                  folderServiceResponse.getActionResponses().getFirst().getData();
+              Folder folderData = folderServiceResponse.getActionResponses().getFirst().getData();
 
-              if (folderData.isRootFolder()) {
+              if (preventRootDelete && folderData.isRootFolder()) {
                 return Uni.createFrom()
                     .item(
                         new ServiceResponse<>(
@@ -444,15 +448,14 @@ public class FolderService {
                                 ActionType.DELETE,
                                 List.of(
                                     ServiceError.builder()
-                                        .errorCode(
-                                            ErrorCode.ROOT_FOLDER_CANNOT_BE_DELETED)
+                                        .errorCode(ErrorCode.ROOT_FOLDER_CANNOT_BE_DELETED)
                                         .errorMessage("Root folder cannot be deleted.")
                                         .httpCode(400)
                                         .build()))));
               }
 
               return getIdsToDelete(folderId, userId)
-                  .chain(a -> deleteFolderInternal(a, userId))
+                  .chain(toDelete -> deleteFolderInternal(toDelete, userId))
                   .map(
                       deleteError -> {
                         if (deleteError == null) {
@@ -462,9 +465,7 @@ public class FolderService {
                         } else {
                           return new ServiceResponse<>(
                               new ServiceActionResponse<>(
-                                  ResourceType.FOLDER,
-                                  ActionType.DELETE,
-                                  List.of(deleteError)));
+                                  ResourceType.FOLDER, ActionType.DELETE, List.of(deleteError)));
                         }
                       });
             });

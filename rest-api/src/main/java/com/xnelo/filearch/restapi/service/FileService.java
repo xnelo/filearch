@@ -5,6 +5,7 @@ import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.usertoken.UserToken;
+import com.xnelo.filearch.common.utils.ServiceResponseUtils;
 import com.xnelo.filearch.restapi.api.contracts.FileUploadContract;
 import com.xnelo.filearch.restapi.config.FilearchConfig;
 import com.xnelo.filearch.restapi.data.SequenceRepo;
@@ -282,21 +283,14 @@ public class FileService {
         .chain(
             userResponse -> {
               if (userResponse.hasError()) {
-                return updateErrorAndPassThrough(userResponse);
+                return Uni.createFrom()
+                    .item(
+                        ServiceResponseUtils.updateErrorAndPassThrough(
+                            userResponse, ResourceType.FILE));
               }
               User user = userResponse.getActionResponses().getFirst().getData();
               return deleteIndividualFile(fileId, user.getId()).map(ServiceResponse::new);
             });
-  }
-
-  private Uni<ServiceResponse<File>> updateErrorAndPassThrough(ServiceResponse<?> response) {
-    ArrayList<ServiceActionResponse<File>> actionResponses = new ArrayList<>();
-    for (ServiceActionResponse<?> actionResponse : response.getActionResponses()) {
-      actionResponses.add(
-          new ServiceActionResponse<>(
-              ResourceType.FILE, actionResponse.getActionType(), actionResponse.getErrors()));
-    }
-    return Uni.createFrom().item(new ServiceResponse<>(actionResponses));
   }
 
   private Uni<ServiceActionResponse<File>> deleteIndividualFile(
@@ -432,7 +426,10 @@ public class FileService {
         .chain(
             userResponse -> {
               if (userResponse.hasError()) {
-                return updateErrorAndPassThrough(userResponse);
+                return Uni.createFrom()
+                    .item(
+                        ServiceResponseUtils.updateErrorAndPassThrough(
+                            userResponse, ResourceType.FILE));
               }
               User user = userResponse.getActionResponses().getFirst().getData();
               return bulkDeleteFiles(filesIdsToDelete, user.getId());
