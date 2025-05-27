@@ -60,4 +60,16 @@ public class UserResource {
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toUserContract));
   }
+
+  @DELETE
+  @RolesAllowed("user")
+  public Uni<Response> deleteUser() {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    Log.infof("Deleting user: token=%s", toJsonString(userToken));
+    return userService
+        .deleteUser(userToken)
+        .map(
+            serviceResponse ->
+                contractMapper.toApiResponse(serviceResponse, contractMapper::toUserContract));
+  }
 }

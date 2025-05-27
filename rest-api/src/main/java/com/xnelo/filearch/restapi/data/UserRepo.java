@@ -81,6 +81,17 @@ public class UserRepo {
         .map(this::toUserModel);
   }
 
+  public Uni<User> deleteUser(final long userId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .delete(Users.USERS)
+                .where(Users.USERS.ID.eq(userId))
+                .returningResult(allFields)
+                .fetchOne())
+        .map(this::toUserModel);
+  }
+
   public Uni<User> getUserFromExternalId(final String externalId) {
     return Uni.createFrom()
         .item(
