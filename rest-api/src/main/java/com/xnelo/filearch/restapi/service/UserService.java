@@ -35,7 +35,23 @@ public class UserService {
   public Uni<ServiceResponse<User>> getUserFromUserToken(final UserToken userToken) {
     return userRepo
         .getUserFromExternalId(userToken.getId())
-        .map(user -> toServiceResponse(ActionType.GET, user));
+        .map(
+            user -> {
+              if (user == null) {
+                return new ServiceResponse<>(
+                    new ServiceActionResponse<>(
+                        User.USER_RESOURCE_TYPE,
+                        ActionType.GET,
+                        List.of(
+                            ServiceError.builder()
+                                .httpCode(404)
+                                .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
+                                .errorMessage("User does not exist in Database.")
+                                .build())));
+              } else {
+                return toServiceResponse(ActionType.GET, user);
+              }
+            });
   }
 
   public Uni<ServiceResponse<User>> getUserById(final int userId) {

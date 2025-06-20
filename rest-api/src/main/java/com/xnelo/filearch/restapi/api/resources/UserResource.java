@@ -72,4 +72,15 @@ public class UserResource {
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toUserContract));
   }
+
+  @GET
+  @RolesAllowed("user")
+  public Uni<Response> getUserByExternalId() {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return userService
+        .getUserFromUserToken(userToken)
+        .map(
+            serviceResponse ->
+                contractMapper.toApiResponse(serviceResponse, contractMapper::toUserContract));
+  }
 }
