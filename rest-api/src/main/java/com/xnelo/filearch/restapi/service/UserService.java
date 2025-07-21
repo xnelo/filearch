@@ -352,4 +352,14 @@ public class UserService {
 
     return updateMap;
   }
+
+  public Uni<ServiceResponse<Boolean>> isUsernameAvailable(final String username) {
+    return userRepo
+        .isUsernameUnique(username)
+        .map(
+            isUsernameUnique ->
+                new ServiceResponse<>(
+                    new ServiceActionResponse<>(
+                        ResourceType.USERNAME, ActionType.GET, isUsernameUnique)));
+  }
 }
