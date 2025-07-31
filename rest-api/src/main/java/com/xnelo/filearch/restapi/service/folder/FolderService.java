@@ -471,8 +471,12 @@ public class FolderService {
             });
   }
 
-  private Uni<ServiceError> deleteFolderInternal(
-      final FoldersAndFilesToDelete toDelete, final long userId) {
+  private Uni<Boolean> deleteFilesInternal(final FoldersAndFilesToDelete toDelete, final long userId) {
+    List<Long> allFilesToDelete = toDelete.getFileIdsToDelete();
+    if (allFilesToDelete.isEmpty()) {
+      return Uni.createFrom().item(Boolean.TRUE);
+    }
+
     List<List<Long>> filesToDeletePartitioned =
         Lists.partitionList(toDelete.getFileIdsToDelete(), config.bulkActions().maxDelete());
 
@@ -482,8 +486,7 @@ public class FolderService {
     filesToDeletePartitioned.forEach(
         toDeleteList -> fileDeleteUnis.add(fileService.bulkDeleteFiles(toDeleteList, userId)));
 
-    Uni<Boolean> fileDeleteResult =
-        Uni.combine()
+        return Uni.combine()
             .all()
             .unis(fileDeleteUnis)
             .with(
@@ -497,6 +500,12 @@ public class FolderService {
                   }
                   return true;
                 });
+  }
+
+  private Uni<ServiceError> deleteFolderInternal(
+      final FoldersAndFilesToDelete toDelete, final long userId) {
+
+    Uni<Boolean> fileDeleteResult = deleteFilesInternal(toDelete, userId);
 
     return fileDeleteResult.chain(
         allDeleted -> {
