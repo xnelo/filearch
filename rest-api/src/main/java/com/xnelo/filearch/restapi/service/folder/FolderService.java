@@ -471,7 +471,8 @@ public class FolderService {
             });
   }
 
-  private Uni<Boolean> deleteFilesInternal(final FoldersAndFilesToDelete toDelete, final long userId) {
+  private Uni<Boolean> deleteFilesInternal(
+      final FoldersAndFilesToDelete toDelete, final long userId) {
     List<Long> allFilesToDelete = toDelete.getFileIdsToDelete();
     if (allFilesToDelete.isEmpty()) {
       return Uni.createFrom().item(Boolean.TRUE);
@@ -486,20 +487,20 @@ public class FolderService {
     filesToDeletePartitioned.forEach(
         toDeleteList -> fileDeleteUnis.add(fileService.bulkDeleteFiles(toDeleteList, userId)));
 
-        return Uni.combine()
-            .all()
-            .unis(fileDeleteUnis)
-            .with(
-                allServiceResponses -> {
-                  for (Object serviceResponse : allServiceResponses) {
-                    if (serviceResponse instanceof ServiceResponse<?> serviceResponseChecked) {
-                      if (serviceResponseChecked.hasError()) {
-                        return false;
-                      }
-                    }
+    return Uni.combine()
+        .all()
+        .unis(fileDeleteUnis)
+        .with(
+            allServiceResponses -> {
+              for (Object serviceResponse : allServiceResponses) {
+                if (serviceResponse instanceof ServiceResponse<?> serviceResponseChecked) {
+                  if (serviceResponseChecked.hasError()) {
+                    return false;
                   }
-                  return true;
-                });
+                }
+              }
+              return true;
+            });
   }
 
   private Uni<ServiceError> deleteFolderInternal(
