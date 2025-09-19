@@ -50,7 +50,7 @@ public class FolderRepo {
             decryptField(Folders.FOLDERS.NAME, encryptionKey).as(DECRYPTED_NAME));
   }
 
-  public Uni<List<Folder>> getAll(
+  public Uni<PaginatedData<Folder>> getAll(
       final long userId, final Long after, final Integer limit, final SortDirection sortDirection) {
     SelectConditionStep<?> selectStatement =
         context
@@ -61,7 +61,9 @@ public class FolderRepo {
     SelectLimitPercentStep<?> finalQuery =
         RepoUtils.addPagination(selectStatement, Folders.FOLDERS.ID, after, limit, sortDirection);
 
-    return Uni.createFrom().item(finalQuery.fetch().map(this::toFolderModel));
+    List<Folder> data = finalQuery.fetch().map(this::toFolderModel);
+
+    return Uni.createFrom().item(RepoUtils.toPaginatedData(after, data, sortDirection, limit));
   }
 
   public Uni<Folder> createRootFolder(final long userId) {

@@ -1,12 +1,14 @@
 package com.xnelo.filearch.restapi.service.folder;
 
 import com.xnelo.filearch.common.model.*;
+import com.xnelo.filearch.common.service.PaginatedResponse;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.utils.Lists;
 import com.xnelo.filearch.restapi.api.contracts.FolderContract;
+import com.xnelo.filearch.restapi.api.mappers.PaginationMapper;
 import com.xnelo.filearch.restapi.config.FilearchConfig;
 import com.xnelo.filearch.restapi.data.FolderRepo;
 import com.xnelo.filearch.restapi.service.FileService;
@@ -20,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import lombok.Getter;
+import org.mapstruct.factory.Mappers;
 
 @RequestScoped
 public class FolderService {
@@ -27,6 +30,7 @@ public class FolderService {
   @Inject UserService userService;
   @Inject FileService fileService;
   @Inject FilearchConfig config;
+  final PaginationMapper paginationMapper = Mappers.getMapper(PaginationMapper.class);
 
   public Uni<Folder> createRootFolderForUser(final long userId) {
     return folderRepo.createRootFolder(userId);
@@ -36,7 +40,7 @@ public class FolderService {
     return deleteIfFolderExists(folderId, userId, false);
   }
 
-  public Uni<ServiceResponse<List<Folder>>> getAllFolders(
+  public Uni<ServiceResponse<PaginatedResponse<Folder>>> getAllFolders(
       final UserToken userInfo,
       final Long after,
       final Integer limit,
@@ -97,10 +101,12 @@ public class FolderService {
               return folderRepo
                   .getAll(user.getId(), after, limit, sortDirection)
                   .map(
-                      folders ->
+                      paginatedFolders ->
                           new ServiceResponse<>(
                               new ServiceActionResponse<>(
-                                  ResourceType.FOLDER, ActionType.GET, folders)));
+                                  ResourceType.FOLDER,
+                                  ActionType.GET,
+                                  paginationMapper.toPaginatedResponse(paginatedFolders))));
             });
   }
 
