@@ -3,6 +3,7 @@ package com.xnelo.filearch.restapi.api.mappers;
 import com.xnelo.filearch.common.model.File;
 import com.xnelo.filearch.common.model.Folder;
 import com.xnelo.filearch.common.model.User;
+import com.xnelo.filearch.common.service.PaginatedResponse;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
@@ -25,6 +26,13 @@ public interface ContractMapper {
   FolderContract toFolderContract(Folder folder);
 
   List<FolderContract> toFolderContractList(List<Folder> folders);
+
+  default <R, S> PaginationContract<R> toPaginationContract(
+      PaginatedResponse<S> toConvert, Function<List<S>, List<R>> howToConvert) {
+    List<R> data = howToConvert.apply(toConvert.getData());
+
+    return new PaginationContract<>(data, toConvert.isHasNext());
+  }
 
   // Filearch API mappers
   @Mapping(target = "errorCode", expression = "java( error.getErrorCode().getCode() )")

@@ -47,7 +47,7 @@ public class StoredFilesRepo {
                 .as(DECRYPTED_ORIGINAL_FILENAME));
   }
 
-  public Uni<List<File>> getAll(
+  public Uni<PaginatedData<File>> getAll(
       final long userId, final Long after, final Integer limit, final SortDirection sortDirection) {
     SelectConditionStep<?> selectStatement =
         context
@@ -59,7 +59,9 @@ public class StoredFilesRepo {
         RepoUtils.addPagination(
             selectStatement, StoredFiles.STORED_FILES.ID, after, limit, sortDirection);
 
-    return Uni.createFrom().item(finalQuery.fetch().map(this::toFileModel));
+    List<File> data = finalQuery.fetch().map(this::toFileModel);
+
+    return Uni.createFrom().item(RepoUtils.toPaginatedData(after, data, sortDirection, limit));
   }
 
   public Uni<File> createStoredFile(

@@ -39,9 +39,12 @@ public class FileResource {
     return fileService
         .getAllFiles(userToken, after, limit, dir)
         .map(
-            listServiceResponse ->
+            paginatedServiceResponse ->
                 contractMapper.toApiResponse(
-                    listServiceResponse, contractMapper::toFileContractList));
+                    paginatedServiceResponse,
+                    resp ->
+                        contractMapper.toPaginationContract(
+                            resp, contractMapper::toFileContractList)));
   }
 
   @POST

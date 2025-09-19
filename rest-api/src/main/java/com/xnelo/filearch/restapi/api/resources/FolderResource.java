@@ -34,9 +34,12 @@ public class FolderResource {
     return folderService
         .getAllFolders(userToken, after, limit, dir)
         .map(
-            listServiceResponse ->
+            paginatedServiceResponse ->
                 contractMapper.toApiResponse(
-                    listServiceResponse, contractMapper::toFolderContractList));
+                    paginatedServiceResponse,
+                    resp ->
+                        contractMapper.toPaginationContract(
+                            resp, contractMapper::toFolderContractList)));
   }
 
   @POST
