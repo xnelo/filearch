@@ -1,12 +1,14 @@
 package com.xnelo.filearch.restapi.service;
 
 import com.xnelo.filearch.common.model.*;
+import com.xnelo.filearch.common.service.PaginatedResponse;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.utils.ServiceResponseUtils;
 import com.xnelo.filearch.restapi.api.contracts.FileUploadContract;
+import com.xnelo.filearch.restapi.api.mappers.PaginationMapper;
 import com.xnelo.filearch.restapi.config.FilearchConfig;
 import com.xnelo.filearch.restapi.data.SequenceRepo;
 import com.xnelo.filearch.restapi.data.StoredFilesRepo;
@@ -20,6 +22,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
+import org.mapstruct.factory.Mappers;
 
 @RequestScoped
 public class FileService {
@@ -29,8 +32,9 @@ public class FileService {
   @Inject StoredFilesRepo storedFilesRepo;
   @Inject FolderService folderService;
   @Inject FilearchConfig config;
+  final PaginationMapper paginationMapper = Mappers.getMapper(PaginationMapper.class);
 
-  public Uni<ServiceResponse<List<File>>> getAllFiles(
+  public Uni<ServiceResponse<PaginatedResponse<File>>> getAllFiles(
       final UserToken userInfo,
       final Long after,
       final Integer limit,
@@ -91,10 +95,12 @@ public class FileService {
               return storedFilesRepo
                   .getAll(user.getId(), after, limit, sortDirection)
                   .map(
-                      files ->
+                      paginatedFiles ->
                           new ServiceResponse<>(
                               new ServiceActionResponse<>(
-                                  ResourceType.FILE, ActionType.GET, files)));
+                                  ResourceType.FILE,
+                                  ActionType.GET,
+                                  paginationMapper.toPaginatedResponse(paginatedFiles))));
             });
   }
 
