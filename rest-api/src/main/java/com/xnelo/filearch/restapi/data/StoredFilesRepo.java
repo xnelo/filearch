@@ -134,6 +134,28 @@ public class StoredFilesRepo {
                 .map(this::toFileModel));
   }
 
+  public Uni<PaginatedData<File>> getFilesInFolder(
+      final Long folderId,
+      final long userId,
+      final Long after,
+      final Integer limit,
+      final SortDirection sortDirection) {
+    SelectConditionStep<?> selectStatement =
+        context
+            .select(allFields)
+            .from(StoredFiles.STORED_FILES)
+            .where(StoredFiles.STORED_FILES.OWNER_USER_ID.eq(userId))
+            .and(StoredFiles.STORED_FILES.FOLDER_ID.eq(folderId));
+
+    SelectLimitPercentStep<?> finalQuery =
+        RepoUtils.addPagination(
+            selectStatement, StoredFiles.STORED_FILES.ID, after, limit, sortDirection);
+
+    List<File> data = finalQuery.fetch().map(this::toFileModel);
+
+    return Uni.createFrom().item(RepoUtils.toPaginatedData(after, data, sortDirection, limit));
+  }
+
   File toFileModel(final Record toConvert) {
     if (toConvert == null) {
       return null;

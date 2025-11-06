@@ -110,6 +110,76 @@ public class FolderService {
             });
   }
 
+  public Uni<ServiceResponse<PaginatedResponse<File>>> getAllFilesInFolder(
+      final UserToken userInfo,
+      final Long folderId,
+      final Long after,
+      final Integer limit,
+      final SortDirection sortDirection) {
+    if (after != null && after < 0) {
+      return Uni.createFrom()
+          .item(
+              new ServiceResponse<>(
+                  new ServiceActionResponse<>(
+                      ResourceType.FOLDER,
+                      ActionType.GET,
+                      List.of(
+                          ServiceError.builder()
+                              .errorCode(ErrorCode.INVALID_AFTER_VALUE)
+                              .errorMessage("After value must be greater than 0.")
+                              .httpCode(400)
+                              .build()))));
+    }
+
+    if (limit != null && limit <= 0) {
+      return Uni.createFrom()
+          .item(
+              new ServiceResponse<>(
+                  new ServiceActionResponse<>(
+                      ResourceType.FILE,
+                      ActionType.GET,
+                      List.of(
+                          ServiceError.builder()
+                              .errorCode(ErrorCode.INVALID_RESPONSE_LIMIT)
+                              .errorMessage(
+                                  "A return limit of '"
+                                      + limit
+                                      + "' is invalid. Must be greater than 0")
+                              .httpCode(400)
+                              .build()))));
+    }
+
+    return userService
+        .getUserFromUserToken(userInfo)
+        .chain(
+            userResponse -> {
+              User user = userResponse.getActionResponses().getFirst().getData();
+              if (user == null) {
+                return Uni.createFrom()
+                    .item(
+                        new ServiceResponse<>(
+                            new ServiceActionResponse<>(
+                                ResourceType.FOLDER,
+                                ActionType.GET,
+                                List.of(
+                                    ServiceError.builder()
+                                        .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
+                                        .errorMessage("User does not exist.")
+                                        .httpCode(404)
+                                        .build()))));
+              }
+
+              return checkFolderExist(
+                  folderId,
+                  user.getId(),
+                  ResourceType.FOLDER,
+                  ActionType.GET,
+                  folder ->
+                      fileService.getAllFilesInFolder(
+                          userInfo, folderId, after, limit, sortDirection));
+            });
+  }
+
   public Uni<ServiceResponse<Folder>> getFolderById(final long folderId, final long userId) {
     return folderRepo
         .getFolderById(folderId, userId)

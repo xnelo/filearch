@@ -93,4 +93,24 @@ public class FolderResource {
                 contractMapper.toApiResponse(
                     folderServiceDeleted, contractMapper::toFolderContract));
   }
+
+  @GET
+  @RolesAllowed("user")
+  @Path("{id}/files")
+  public Uni<Response> getFilesInFolder(
+      @PathParam("id") long folderId,
+      @QueryParam("after") Long after,
+      @QueryParam("limit") Integer limit,
+      @QueryParam("direction") SortDirection dir) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return folderService
+        .getAllFilesInFolder(userToken, folderId, after, limit, dir)
+        .map(
+            paginatedServiceResponse ->
+                contractMapper.toApiResponse(
+                    paginatedServiceResponse,
+                    resp ->
+                        contractMapper.toPaginationContract(
+                            resp, contractMapper::toFileContractList)));
+  }
 }
