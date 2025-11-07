@@ -180,6 +180,11 @@ public class FolderService {
             });
   }
 
+  public Uni<ServiceResponse<List<Long>>> getAllFileIdsInFolder(
+      final UserToken userInfo, final long folderId) {
+    return fileService.getAllFileIdsInFolder(userInfo, folderId);
+  }
+
   public Uni<ServiceResponse<Folder>> getFolderById(final long folderId, final long userId) {
     return folderRepo
         .getFolderById(folderId, userId)

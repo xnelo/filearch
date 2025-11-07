@@ -113,4 +113,14 @@ public class FolderResource {
                         contractMapper.toPaginationContract(
                             resp, contractMapper::toFileContractList)));
   }
+
+  @GET
+  @RolesAllowed("user")
+  @Path("{id}/files/all_ids")
+  public Uni<Response> getAllFileIdsInFolder(@PathParam("id") long folderId) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return folderService
+        .getAllFileIdsInFolder(userToken, folderId)
+        .map(idResponse -> contractMapper.toApiResponse(idResponse, ids -> ids));
+  }
 }

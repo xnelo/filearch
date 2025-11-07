@@ -156,6 +156,18 @@ public class StoredFilesRepo {
     return Uni.createFrom().item(RepoUtils.toPaginatedData(after, data, sortDirection, limit));
   }
 
+  public Uni<List<Long>> getFileIdsInFolder(final long userId, final long folderId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .select(StoredFiles.STORED_FILES.ID)
+                .from(StoredFiles.STORED_FILES)
+                .where(StoredFiles.STORED_FILES.OWNER_USER_ID.eq(userId))
+                .and(StoredFiles.STORED_FILES.FOLDER_ID.eq(folderId))
+                .fetch()
+                .map(Record1::value1));
+  }
+
   File toFileModel(final Record toConvert) {
     if (toConvert == null) {
       return null;

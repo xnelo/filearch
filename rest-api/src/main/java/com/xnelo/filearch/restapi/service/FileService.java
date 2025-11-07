@@ -104,6 +104,38 @@ public class FileService {
             });
   }
 
+  public Uni<ServiceResponse<List<Long>>> getAllFileIdsInFolder(
+      final UserToken userToken, final Long folderId) {
+    return userService
+        .getUserFromUserToken(userToken)
+        .chain(
+            userResponse -> {
+              User user = userResponse.getActionResponses().getFirst().getData();
+              if (user == null) {
+                return Uni.createFrom()
+                    .item(
+                        new ServiceResponse<>(
+                            new ServiceActionResponse<>(
+                                ResourceType.FILE_IDS,
+                                ActionType.GET,
+                                List.of(
+                                    ServiceError.builder()
+                                        .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
+                                        .errorMessage("User does not exist.")
+                                        .httpCode(404)
+                                        .build()))));
+              }
+
+              return storedFilesRepo
+                  .getFileIdsInFolder(user.getId(), folderId)
+                  .map(
+                      fileIds ->
+                          new ServiceResponse<>(
+                              new ServiceActionResponse<>(
+                                  ResourceType.FILE_IDS, ActionType.GET, fileIds)));
+            });
+  }
+
   public Uni<ServiceResponse<PaginatedResponse<File>>> getAllFilesInFolder(
       final UserToken userInfo,
       final Long folderId,
