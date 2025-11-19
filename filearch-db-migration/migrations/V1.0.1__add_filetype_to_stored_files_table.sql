@@ -1,0 +1,2 @@
+ALTER TABLE IF EXISTS stored_files
+ADD COLUMN mime_type VARCHAR(255);
