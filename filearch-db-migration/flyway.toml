@@ -1,0 +1,31 @@
+databaseType = "PostgreSql"
+id = "254f3e1b-22af-4b90-a0e2-b1bd6205b0c3"
+name = "filearch-db-migration"
+
+[flyway]
+locations = [ "filesystem:migrations" ]
+mixed = true
+outOfOrder = true
+schemaModelLocation = "schema-model"
+validateMigrationNaming = true
+
+  [flyway.check]
+  majorTolerance = 0
+
+[flywayDesktop]
+developmentEnvironment = "development"
+shadowEnvironment = "shadow"
+
+[redgateCompare]
+filterFile = "filter.rgf"
+
+[redgateCompare.postgresql.options.behavior]
+detectRenames = "identical-only"
+
+[redgateCompare.postgresql.options.ignores]
+ignoreNewlinesInTextObjects = "off"
+
+[environments.XneloMediaDB]
+url = "jdbc:postgresql://192.168.1.205:5432/filearch"
+schemas = [ "FILEARCH" ]
+displayName = "Xnelo Media DB"

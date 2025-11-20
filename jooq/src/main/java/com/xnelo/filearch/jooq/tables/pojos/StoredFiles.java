@@ -22,6 +22,7 @@ public class StoredFiles implements Serializable {
     private final String storageType;
     private final String storageKey;
     private final byte[] originalFilename;
+    private final String mimeType;
 
     public StoredFiles(StoredFiles value) {
         this.id = value.id;
@@ -30,6 +31,7 @@ public class StoredFiles implements Serializable {
         this.storageType = value.storageType;
         this.storageKey = value.storageKey;
         this.originalFilename = value.originalFilename;
+        this.mimeType = value.mimeType;
     }
 
     public StoredFiles(
@@ -38,7 +40,8 @@ public class StoredFiles implements Serializable {
         Long folderId,
         String storageType,
         String storageKey,
-        byte[] originalFilename
+        byte[] originalFilename,
+        String mimeType
     ) {
         this.id = id;
         this.ownerUserId = ownerUserId;
@@ -46,6 +49,7 @@ public class StoredFiles implements Serializable {
         this.storageType = storageType;
         this.storageKey = storageKey;
         this.originalFilename = originalFilename;
+        this.mimeType = mimeType;
     }
 
     /**
@@ -88,6 +92,13 @@ public class StoredFiles implements Serializable {
      */
     public byte[] getOriginalFilename() {
         return this.originalFilename;
+    }
+
+    /**
+     * Getter for <code>FILEARCH.stored_files.mime_type</code>.
+     */
+    public String getMimeType() {
+        return this.mimeType;
     }
 
     @Override
@@ -135,6 +146,12 @@ public class StoredFiles implements Serializable {
         }
         else if (!Arrays.equals(this.originalFilename, other.originalFilename))
             return false;
+        if (this.mimeType == null) {
+            if (other.mimeType != null)
+                return false;
+        }
+        else if (!this.mimeType.equals(other.mimeType))
+            return false;
         return true;
     }
 
@@ -148,6 +165,7 @@ public class StoredFiles implements Serializable {
         result = prime * result + ((this.storageType == null) ? 0 : this.storageType.hashCode());
         result = prime * result + ((this.storageKey == null) ? 0 : this.storageKey.hashCode());
         result = prime * result + ((this.originalFilename == null) ? 0 : Arrays.hashCode(this.originalFilename));
+        result = prime * result + ((this.mimeType == null) ? 0 : this.mimeType.hashCode());
         return result;
     }
 
@@ -161,6 +179,7 @@ public class StoredFiles implements Serializable {
         sb.append(", ").append(storageType);
         sb.append(", ").append(storageKey);
         sb.append(", ").append("[binary...]");
+        sb.append(", ").append(mimeType);
 
         sb.append(")");
         return sb.toString();

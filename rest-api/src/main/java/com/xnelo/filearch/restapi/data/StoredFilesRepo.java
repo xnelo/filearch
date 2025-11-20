@@ -44,7 +44,8 @@ public class StoredFilesRepo {
             StoredFiles.STORED_FILES.STORAGE_TYPE,
             StoredFiles.STORED_FILES.STORAGE_KEY,
             decryptField(StoredFiles.STORED_FILES.ORIGINAL_FILENAME, encryptionKey)
-                .as(DECRYPTED_ORIGINAL_FILENAME));
+                .as(DECRYPTED_ORIGINAL_FILENAME),
+            StoredFiles.STORED_FILES.MIME_TYPE);
   }
 
   public Uni<PaginatedData<File>> getAll(
@@ -69,7 +70,8 @@ public class StoredFilesRepo {
       final long folderId,
       final StorageType storageType,
       final String storageKey,
-      final String originalFilename) {
+      final String originalFilename,
+      final String mimeType) {
     Map<String, Object> insertFields =
         Map.of(
             StoredFiles.STORED_FILES.OWNER_USER_ID.getName(),
@@ -81,7 +83,9 @@ public class StoredFilesRepo {
             StoredFiles.STORED_FILES.STORAGE_KEY.getName(),
             storageKey,
             StoredFiles.STORED_FILES.ORIGINAL_FILENAME.getName(),
-            encryptField(originalFilename, encryptionKey));
+            encryptField(originalFilename, encryptionKey),
+            StoredFiles.STORED_FILES.MIME_TYPE.getName(),
+            mimeType);
 
     return Uni.createFrom()
         .item(
@@ -180,6 +184,7 @@ public class StoredFilesRepo {
         .storageType(StorageType.fromString(toConvert.get(StoredFiles.STORED_FILES.STORAGE_TYPE)))
         .storageKey(toConvert.get(StoredFiles.STORED_FILES.STORAGE_KEY))
         .originalFilename(toConvert.get(DECRYPTED_ORIGINAL_FILENAME, String.class))
+        .mimeType(toConvert.get(StoredFiles.STORED_FILES.MIME_TYPE))
         .build();
   }
 }

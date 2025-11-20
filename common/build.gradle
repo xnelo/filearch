@@ -5,7 +5,6 @@ plugins {
 
 dependencies {
     implementation enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}")
-    implementation("io.quarkus:quarkus-flyway")
     implementation("io.quarkus:quarkus-jdbc-postgresql")
     implementation "io.quarkus:quarkus-oidc"
     implementation("io.quarkus:quarkus-rest-jackson")

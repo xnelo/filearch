@@ -108,6 +108,21 @@ public class StoredFilesRecord extends UpdatableRecordImpl<StoredFilesRecord> {
         return (byte[]) get(5);
     }
 
+    /**
+     * Setter for <code>FILEARCH.stored_files.mime_type</code>.
+     */
+    public StoredFilesRecord setMimeType(String value) {
+        set(6, value);
+        return this;
+    }
+
+    /**
+     * Getter for <code>FILEARCH.stored_files.mime_type</code>.
+     */
+    public String getMimeType() {
+        return (String) get(6);
+    }
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -131,7 +146,7 @@ public class StoredFilesRecord extends UpdatableRecordImpl<StoredFilesRecord> {
     /**
      * Create a detached, initialised StoredFilesRecord
      */
-    public StoredFilesRecord(Long id, Long ownerUserId, Long folderId, String storageType, String storageKey, byte[] originalFilename) {
+    public StoredFilesRecord(Long id, Long ownerUserId, Long folderId, String storageType, String storageKey, byte[] originalFilename, String mimeType) {
         super(StoredFiles.STORED_FILES);
 
         setId(id);
@@ -140,6 +155,7 @@ public class StoredFilesRecord extends UpdatableRecordImpl<StoredFilesRecord> {
         setStorageType(storageType);
         setStorageKey(storageKey);
         setOriginalFilename(originalFilename);
+        setMimeType(mimeType);
         resetTouchedOnNotNull();
     }
 
@@ -156,6 +172,7 @@ public class StoredFilesRecord extends UpdatableRecordImpl<StoredFilesRecord> {
             setStorageType(value.getStorageType());
             setStorageKey(value.getStorageKey());
             setOriginalFilename(value.getOriginalFilename());
+            setMimeType(value.getMimeType());
             resetTouchedOnNotNull();
         }
     }

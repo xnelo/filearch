@@ -80,6 +80,11 @@ public class StoredFiles extends TableImpl<StoredFilesRecord> {
      */
     public final TableField<StoredFilesRecord, byte[]> ORIGINAL_FILENAME = createField(DSL.name("original_filename"), SQLDataType.BLOB, this, "");
 
+    /**
+     * The column <code>FILEARCH.stored_files.mime_type</code>.
+     */
+    public final TableField<StoredFilesRecord, String> MIME_TYPE = createField(DSL.name("mime_type"), SQLDataType.VARCHAR(255), this, "");
+
     private StoredFiles(Name alias, Table<StoredFilesRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);
     }

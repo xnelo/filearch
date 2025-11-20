@@ -25,4 +25,7 @@ public class FileContract {
 
   @JsonProperty("original_filename")
   private final String originalFilename;
+
+  @JsonProperty("mime_type")
+  private final String mimeType;
 }

@@ -16,4 +16,5 @@ public class File {
   private StorageType storageType;
   private String storageKey;
   private String originalFilename;
+  private String mimeType;
 }

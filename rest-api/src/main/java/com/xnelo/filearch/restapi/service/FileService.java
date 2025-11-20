@@ -320,7 +320,8 @@ public class FileService {
                                     folderId,
                                     storageService.getStorageType(),
                                     uploadKey,
-                                    fileToUpload.fileName())
+                                    fileToUpload.fileName(),
+                                    fileToUpload.contentType())
                                 .map(
                                     dbFile ->
                                         new ServiceActionResponse<>(
