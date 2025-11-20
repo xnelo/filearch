@@ -1,0 +1,16 @@
+plugins {
+    id 'io.quarkus'
+}
+
+dependencies {
+    implementation enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}")
+    implementation 'io.quarkus:quarkus-arc'
+    implementation("io.quarkus:quarkus-rest-jackson")
+    implementation("io.quarkus:quarkus-messaging-rabbitmq")
+
+    compileOnly "org.projectlombok:lombok:$LOMBOK_VERSION"
+
+    annotationProcessor "org.projectlombok:lombok:$LOMBOK_VERSION"
+
+    testImplementation 'io.quarkus:quarkus-junit5'
+}
