@@ -21,6 +21,8 @@ import jakarta.inject.Inject;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import org.eclipse.microprofile.reactive.messaging.Channel;
+import org.eclipse.microprofile.reactive.messaging.Emitter;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import org.mapstruct.factory.Mappers;
 
@@ -33,6 +35,9 @@ public class FileService {
   @Inject FolderService folderService;
   @Inject FilearchConfig config;
   final PaginationMapper paginationMapper = Mappers.getMapper(PaginationMapper.class);
+
+  @Channel("file-proc-requests")
+  Emitter<String> fileProcRequestEmitter;
 
   public Uni<ServiceResponse<PaginatedResponse<File>>> getAllFiles(
       final UserToken userInfo,
@@ -322,6 +327,9 @@ public class FileService {
                                     uploadKey,
                                     fileToUpload.fileName(),
                                     fileToUpload.contentType())
+                                .invoke(
+                                    dbfile ->
+                                        fileProcRequestEmitter.send(dbfile.getOriginalFilename()))
                                 .map(
                                     dbFile ->
                                         new ServiceActionResponse<>(
