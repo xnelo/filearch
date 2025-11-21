@@ -1,5 +1,8 @@
 package com.xnelo.filearch.restapi.service;
 
+import com.xnelo.filearch.common.json.JsonUtil;
+import com.xnelo.filearch.common.messaging.MessagingMapper;
+import com.xnelo.filearch.common.messaging.ProcessFileRequest;
 import com.xnelo.filearch.common.model.*;
 import com.xnelo.filearch.common.service.PaginatedResponse;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
@@ -35,6 +38,7 @@ public class FileService {
   @Inject FolderService folderService;
   @Inject FilearchConfig config;
   final PaginationMapper paginationMapper = Mappers.getMapper(PaginationMapper.class);
+  final MessagingMapper messagingMapper = Mappers.getMapper(MessagingMapper.class);
 
   @Channel("file-proc-requests")
   Emitter<String> fileProcRequestEmitter;
@@ -327,15 +331,18 @@ public class FileService {
                                     uploadKey,
                                     fileToUpload.fileName(),
                                     fileToUpload.contentType())
-                                .invoke(
-                                    dbfile ->
-                                        fileProcRequestEmitter.send(dbfile.getOriginalFilename()))
+                                .invoke(this::sendProcessRequest)
                                 .map(
                                     dbFile ->
                                         new ServiceActionResponse<>(
                                             ResourceType.FILE, ActionType.UPLOAD, dbFile));
                           }
                         }));
+  }
+
+  void sendProcessRequest(File dbFile) {
+    ProcessFileRequest request = messagingMapper.toFileRequest(dbFile);
+    fileProcRequestEmitter.send(JsonUtil.toJsonString(request));
   }
 
   Uni<String> createStorageKey(final User user) {

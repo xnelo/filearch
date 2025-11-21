@@ -43,4 +43,13 @@ public class JsonUtil {
       return toConvert.toString();
     }
   }
+
+  public static <T> T toObject(String jsonString, Class<T> toClass) {
+    try {
+      return getMapper().readValue(jsonString, toClass);
+    } catch (Exception e) {
+      LOG.errorf(e, "Error converting JSON(%s) to Object(%s)", jsonString, toClass.getName());
+      return null;
+    }
+  }
 }
