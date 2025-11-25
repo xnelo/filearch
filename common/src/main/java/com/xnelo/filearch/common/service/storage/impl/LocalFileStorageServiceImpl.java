@@ -1,8 +1,8 @@
-package com.xnelo.filearch.restapi.service.storage.impl;
+package com.xnelo.filearch.common.service.storage.impl;
 
 import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.StorageType;
-import com.xnelo.filearch.restapi.service.storage.StorageService;
+import com.xnelo.filearch.common.service.storage.StorageService;
 import io.quarkus.arc.DefaultBean;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;

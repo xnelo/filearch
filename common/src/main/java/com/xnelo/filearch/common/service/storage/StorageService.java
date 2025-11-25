@@ -1,4 +1,4 @@
-package com.xnelo.filearch.restapi.service.storage;
+package com.xnelo.filearch.common.service.storage;
 
 import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.StorageType;
