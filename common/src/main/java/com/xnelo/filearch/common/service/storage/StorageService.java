@@ -12,6 +12,8 @@ public interface StorageService {
 
   Uni<ErrorCode> save(final FileUpload toUpload, final String key);
 
+  Uni<ErrorCode> save(final byte[] toUpload, final String key);
+
   Uni<ErrorCode> delete(final String key);
 
   Uni<InputStream> getFileData(final String key) throws IOException;

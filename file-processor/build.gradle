@@ -7,11 +7,21 @@ dependencies {
     implementation 'io.quarkus:quarkus-arc'
     implementation("io.quarkus:quarkus-rest-jackson")
     implementation("io.quarkus:quarkus-messaging-rabbitmq")
+    implementation "org.mapstruct:mapstruct:${MAPSTRUCT_VERSION}"
     implementation project(":common")
+    implementation project(":file-processor-api")
 
     compileOnly "org.projectlombok:lombok:$LOMBOK_VERSION"
 
     annotationProcessor "org.projectlombok:lombok:$LOMBOK_VERSION"
+    annotationProcessor "org.mapstruct:mapstruct-processor:${MAPSTRUCT_VERSION}"
 
     testImplementation 'io.quarkus:quarkus-junit5'
+}
+
+compileJava {
+    options.compilerArgs += [
+            '-Amapstruct.unmappedTargetPolicy=ERROR',
+            '-Amapstruct.verbose=true'
+    ]
 }
