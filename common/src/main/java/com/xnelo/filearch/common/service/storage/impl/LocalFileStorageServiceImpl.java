@@ -105,7 +105,7 @@ public class LocalFileStorageServiceImpl implements StorageService {
   }
 
   @Override
-  public Uni<InputStream> getFileData(final String key) throws IOException {
+  public Uni<InputStream> getFileData(final String key) {
     Path localStorageLocation = Path.of(localStorageBase, key);
     Log.infof("Getting input stream for file. file=%s", localStorageLocation);
     return Uni.createFrom()

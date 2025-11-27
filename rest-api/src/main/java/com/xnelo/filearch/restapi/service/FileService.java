@@ -21,7 +21,6 @@ import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import org.eclipse.microprofile.reactive.messaging.Channel;
@@ -554,7 +553,7 @@ public class FileService {
                                           ActionType.DOWNLOAD,
                                           new DownloadData(filename, fileDataStream)));
                                 });
-                      } catch (IOException e) {
+                      } catch (Exception e) {
                         Log.errorf(
                             e,
                             "Exception encountered while opening file inputstream. fileId:%d fileStorageKey:%s",

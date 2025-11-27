@@ -126,7 +126,9 @@ public class FileResource {
     if (a.hasErrors()) {
       int finalHttpStatus = HttpStatusCodeMapper.INITIAL_STATUS_CODE;
       for (ServiceError error : a.getErrors()) {
-        Log.errorf("ErrorCode=%d ErrorMessage=%s", error.getErrorCode().getCode(), error.getErrorMessage());
+        Log.errorf(
+            "ErrorCode=%d ErrorMessage=%s",
+            error.getErrorCode().getCode(), error.getErrorMessage());
         finalHttpStatus =
             HttpStatusCodeMapper.combineStatusCode(finalHttpStatus, error.getHttpCode());
       }
