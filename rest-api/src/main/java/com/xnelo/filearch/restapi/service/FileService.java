@@ -481,6 +481,16 @@ public class FileService {
 
   public Uni<ServiceResponse<DownloadData>> getFileForDownload(
       final long fileId, final UserToken userInfo) {
+    return internalGetFileForDownload(fileId, userInfo, false);
+  }
+
+  public Uni<ServiceResponse<DownloadData>> getFileThumbnailForDownload(
+      final long fileId, final UserToken userInfo) {
+    return internalGetFileForDownload(fileId, userInfo, true);
+  }
+
+  private Uni<ServiceResponse<DownloadData>> internalGetFileForDownload(
+      final long fileId, final UserToken userInfo, final boolean getThumbnail) {
     return userService.checkUserExist(
         userInfo,
         ResourceType.FILE,
@@ -506,17 +516,44 @@ public class FileService {
                       }
 
                       try {
+                        String storageKey = fileMetadata.getStorageKey();
+                        if (getThumbnail) {
+                          storageKey += ".thumb.jpg";
+                        }
+
                         return storageService
-                            .getFileData(fileMetadata.getStorageKey())
+                            .getFileData(storageKey)
                             .map(
-                                fileDataStream ->
-                                    new ServiceResponse<>(
+                                fileDataStream -> {
+                                  if (fileDataStream == null) {
+                                    return new ServiceResponse<>(
                                         new ServiceActionResponse<>(
                                             ResourceType.FILE,
                                             ActionType.DOWNLOAD,
-                                            new DownloadData(
-                                                fileMetadata.getOriginalFilename(),
-                                                fileDataStream))));
+                                            List.of(
+                                                ServiceError.builder()
+                                                    .errorCode(ErrorCode.IO_FILE_DOES_NOT_EXIST)
+                                                    .errorMessage(
+                                                        "The file you are requesting doesn't exist.")
+                                                    .httpCode(404)
+                                                    .build())));
+                                  }
+
+                                  String filename = fileMetadata.getOriginalFilename();
+                                  if (getThumbnail) {
+                                    int lio = filename.lastIndexOf('.');
+                                    if (lio != -1) {
+                                      filename = filename.substring(0, lio);
+                                    }
+                                    filename += ".thumb.jpg";
+                                  }
+
+                                  return new ServiceResponse<>(
+                                      new ServiceActionResponse<>(
+                                          ResourceType.FILE,
+                                          ActionType.DOWNLOAD,
+                                          new DownloadData(filename, fileDataStream)));
+                                });
                       } catch (IOException e) {
                         Log.errorf(
                             e,

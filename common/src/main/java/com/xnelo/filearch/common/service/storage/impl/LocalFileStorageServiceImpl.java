@@ -108,6 +108,20 @@ public class LocalFileStorageServiceImpl implements StorageService {
   public Uni<InputStream> getFileData(final String key) throws IOException {
     Path localStorageLocation = Path.of(localStorageBase, key);
     Log.infof("Getting input stream for file. file=%s", localStorageLocation);
-    return Uni.createFrom().item(Files.newInputStream(localStorageLocation));
+    return Uni.createFrom()
+        .item(
+            () -> {
+              if (!Files.exists(localStorageLocation)) {
+                Log.infof("File doesn't exist. file=%s", localStorageLocation);
+                return null;
+              } else {
+                try {
+                  return Files.newInputStream(localStorageLocation);
+                } catch (IOException e) {
+                  Log.errorf(e, "Error retrieving file. file=%s", localStorageLocation);
+                  return null;
+                }
+              }
+            });
   }
 }
