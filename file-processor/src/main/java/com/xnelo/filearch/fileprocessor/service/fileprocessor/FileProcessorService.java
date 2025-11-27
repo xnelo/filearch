@@ -7,7 +7,8 @@ public interface FileProcessorService {
   /**
    * A set of mime types that this processor can process.
    *
-   * @return A set of mime types @see <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/MIME_types/Common_types">...</a>
+   * @return A set of mime types @see <a
+   *     href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/MIME_types/Common_types">...</a>
    */
   Set<String> getMimeTypesProcessed();
 
