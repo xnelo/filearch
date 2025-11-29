@@ -10,6 +10,8 @@ pluginManagement {
 }
 rootProject.name='filearch'
 include 'rest-api'
+include 'file-processor'
+include 'file-processor-api'
 include 'common'
 include 'jooq'
 

@@ -4,6 +4,7 @@ import com.xnelo.filearch.common.model.DownloadData;
 import com.xnelo.filearch.common.model.SortDirection;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
+import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.usertoken.UserTokenHandler;
 import com.xnelo.filearch.restapi.api.contracts.FileBulkDeleteContract;
@@ -100,33 +101,45 @@ public class FileResource {
     UserToken userInfo = userhandler.getUserInfo();
     return fileService
         .getFileForDownload(fileId, userInfo)
-        .map(
-            downloadFileServiceResponse -> {
-              if (downloadFileServiceResponse.getActionResponses().size() != 1) {
-                return Response.status(Response.Status.INTERNAL_SERVER_ERROR).build();
-              }
+        .map(FileResource::mapToDownloadResponse);
+  }
 
-              ServiceActionResponse<DownloadData> a =
-                  downloadFileServiceResponse.getActionResponses().getFirst();
-              if (a.hasErrors()) {
-                int finalHttpStatus = HttpStatusCodeMapper.INITIAL_STATUS_CODE;
-                for (ServiceError error : a.getErrors()) {
-                  Log.errorf(
-                      "ErrorCode=%d ErrorMessage=%s",
-                      error.getErrorCode(), error.getErrorMessage());
-                  finalHttpStatus =
-                      HttpStatusCodeMapper.combineStatusCode(finalHttpStatus, error.getHttpCode());
-                }
-                return Response.status(finalHttpStatus).build();
-              } else {
-                DownloadData downloadData = a.getData();
-                return Response.ok(downloadData.getData())
-                    .header(
-                        "Content-Disposition",
-                        "attachment; filename=\"" + downloadData.getFilename() + "\"")
-                    .build();
-              }
-            });
+  @GET
+  @Path("{id}/download_thumbnail")
+  @RolesAllowed("user")
+  @Produces(MediaType.APPLICATION_OCTET_STREAM)
+  public Uni<Response> downloadThumbnail(@PathParam("id") long fileId) {
+    UserToken userInfo = userhandler.getUserInfo();
+    return fileService
+        .getFileThumbnailForDownload(fileId, userInfo)
+        .map(FileResource::mapToDownloadResponse);
+  }
+
+  private static Response mapToDownloadResponse(
+      ServiceResponse<DownloadData> downloadFileServiceResponse) {
+    if (downloadFileServiceResponse.getActionResponses().size() != 1) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).build();
+    }
+
+    ServiceActionResponse<DownloadData> a =
+        downloadFileServiceResponse.getActionResponses().getFirst();
+    if (a.hasErrors()) {
+      int finalHttpStatus = HttpStatusCodeMapper.INITIAL_STATUS_CODE;
+      for (ServiceError error : a.getErrors()) {
+        Log.errorf(
+            "ErrorCode=%d ErrorMessage=%s",
+            error.getErrorCode().getCode(), error.getErrorMessage());
+        finalHttpStatus =
+            HttpStatusCodeMapper.combineStatusCode(finalHttpStatus, error.getHttpCode());
+      }
+      return Response.status(finalHttpStatus).build();
+    } else {
+      DownloadData downloadData = a.getData();
+      return Response.ok(downloadData.getData())
+          .header(
+              "Content-Disposition", "attachment; filename=\"" + downloadData.getFilename() + "\"")
+          .build();
+    }
   }
 
   @POST

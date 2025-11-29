@@ -1,10 +1,14 @@
 package com.xnelo.filearch.restapi.service;
 
+import com.xnelo.filearch.common.json.JsonUtil;
+import com.xnelo.filearch.common.messaging.MessagingMapper;
+import com.xnelo.filearch.common.messaging.ProcessFileRequest;
 import com.xnelo.filearch.common.model.*;
 import com.xnelo.filearch.common.service.PaginatedResponse;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
+import com.xnelo.filearch.common.service.storage.StorageService;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.utils.ServiceResponseUtils;
 import com.xnelo.filearch.restapi.api.contracts.FileUploadContract;
@@ -13,14 +17,14 @@ import com.xnelo.filearch.restapi.config.FilearchConfig;
 import com.xnelo.filearch.restapi.data.SequenceRepo;
 import com.xnelo.filearch.restapi.data.StoredFilesRepo;
 import com.xnelo.filearch.restapi.service.folder.FolderService;
-import com.xnelo.filearch.restapi.service.storage.StorageService;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import org.eclipse.microprofile.reactive.messaging.Channel;
+import org.eclipse.microprofile.reactive.messaging.Emitter;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import org.mapstruct.factory.Mappers;
 
@@ -33,6 +37,10 @@ public class FileService {
   @Inject FolderService folderService;
   @Inject FilearchConfig config;
   final PaginationMapper paginationMapper = Mappers.getMapper(PaginationMapper.class);
+  final MessagingMapper messagingMapper = Mappers.getMapper(MessagingMapper.class);
+
+  @Channel("file-proc-requests")
+  Emitter<String> fileProcRequestEmitter;
 
   public Uni<ServiceResponse<PaginatedResponse<File>>> getAllFiles(
       final UserToken userInfo,
@@ -322,12 +330,18 @@ public class FileService {
                                     uploadKey,
                                     fileToUpload.fileName(),
                                     fileToUpload.contentType())
+                                .invoke(this::sendProcessRequest)
                                 .map(
                                     dbFile ->
                                         new ServiceActionResponse<>(
                                             ResourceType.FILE, ActionType.UPLOAD, dbFile));
                           }
                         }));
+  }
+
+  void sendProcessRequest(File dbFile) {
+    ProcessFileRequest request = messagingMapper.toFileRequest(dbFile);
+    fileProcRequestEmitter.send(JsonUtil.toJsonString(request));
   }
 
   Uni<String> createStorageKey(final User user) {
@@ -466,6 +480,16 @@ public class FileService {
 
   public Uni<ServiceResponse<DownloadData>> getFileForDownload(
       final long fileId, final UserToken userInfo) {
+    return internalGetFileForDownload(fileId, userInfo, false);
+  }
+
+  public Uni<ServiceResponse<DownloadData>> getFileThumbnailForDownload(
+      final long fileId, final UserToken userInfo) {
+    return internalGetFileForDownload(fileId, userInfo, true);
+  }
+
+  private Uni<ServiceResponse<DownloadData>> internalGetFileForDownload(
+      final long fileId, final UserToken userInfo, final boolean getThumbnail) {
     return userService.checkUserExist(
         userInfo,
         ResourceType.FILE,
@@ -491,18 +515,45 @@ public class FileService {
                       }
 
                       try {
+                        String storageKey = fileMetadata.getStorageKey();
+                        if (getThumbnail) {
+                          storageKey += ".thumb.jpg";
+                        }
+
                         return storageService
-                            .getFileData(fileMetadata.getStorageKey())
+                            .getFileData(storageKey)
                             .map(
-                                fileDataStream ->
-                                    new ServiceResponse<>(
+                                fileDataStream -> {
+                                  if (fileDataStream == null) {
+                                    return new ServiceResponse<>(
                                         new ServiceActionResponse<>(
                                             ResourceType.FILE,
                                             ActionType.DOWNLOAD,
-                                            new DownloadData(
-                                                fileMetadata.getOriginalFilename(),
-                                                fileDataStream))));
-                      } catch (IOException e) {
+                                            List.of(
+                                                ServiceError.builder()
+                                                    .errorCode(ErrorCode.IO_FILE_DOES_NOT_EXIST)
+                                                    .errorMessage(
+                                                        "The file you are requesting doesn't exist.")
+                                                    .httpCode(404)
+                                                    .build())));
+                                  }
+
+                                  String filename = fileMetadata.getOriginalFilename();
+                                  if (getThumbnail) {
+                                    int lio = filename.lastIndexOf('.');
+                                    if (lio != -1) {
+                                      filename = filename.substring(0, lio);
+                                    }
+                                    filename += ".thumb.jpg";
+                                  }
+
+                                  return new ServiceResponse<>(
+                                      new ServiceActionResponse<>(
+                                          ResourceType.FILE,
+                                          ActionType.DOWNLOAD,
+                                          new DownloadData(filename, fileDataStream)));
+                                });
+                      } catch (Exception e) {
                         Log.errorf(
                             e,
                             "Exception encountered while opening file inputstream. fileId:%d fileStorageKey:%s",

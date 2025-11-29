@@ -1,12 +1,12 @@
-package com.xnelo.filearch.restapi.service.storage.impl;
+package com.xnelo.filearch.common.service.storage.impl;
 
 import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.StorageType;
-import com.xnelo.filearch.restapi.service.storage.StorageService;
+import com.xnelo.filearch.common.service.storage.StorageService;
 import io.quarkus.arc.DefaultBean;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
-import jakarta.enterprise.context.RequestScoped;
+import jakarta.enterprise.context.ApplicationScoped;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -15,7 +15,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 @DefaultBean
-@RequestScoped
+@ApplicationScoped
 public class LocalFileStorageServiceImpl implements StorageService {
   @ConfigProperty(
       name = "filearch.localfilestorage.localstoragebase",
@@ -60,6 +60,34 @@ public class LocalFileStorageServiceImpl implements StorageService {
   }
 
   @Override
+  public Uni<ErrorCode> save(final byte[] toUpload, final String key) {
+    Path localStorageLocation = Path.of(localStorageBase, key);
+    Log.debugf("Saving uploaded file to local file system at %s", localStorageLocation);
+    return Uni.createFrom()
+        .item(
+            () -> {
+              try {
+                Log.infof("Creating directory: %s", localStorageLocation.getParent());
+                Files.createDirectories(localStorageLocation.getParent());
+              } catch (IOException e) {
+                Log.errorf(e, "Unable to create directory %s", localStorageLocation.getParent());
+                return ErrorCode.UNABLE_TO_CREATE_DIR;
+              }
+
+              try {
+                Log.infof(
+                    "Saving byte array to permanent storage: destination=%s", localStorageLocation);
+                Files.write(localStorageLocation, toUpload);
+                return ErrorCode.OK;
+              } catch (IOException e2) {
+                Log.errorf(
+                    e2, "Unable to save byte array to file: destination=%s", localStorageLocation);
+                return ErrorCode.UNABLE_TO_SAVE_FILE;
+              }
+            });
+  }
+
+  @Override
   public Uni<ErrorCode> delete(final String key) {
     Path localStorageLocation = Path.of(localStorageBase, key);
     return Uni.createFrom()
@@ -77,9 +105,23 @@ public class LocalFileStorageServiceImpl implements StorageService {
   }
 
   @Override
-  public Uni<InputStream> getFileData(final String key) throws IOException {
+  public Uni<InputStream> getFileData(final String key) {
     Path localStorageLocation = Path.of(localStorageBase, key);
     Log.infof("Getting input stream for file. file=%s", localStorageLocation);
-    return Uni.createFrom().item(Files.newInputStream(localStorageLocation));
+    return Uni.createFrom()
+        .item(
+            () -> {
+              if (!Files.exists(localStorageLocation)) {
+                Log.infof("File doesn't exist. file=%s", localStorageLocation);
+                return null;
+              } else {
+                try {
+                  return Files.newInputStream(localStorageLocation);
+                } catch (IOException e) {
+                  Log.errorf(e, "Error retrieving file. file=%s", localStorageLocation);
+                  return null;
+                }
+              }
+            });
   }
 }
