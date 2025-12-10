@@ -17,6 +17,11 @@ import org.jooq.impl.SQLDataType;
 public class Sequences {
 
     /**
+     * The sequence <code>FILEARCH.artifacts_id_seq</code>
+     */
+    public static final Sequence<Long> ARTIFACTS_ID_SEQ = Internal.createSequence("artifacts_id_seq", Filearch.FILEARCH, DSL.comment(""), SQLDataType.BIGINT.nullable(false), null, null, null, null, false, null);
+
+    /**
      * The sequence <code>FILEARCH.folders_id_seq</code>
      */
     public static final Sequence<Long> FOLDERS_ID_SEQ = Internal.createSequence("folders_id_seq", Filearch.FILEARCH, DSL.comment(""), SQLDataType.BIGINT.nullable(false), null, null, null, null, false, null);

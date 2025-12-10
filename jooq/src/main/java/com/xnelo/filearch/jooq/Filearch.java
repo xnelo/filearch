@@ -4,6 +4,7 @@
 package com.xnelo.filearch.jooq;
 
 
+import com.xnelo.filearch.jooq.tables.Artifacts;
 import com.xnelo.filearch.jooq.tables.FlywaySchemaHistory;
 import com.xnelo.filearch.jooq.tables.Folders;
 import com.xnelo.filearch.jooq.tables.PgpArmorHeaders;
@@ -36,6 +37,11 @@ public class Filearch extends SchemaImpl {
      * The reference instance of <code>FILEARCH</code>
      */
     public static final Filearch FILEARCH = new Filearch();
+
+    /**
+     * The table <code>FILEARCH.artifacts</code>.
+     */
+    public final Artifacts ARTIFACTS = Artifacts.ARTIFACTS;
 
     /**
      * The table <code>FILEARCH.flyway_schema_history</code>.
@@ -112,6 +118,7 @@ public class Filearch extends SchemaImpl {
     @Override
     public final List<Sequence<?>> getSequences() {
         return Arrays.asList(
+            Sequences.ARTIFACTS_ID_SEQ,
             Sequences.FOLDERS_ID_SEQ,
             Sequences.SEQ_FILE_UPLOAD_NUMBER,
             Sequences.STORED_FILES_ID_SEQ,
@@ -122,6 +129,7 @@ public class Filearch extends SchemaImpl {
     @Override
     public final List<Table<?>> getTables() {
         return Arrays.asList(
+            Artifacts.ARTIFACTS,
             FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY,
             Folders.FOLDERS,
             PgpArmorHeaders.PGP_ARMOR_HEADERS,
