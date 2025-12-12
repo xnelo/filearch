@@ -1,7 +1,8 @@
 package com.xnelo.filearch.fileprocessor.processors.imageprocessors;
 
-import com.xnelo.filearch.common.model.ErrorCode;
+import com.xnelo.filearch.common.data.ArtifactRepo;
 import com.xnelo.filearch.common.service.storage.StorageService;
+import com.xnelo.filearch.fileprocessor.processors.ProcessorBase;
 import com.xnelo.filearch.fileprocessorapi.contract.FileMetadata;
 import com.xnelo.filearch.fileprocessorapi.processors.ImageProcessor;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -14,10 +15,19 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @ApplicationScoped
-public class ThumbnailGeneratorProcessor implements ImageProcessor {
+public class ThumbnailGeneratorProcessor extends ProcessorBase implements ImageProcessor {
   public static final int DEFAULT_THUMBNAIL_WIDTH = 200; // pixels
 
-  @Inject StorageService storageService;
+  /** DO NOT USE (Needed for DI) */
+  public ThumbnailGeneratorProcessor() {
+    super(null, null);
+  }
+
+  @Inject
+  public ThumbnailGeneratorProcessor(
+      final ArtifactRepo artifactRepo, final StorageService storageService) {
+    super(artifactRepo, storageService);
+  }
 
   @Override
   public int getOrder() {
@@ -39,12 +49,7 @@ public class ThumbnailGeneratorProcessor implements ImageProcessor {
     try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
       ImageIO.write(resizedImage, "jpg", os);
 
-      ErrorCode ec =
-          storageService
-              .save(os.toByteArray(), metaData.storageKey() + ".thumb.jpg")
-              .await()
-              .indefinitely();
-      log.info("saving file error code = {}", ec);
+      storeArtifact(os.toByteArray(), metaData, "thumb.jpg", "image/jpeg");
     } catch (Exception e) {
       log.error("Error creating thumbnail", e);
     } finally {
