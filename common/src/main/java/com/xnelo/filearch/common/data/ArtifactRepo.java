@@ -6,6 +6,7 @@ import io.agroal.api.AgroalDataSource;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
+import java.util.List;
 import java.util.Map;
 import org.jooq.DSLContext;
 import org.jooq.Record;
@@ -43,6 +44,29 @@ public class ArtifactRepo {
                 .returningResult(DSL.asterisk())
                 .fetchOne())
         .map(this::toArtifactModel);
+  }
+
+  public Uni<List<Artifact>> getArtifactsByFileId(final long fileId, final long userId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .select(DSL.asterisk())
+                .from(Artifacts.ARTIFACTS)
+                .where(Artifacts.ARTIFACTS.STORED_FILES_ID.eq(fileId))
+                .and(Artifacts.ARTIFACTS.OWNER_USER_ID.eq(userId))
+                .fetch()
+                .map(this::toArtifactModel));
+  }
+
+  public Uni<Boolean> deleteArtifactsByFileId(final long fileId, final long userId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .deleteFrom(Artifacts.ARTIFACTS)
+                .where(Artifacts.ARTIFACTS.STORED_FILES_ID.eq(fileId))
+                .and(Artifacts.ARTIFACTS.OWNER_USER_ID.eq(userId))
+                .execute())
+        .map(numDeleted -> numDeleted > 0);
   }
 
   Artifact toArtifactModel(final Record toConvert) {

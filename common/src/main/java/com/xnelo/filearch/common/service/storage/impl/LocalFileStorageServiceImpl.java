@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
@@ -102,6 +103,30 @@ public class LocalFileStorageServiceImpl implements StorageService {
                 return ErrorCode.UNABLE_TO_DELETE_FILE;
               }
             });
+  }
+
+  @Override
+  public Uni<ErrorCode> bulkDelete(final List<String> keys) {
+    if (keys.isEmpty()) {
+      return Uni.createFrom().item(ErrorCode.OK);
+    }
+
+    List<Uni<ErrorCode>> individualDeletes = keys.stream().map(this::delete).toList();
+
+    return Uni.combine()
+        .all()
+        .unis(individualDeletes)
+        .with(ErrorCode.class, LocalFileStorageServiceImpl::combineErrorCodes);
+  }
+
+  static ErrorCode combineErrorCodes(List<ErrorCode> toCombine) {
+    ErrorCode finalErrorCode = ErrorCode.OK;
+    for (ErrorCode code : toCombine) {
+      if (code.getCode() > finalErrorCode.getCode()) {
+        finalErrorCode = code;
+      }
+    }
+    return finalErrorCode;
   }
 
   @Override
