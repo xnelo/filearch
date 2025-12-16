@@ -4,6 +4,7 @@
 package com.xnelo.filearch.jooq;
 
 
+import com.xnelo.filearch.jooq.tables.Artifacts;
 import com.xnelo.filearch.jooq.tables.FlywaySchemaHistory;
 import com.xnelo.filearch.jooq.tables.Folders;
 import com.xnelo.filearch.jooq.tables.PgpArmorHeaders;
@@ -21,6 +22,11 @@ import org.jooq.Result;
  */
 @SuppressWarnings({ "all", "unchecked", "rawtypes", "this-escape" })
 public class Tables {
+
+    /**
+     * The table <code>FILEARCH.artifacts</code>.
+     */
+    public static final Artifacts ARTIFACTS = Artifacts.ARTIFACTS;
 
     /**
      * The table <code>FILEARCH.flyway_schema_history</code>.

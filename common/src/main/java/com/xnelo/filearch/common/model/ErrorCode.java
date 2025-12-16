@@ -24,6 +24,7 @@ public enum ErrorCode {
 
   // FILE Service Errors 200 - 299
   FILE_DOES_NOT_EXIST(200),
+  UNABLE_TO_DELETE_ARTIFACTS(201),
   // END FILE Service Errors
 
   // FOLDER Service Errors 300 - 399
