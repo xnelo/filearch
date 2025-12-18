@@ -66,7 +66,9 @@ public class ArtifactRepo {
                 .where(Artifacts.ARTIFACTS.STORED_FILES_ID.eq(fileId))
                 .and(Artifacts.ARTIFACTS.OWNER_USER_ID.eq(userId))
                 .execute())
-        .map(numDeleted -> numDeleted > 0);
+        .map(i -> true)
+        .onFailure()
+        .recoverWithItem(false);
   }
 
   Artifact toArtifactModel(final Record toConvert) {
