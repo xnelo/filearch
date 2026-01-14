@@ -8,11 +8,13 @@ import com.xnelo.filearch.jooq.tables.Artifacts;
 import com.xnelo.filearch.jooq.tables.FlywaySchemaHistory;
 import com.xnelo.filearch.jooq.tables.Folders;
 import com.xnelo.filearch.jooq.tables.StoredFiles;
+import com.xnelo.filearch.jooq.tables.Tags;
 import com.xnelo.filearch.jooq.tables.Users;
 import com.xnelo.filearch.jooq.tables.records.ArtifactsRecord;
 import com.xnelo.filearch.jooq.tables.records.FlywaySchemaHistoryRecord;
 import com.xnelo.filearch.jooq.tables.records.FoldersRecord;
 import com.xnelo.filearch.jooq.tables.records.StoredFilesRecord;
+import com.xnelo.filearch.jooq.tables.records.TagsRecord;
 import com.xnelo.filearch.jooq.tables.records.UsersRecord;
 
 import org.jooq.TableField;
@@ -36,5 +38,6 @@ public class Keys {
     public static final UniqueKey<FlywaySchemaHistoryRecord> FLYWAY_SCHEMA_HISTORY_PK = Internal.createUniqueKey(FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY, DSL.name("flyway_schema_history_pk"), new TableField[] { FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY.INSTALLED_RANK }, true);
     public static final UniqueKey<FoldersRecord> FOLDERS_PKEY = Internal.createUniqueKey(Folders.FOLDERS, DSL.name("folders_pkey"), new TableField[] { Folders.FOLDERS.ID }, true);
     public static final UniqueKey<StoredFilesRecord> STORED_FILES_PKEY = Internal.createUniqueKey(StoredFiles.STORED_FILES, DSL.name("stored_files_pkey"), new TableField[] { StoredFiles.STORED_FILES.ID }, true);
+    public static final UniqueKey<TagsRecord> TAGS_PKEY = Internal.createUniqueKey(Tags.TAGS, DSL.name("tags_pkey"), new TableField[] { Tags.TAGS.ID }, true);
     public static final UniqueKey<UsersRecord> USERS_PKEY = Internal.createUniqueKey(Users.USERS, DSL.name("users_pkey"), new TableField[] { Users.USERS.ID }, true);
 }

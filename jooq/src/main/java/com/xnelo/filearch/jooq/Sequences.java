@@ -37,6 +37,11 @@ public class Sequences {
     public static final Sequence<Long> STORED_FILES_ID_SEQ = Internal.createSequence("stored_files_id_seq", Filearch.FILEARCH, DSL.comment(""), SQLDataType.BIGINT.nullable(false), null, null, null, null, false, null);
 
     /**
+     * The sequence <code>FILEARCH.tags_id_seq</code>
+     */
+    public static final Sequence<Long> TAGS_ID_SEQ = Internal.createSequence("tags_id_seq", Filearch.FILEARCH, DSL.comment(""), SQLDataType.BIGINT.nullable(false), null, null, null, null, false, null);
+
+    /**
      * The sequence <code>FILEARCH.users_id_seq</code>
      */
     public static final Sequence<Long> USERS_ID_SEQ = Internal.createSequence("users_id_seq", Filearch.FILEARCH, DSL.comment(""), SQLDataType.BIGINT.nullable(false), null, null, null, null, false, null);
