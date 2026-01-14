@@ -1,0 +1,100 @@
+package com.xnelo.filearch.restapi.data;
+
+import static com.xnelo.filearch.common.encryption.JooqFields.decryptField;
+import static com.xnelo.filearch.common.encryption.JooqFields.encryptField;
+
+import com.xnelo.filearch.common.model.SortDirection;
+import com.xnelo.filearch.common.model.Tag;
+import com.xnelo.filearch.jooq.tables.Tags;
+import io.agroal.api.AgroalDataSource;
+import io.smallrye.mutiny.Uni;
+import jakarta.enterprise.context.RequestScoped;
+import jakarta.inject.Inject;
+import java.util.List;
+import java.util.Map;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jooq.*;
+import org.jooq.Record;
+import org.jooq.impl.DSL;
+
+@RequestScoped
+public class TagRepo {
+  public static final String DECRYPTED_TAG_NAME = "DECRYPT_TAG_NAME";
+
+  private final DSLContext context;
+  private final String encryptionKey;
+  private final List<? extends SelectField<?>> allFields;
+
+  @Inject
+  public TagRepo(
+      final AgroalDataSource dataSource,
+      @ConfigProperty(name = "filearch.encryption-key", defaultValue = "LOCAL_DEV_ENCRYPTION_KEY")
+          final String encryptionKey) {
+    this.context = DSL.using(dataSource, SQLDialect.POSTGRES);
+    this.context.setSchema("FILEARCH").execute();
+
+    this.encryptionKey = encryptionKey;
+
+    this.allFields =
+        List.of(
+            Tags.TAGS.ID,
+            Tags.TAGS.OWNER_USER_ID,
+            decryptField(Tags.TAGS.TAG_NAME, encryptionKey).as(DECRYPTED_TAG_NAME));
+  }
+
+  public Uni<PaginatedData<Tag>> getAll(
+      final long userId, final Long after, final Integer limit, final SortDirection sortDirection) {
+    SelectConditionStep<?> selectStatement =
+        context.select(allFields).from(Tags.TAGS).where(Tags.TAGS.OWNER_USER_ID.eq(userId));
+
+    SelectLimitPercentStep<?> finalQuery =
+        RepoUtils.addPagination(selectStatement, Tags.TAGS.ID, after, limit, sortDirection);
+
+    List<Tag> data = finalQuery.fetch().map(this::toTagModel);
+
+    return Uni.createFrom().item(RepoUtils.toPaginatedData(after, data, sortDirection, limit));
+  }
+
+  public Uni<Tag> createTag(final long userId, final String tagName) {
+    Map<String, Object> insertFields =
+        Map.of(
+            Tags.TAGS.OWNER_USER_ID.getName(),
+            userId,
+            Tags.TAGS.TAG_NAME.getName(),
+            encryptField(tagName, encryptionKey));
+
+    return Uni.createFrom()
+        .item(
+            context
+                .insertInto(Tags.TAGS)
+                .set(insertFields)
+                .onConflictDoNothing()
+                .returningResult(allFields)
+                .fetchOne())
+        .map(this::toTagModel);
+  }
+
+  public Uni<Boolean> tagNameExists(final long userId, final String tagName) {
+    return Uni.createFrom()
+        .item(
+            context
+                .select(DSL.count().as("tags_with_name"))
+                .from(Tags.TAGS)
+                .where(Tags.TAGS.OWNER_USER_ID.eq(userId))
+                .and(decryptField(Tags.TAGS.TAG_NAME, encryptionKey).eq(tagName))
+                .fetchOne())
+        .map(dbRecord -> dbRecord != null && dbRecord.getValue(0, Integer.class) > 0);
+  }
+
+  Tag toTagModel(final Record toConvert) {
+    if (toConvert == null) {
+      return null;
+    }
+
+    return Tag.builder()
+        .id(toConvert.get(Tags.TAGS.ID))
+        .ownerId(toConvert.get(Tags.TAGS.OWNER_USER_ID))
+        .tagName(toConvert.get(DECRYPTED_TAG_NAME, String.class))
+        .build();
+  }
+}
