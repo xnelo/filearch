@@ -12,6 +12,7 @@ import com.xnelo.filearch.restapi.data.TagRepo;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
+import java.util.ArrayList;
 import java.util.List;
 import org.mapstruct.factory.Mappers;
 
@@ -91,6 +92,34 @@ public class TagService {
             });
   }
 
+  public Uni<ServiceResponse<Tag>> getTagById(final long tagId, final long userId) {
+    return tagRepo
+        .getTagById(tagId, userId)
+        .map(
+            tag -> {
+              if (tag == null) {
+                return new ServiceResponse<>(
+                    new ServiceActionResponse<>(
+                        ResourceType.TAG,
+                        ActionType.GET,
+                        List.of(
+                            ServiceError.builder()
+                                .errorCode(ErrorCode.TAG_DOES_NOT_EXIST)
+                                .errorMessage("Tag does not exist.")
+                                .httpCode(404)
+                                .build())));
+              }
+
+              return new ServiceResponse<>(
+                  new ServiceActionResponse<>(ResourceType.TAG, ActionType.GET, tag));
+            });
+  }
+
+  public Uni<ServiceResponse<Tag>> getTagById(final long tagId, final UserToken userToken) {
+    return userService.checkUserExist(
+        userToken, ResourceType.TAG, ActionType.GET, user -> getTagById(tagId, user.getId()));
+  }
+
   public Uni<ServiceResponse<Tag>> createNewTag(
       final TagContract newTag, final UserToken userToken) {
     return userService.checkUserExist(
@@ -129,5 +158,125 @@ public class TagService {
                                       new ServiceActionResponse<>(
                                           ResourceType.TAG, ActionType.CREATE, newlyCreatedTag)));
                     }));
+  }
+
+  public Uni<ServiceResponse<Tag>> updateTag(
+      final long tagId, final UserToken userInfo, final TagContract tagData) {
+    if (tagData.getId() != null) {
+      return Uni.createFrom()
+          .item(
+              new ServiceResponse<>(
+                  new ServiceActionResponse<>(
+                      ResourceType.TAG,
+                      ActionType.UPDATE,
+                      List.of(
+                          ServiceError.builder()
+                              .errorCode(ErrorCode.TAG_ID_CANNOT_BE_UPDATED)
+                              .errorMessage("Tag id cannot be updated.")
+                              .httpCode(400)
+                              .build()))));
+    } else if (tagData.getOwnerId() != null) {
+      return Uni.createFrom()
+          .item(
+              new ServiceResponse<>(
+                  new ServiceActionResponse<>(
+                      ResourceType.TAG,
+                      ActionType.UPDATE,
+                      List.of(
+                          ServiceError.builder()
+                              .errorCode(ErrorCode.TAG_OWNER_CANNOT_BE_UPDATED)
+                              .errorMessage("Tag owner cannot be updated.")
+                              .httpCode(400)
+                              .build()))));
+    }
+
+    return userService
+        .getUserFromUserToken(userInfo)
+        .chain(
+            userResponse -> {
+              if (userResponse.hasError()) {
+                return updateErrorAndPassThrough(userResponse);
+              }
+              User user = userResponse.getActionResponses().getFirst().getData();
+              return tagRepo
+                  .getTagById(tagId, user.getId())
+                  .chain(
+                      existingTag -> {
+                        if (existingTag == null) {
+                          return Uni.createFrom()
+                              .item(
+                                  new ServiceResponse<>(
+                                      new ServiceActionResponse<>(
+                                          ResourceType.TAG,
+                                          ActionType.UPDATE,
+                                          List.of(
+                                              ServiceError.builder()
+                                                  .errorCode(ErrorCode.TAG_DOES_NOT_EXIST)
+                                                  .errorMessage("Tag does not exist.")
+                                                  .httpCode(404)
+                                                  .build()))));
+                        }
+                        if (tagData.getTagName() == null) {
+                          return Uni.createFrom()
+                              .item(
+                                  new ServiceResponse<>(
+                                      new ServiceActionResponse<>(
+                                          ResourceType.TAG,
+                                          ActionType.UPDATE,
+                                          List.of(
+                                              ServiceError.builder()
+                                                  .errorCode(ErrorCode.TAG_NO_UPDATES_EXECUTED)
+                                                  .errorMessage(
+                                                      "No updates to execute on this tag.")
+                                                  .httpCode(400)
+                                                  .build()))));
+                        }
+                        // check if tag name exists for user
+                        return tagRepo
+                            .tagNameExists(user.getId(), tagData.getTagName())
+                            .chain(
+                                nameExists -> {
+                                  if (nameExists) {
+                                    return Uni.createFrom()
+                                        .item(
+                                            new ServiceResponse<>(
+                                                new ServiceActionResponse<>(
+                                                    ResourceType.TAG,
+                                                    ActionType.UPDATE,
+                                                    List.of(
+                                                        ServiceError.builder()
+                                                            .errorCode(
+                                                                ErrorCode
+                                                                    .TAG_WITH_NAME_ALREADY_EXISTS)
+                                                            .errorMessage(
+                                                                "A tag with name '"
+                                                                    + tagData.getTagName()
+                                                                    + "' already exists.")
+                                                            .httpCode(400)
+                                                            .build()))));
+                                  }
+
+                                  return tagRepo
+                                      .updateName(tagId, user.getId(), tagData.getTagName())
+                                      .map(
+                                          updatedTag ->
+                                              new ServiceResponse<>(
+                                                  new ServiceActionResponse<>(
+                                                      ResourceType.TAG,
+                                                      ActionType.UPDATE,
+                                                      updatedTag)));
+                                });
+                      });
+            });
+  }
+
+  private Uni<ServiceResponse<Tag>> updateErrorAndPassThrough(ServiceResponse<?> response) {
+    ArrayList<ServiceActionResponse<Tag>> actionResponses = new ArrayList<>();
+    for (ServiceActionResponse<?> actionResponse : response.getActionResponses()) {
+      actionResponses.add(
+          new ServiceActionResponse<>(
+              ResourceType.TAG, actionResponse.getActionType(), actionResponse.getErrors()));
+    }
+    return Uni.createFrom().item(new ServiceResponse<>(actionResponses));
   }
 }

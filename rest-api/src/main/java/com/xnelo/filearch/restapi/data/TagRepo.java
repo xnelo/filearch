@@ -86,6 +86,32 @@ public class TagRepo {
         .map(dbRecord -> dbRecord != null && dbRecord.getValue(0, Integer.class) > 0);
   }
 
+  public Uni<Tag> getTagById(final long tagId, final long userId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .select(allFields)
+                .from(Tags.TAGS)
+                .where(Tags.TAGS.ID.eq(tagId).and(Tags.TAGS.OWNER_USER_ID.eq(userId)))
+                .fetchOne())
+        .map(this::toTagModel);
+  }
+
+  public Uni<Tag> updateName(final long tagId, final long userId, final String newTagName) {
+    Map<String, Object> encryptedNameMap =
+        Map.of(Tags.TAGS.TAG_NAME.getName(), encryptField(newTagName, encryptionKey));
+
+    return Uni.createFrom()
+        .item(
+            context
+                .update(Tags.TAGS)
+                .set(encryptedNameMap)
+                .where(Tags.TAGS.ID.eq(tagId).and(Tags.TAGS.OWNER_USER_ID.eq(userId)))
+                .returningResult(allFields)
+                .fetchOne())
+        .map(this::toTagModel);
+  }
+
   Tag toTagModel(final Record toConvert) {
     if (toConvert == null) {
       return null;

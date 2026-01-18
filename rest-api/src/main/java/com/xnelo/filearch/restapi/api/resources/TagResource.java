@@ -54,4 +54,28 @@ public class TagResource {
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toTagContract));
   }
+
+  @PATCH
+  @RolesAllowed("user")
+  @Path("{id}")
+  public Uni<Response> updateTag(@PathParam("id") long tagId, final TagContract tagData) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return tagService
+        .updateTag(tagId, userToken, tagData)
+        .map(
+            tagServiceResponse ->
+                contractMapper.toApiResponse(tagServiceResponse, contractMapper::toTagContract));
+  }
+
+  @GET
+  @RolesAllowed("user")
+  @Path("{id}")
+  public Uni<Response> getTagById(@PathParam("id") long tagId) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return tagService
+        .getTagById(tagId, userToken)
+        .map(
+            tagServiceResponse ->
+                contractMapper.toApiResponse(tagServiceResponse, contractMapper::toTagContract));
+  }
 }
