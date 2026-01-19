@@ -78,4 +78,16 @@ public class TagResource {
             tagServiceResponse ->
                 contractMapper.toApiResponse(tagServiceResponse, contractMapper::toTagContract));
   }
+
+  @DELETE
+  @RolesAllowed("user")
+  @Path("{id}")
+  public Uni<Response> deleteTag(@PathParam("id") long tagId) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return tagService
+        .deleteTag(userToken, tagId)
+        .map(
+            tagServiceResponse ->
+                contractMapper.toApiResponse(tagServiceResponse, contractMapper::toTagContract));
+  }
 }

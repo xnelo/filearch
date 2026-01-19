@@ -8,6 +8,7 @@ import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.restapi.api.contracts.TagContract;
 import com.xnelo.filearch.restapi.api.mappers.PaginationMapper;
+import com.xnelo.filearch.restapi.data.FileTagsRepo;
 import com.xnelo.filearch.restapi.data.TagRepo;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
@@ -20,6 +21,7 @@ import org.mapstruct.factory.Mappers;
 public class TagService {
   @Inject UserService userService;
   @Inject TagRepo tagRepo;
+  @Inject FileTagsRepo fileTagsRepo;
   final PaginationMapper paginationMapper = Mappers.getMapper(PaginationMapper.class);
 
   public Uni<ServiceResponse<PaginatedResponse<Tag>>> getAllTags(
@@ -265,6 +267,74 @@ public class TagService {
                                                       ResourceType.TAG,
                                                       ActionType.UPDATE,
                                                       updatedTag)));
+                                });
+                      });
+            });
+  }
+
+  public Uni<ServiceResponse<Tag>> deleteTag(final UserToken userInfo, final long tagId) {
+    return userService.checkUserExist(
+        userInfo,
+        ResourceType.TAG,
+        ActionType.DELETE,
+        user -> deleteIfTagExists(user.getId(), tagId));
+  }
+
+  public Uni<ServiceResponse<Tag>> deleteIfTagExists(final long userId, final long tagId) {
+    return getTagById(tagId, userId)
+        .chain(
+            tagServiceResponse -> {
+              if (tagServiceResponse.hasError()) {
+                return updateErrorAndPassThrough(tagServiceResponse);
+              }
+
+              Tag tagData = tagServiceResponse.getActionResponses().getFirst().getData();
+
+              return fileTagsRepo
+                  .deleteAllTagUses(tagId)
+                  .chain(
+                      deleteTagUsesSuccess -> {
+                        if (!deleteTagUsesSuccess) {
+                          return Uni.createFrom()
+                              .item(
+                                  new ServiceResponse<>(
+                                      new ServiceActionResponse<>(
+                                          ResourceType.TAG,
+                                          ActionType.DELETE,
+                                          List.of(
+                                              ServiceError.builder()
+                                                  .errorCode(
+                                                      ErrorCode.TAG_USES_COULD_NOT_BE_DELETED)
+                                                  .errorMessage(
+                                                      "Error deleting tag uses from database '"
+                                                          + tagId
+                                                          + "'")
+                                                  .httpCode(500)
+                                                  .build()))));
+                        }
+
+                        return tagRepo
+                            .deleteTag(userId, tagId)
+                            .map(
+                                deleteTagSuccess -> {
+                                  if (!deleteTagSuccess) {
+                                    return new ServiceResponse<>(
+                                        new ServiceActionResponse<>(
+                                            ResourceType.TAG,
+                                            ActionType.DELETE,
+                                            List.of(
+                                                ServiceError.builder()
+                                                    .errorCode(ErrorCode.TAG_COULD_NOT_BE_DELETED)
+                                                    .errorMessage(
+                                                        "Error deleting tag from database '"
+                                                            + tagId
+                                                            + "'")
+                                                    .httpCode(500)
+                                                    .build())));
+                                  }
+                                  return new ServiceResponse<>(
+                                      new ServiceActionResponse<>(
+                                          ResourceType.TAG, ActionType.DELETE, tagData));
                                 });
                       });
             });

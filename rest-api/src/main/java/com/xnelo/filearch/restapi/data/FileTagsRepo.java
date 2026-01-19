@@ -1,0 +1,37 @@
+package com.xnelo.filearch.restapi.data;
+
+import com.xnelo.filearch.jooq.tables.FileTags;
+import io.agroal.api.AgroalDataSource;
+import io.smallrye.mutiny.Uni;
+import jakarta.enterprise.context.RequestScoped;
+import jakarta.inject.Inject;
+import lombok.extern.slf4j.Slf4j;
+import org.jooq.DSLContext;
+import org.jooq.SQLDialect;
+import org.jooq.impl.DSL;
+
+@RequestScoped
+@Slf4j
+public class FileTagsRepo {
+  private final DSLContext context;
+
+  @Inject
+  public FileTagsRepo(final AgroalDataSource dataSource) {
+    this.context = DSL.using(dataSource, SQLDialect.POSTGRES);
+    this.context.setSchema("FILEARCH").execute();
+  }
+
+  public Uni<Boolean> deleteAllTagUses(final long tagId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .deleteFrom(FileTags.FILE_TAGS)
+                .where(FileTags.FILE_TAGS.TAG_ID.eq(tagId))
+                .execute())
+        .map(recordsDeleted -> Boolean.TRUE)
+        .onFailure()
+        .invoke(ex -> log.error("Error deleting tag usages '{}'", tagId, ex))
+        .onFailure()
+        .recoverWithItem(Boolean.FALSE);
+  }
+}

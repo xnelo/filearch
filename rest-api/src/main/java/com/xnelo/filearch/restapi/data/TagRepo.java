@@ -12,11 +12,13 @@ import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import java.util.List;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jooq.*;
 import org.jooq.Record;
 import org.jooq.impl.DSL;
 
+@Slf4j
 @RequestScoped
 public class TagRepo {
   public static final String DECRYPTED_TAG_NAME = "DECRYPT_TAG_NAME";
@@ -110,6 +112,21 @@ public class TagRepo {
                 .returningResult(allFields)
                 .fetchOne())
         .map(this::toTagModel);
+  }
+
+  public Uni<Boolean> deleteTag(final long userId, final long tagId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .deleteFrom(Tags.TAGS)
+                .where(Tags.TAGS.OWNER_USER_ID.eq(userId))
+                .and(Tags.TAGS.ID.eq(tagId))
+                .execute())
+        .map(tagDeleted -> Boolean.TRUE)
+        .onFailure()
+        .invoke(ex -> log.error("Error deleting tag {}", tagId, ex))
+        .onFailure()
+        .recoverWithItem(Boolean.FALSE);
   }
 
   Tag toTagModel(final Record toConvert) {
