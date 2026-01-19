@@ -34,4 +34,18 @@ public class FileTagsRepo {
         .onFailure()
         .recoverWithItem(Boolean.FALSE);
   }
+
+  public Uni<Boolean> deleteAllFileMappings(final long fileId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .deleteFrom(FileTags.FILE_TAGS)
+                .where(FileTags.FILE_TAGS.FILE_ID.eq(fileId))
+                .execute())
+        .map(recordsDeleted -> Boolean.TRUE)
+        .onFailure()
+        .invoke(ex -> log.error("Error deleting file mappings '{}'", fileId, ex))
+        .onFailure()
+        .recoverWithItem(Boolean.FALSE);
+  }
 }
