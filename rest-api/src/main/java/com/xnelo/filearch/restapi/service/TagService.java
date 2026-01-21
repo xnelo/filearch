@@ -15,6 +15,7 @@ import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import org.mapstruct.factory.Mappers;
 
 @RequestScoped
@@ -337,6 +338,40 @@ public class TagService {
                                           ResourceType.TAG, ActionType.DELETE, tagData));
                                 });
                       });
+            });
+  }
+
+  public <T> Uni<ServiceResponse<T>> checkIfTagExists(
+      final long userId,
+      final long tagId,
+      final ResourceType resourceType,
+      final ActionType actionType,
+      final Function<Tag, Uni<ServiceResponse<T>>> tagExistAction) {
+    return getTagById(tagId, userId)
+        .chain(
+            tagResponse -> {
+              Tag tag = tagResponse.getActionResponses().getFirst().getData();
+              if (tag == null) {
+                return Uni.createFrom()
+                    .item(
+                        new ServiceResponse<>(
+                            new ServiceActionResponse<>(
+                                resourceType,
+                                actionType,
+                                List.of(
+                                    ServiceError.builder()
+                                        .errorCode(ErrorCode.TAG_DOES_NOT_EXIST)
+                                        .errorMessage(
+                                            "Cannot "
+                                                + actionType
+                                                + " "
+                                                + resourceType
+                                                + " because tag does not exist.")
+                                        .httpCode(404)
+                                        .build()))));
+              }
+
+              return tagExistAction.apply(tag);
             });
   }
 

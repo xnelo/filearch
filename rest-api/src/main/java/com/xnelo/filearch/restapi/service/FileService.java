@@ -25,6 +25,7 @@ import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import org.eclipse.microprofile.reactive.messaging.Channel;
 import org.eclipse.microprofile.reactive.messaging.Emitter;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
@@ -40,6 +41,7 @@ public class FileService {
   @Inject FolderService folderService;
   @Inject FileTagsRepo fileTagsRepo;
   @Inject FilearchConfig config;
+  @Inject TagService tagService;
   final PaginationMapper paginationMapper = Mappers.getMapper(PaginationMapper.class);
   final MessagingMapper messagingMapper = Mappers.getMapper(MessagingMapper.class);
 
@@ -691,5 +693,67 @@ public class FileService {
     filesIdsToDelete.forEach(
         fileIdToDelete -> fileDeleteUnis.add(deleteIndividualFile(fileIdToDelete, userId)));
     return Uni.combine().all().unis(fileDeleteUnis).with(FileService::combineFileActionUnis);
+  }
+
+  <T> Uni<ServiceResponse<T>> checkFileExists(
+      final long fileId,
+      final long userId,
+      final ResourceType resourceType,
+      final ActionType actionType,
+      final Function<File, Uni<ServiceResponse<T>>> fileExistAction) {
+    return storedFilesRepo
+        .getStoredFile(fileId, userId)
+        .chain(
+            file -> {
+              if (file == null) {
+                return Uni.createFrom()
+                    .item(
+                        new ServiceResponse<>(
+                            new ServiceActionResponse<>(
+                                resourceType,
+                                actionType,
+                                List.of(
+                                    ServiceError.builder()
+                                        .errorCode(ErrorCode.FILE_DOES_NOT_EXIST)
+                                        .errorMessage(
+                                            "Operation could not complete because file '"
+                                                + fileId
+                                                + "' does not exist.")
+                                        .httpCode(404)
+                                        .build()))));
+              }
+
+              return fileExistAction.apply(file);
+            });
+  }
+
+  public Uni<ServiceResponse<Boolean>> assignTag(
+      final UserToken userToken, final long fileId, final long tagId) {
+    return userService.checkUserExist(
+        userToken,
+        ResourceType.TAG,
+        ActionType.ASSIGN,
+        user ->
+            checkFileExists(
+                fileId,
+                user.getId(),
+                ResourceType.TAG,
+                ActionType.ASSIGN,
+                file ->
+                    tagService.checkIfTagExists(
+                        user.getId(),
+                        tagId,
+                        ResourceType.TAG,
+                        ActionType.ASSIGN,
+                        tag ->
+                            fileTagsRepo
+                                .assignFileMapping(fileId, tagId)
+                                .map(
+                                    assignFileMappingSuccess ->
+                                        new ServiceResponse<>(
+                                            new ServiceActionResponse<>(
+                                                ResourceType.TAG,
+                                                ActionType.ASSIGN,
+                                                assignFileMappingSuccess))))));
   }
 }

@@ -7,6 +7,7 @@ import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.usertoken.UserTokenHandler;
+import com.xnelo.filearch.restapi.api.contracts.AssignTagContract;
 import com.xnelo.filearch.restapi.api.contracts.FileBulkDeleteContract;
 import com.xnelo.filearch.restapi.api.contracts.FileUploadContract;
 import com.xnelo.filearch.restapi.api.mappers.ContractMapper;
@@ -152,5 +153,18 @@ public class FileResource {
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toFileContract));
+  }
+
+  @POST
+  @RolesAllowed("user")
+  @Path("{id}/assign_tag")
+  public Uni<Response> assignTag(@PathParam("id") long fileId, final AssignTagContract assignTag) {
+    UserToken userToken = userhandler.getUserInfo();
+    return fileService
+        .assignTag(userToken, fileId, assignTag.tagId())
+        .map(
+            serviceResponse ->
+                contractMapper.toApiResponse(
+                    serviceResponse, (Boolean isSuccessful) -> isSuccessful));
   }
 }

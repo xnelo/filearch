@@ -6,5 +6,6 @@ public enum ActionType {
   UPDATE,
   GET,
   DELETE,
-  DOWNLOAD
+  DOWNLOAD,
+  ASSIGN
 }
