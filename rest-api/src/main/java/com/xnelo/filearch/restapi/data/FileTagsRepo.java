@@ -56,6 +56,7 @@ public class FileTagsRepo {
                 .insertInto(FileTags.FILE_TAGS)
                 .set(FileTags.FILE_TAGS.FILE_ID, fileId)
                 .set(FileTags.FILE_TAGS.TAG_ID, tagId)
+                .onConflictDoNothing()
                 .execute())
         .map(res -> res == 1)
         .onFailure()

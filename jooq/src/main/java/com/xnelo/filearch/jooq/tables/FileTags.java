@@ -5,9 +5,12 @@ package com.xnelo.filearch.jooq.tables;
 
 
 import com.xnelo.filearch.jooq.Filearch;
+import com.xnelo.filearch.jooq.Keys;
 import com.xnelo.filearch.jooq.tables.records.FileTagsRecord;
 
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 
 import org.jooq.Condition;
 import org.jooq.Field;
@@ -21,6 +24,7 @@ import org.jooq.Stringly;
 import org.jooq.Table;
 import org.jooq.TableField;
 import org.jooq.TableOptions;
+import org.jooq.UniqueKey;
 import org.jooq.impl.DSL;
 import org.jooq.impl.SQLDataType;
 import org.jooq.impl.TableImpl;
@@ -89,6 +93,11 @@ public class FileTags extends TableImpl<FileTagsRecord> {
     @Override
     public Schema getSchema() {
         return aliased() ? null : Filearch.FILEARCH;
+    }
+
+    @Override
+    public List<UniqueKey<FileTagsRecord>> getUniqueKeys() {
+        return Arrays.asList(Keys.UNIQUE_FILE_TAGGING);
     }
 
     @Override
