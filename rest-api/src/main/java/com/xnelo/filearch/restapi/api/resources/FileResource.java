@@ -167,4 +167,18 @@ public class FileResource {
                 contractMapper.toApiResponse(
                     serviceResponse, (Boolean isSuccessful) -> isSuccessful));
   }
+
+  @POST
+  @RolesAllowed("user")
+  @Path("{id}/unassign_tag")
+  public Uni<Response> unassignTag(
+      @PathParam("id") final long fileId, final AssignTagContract unassignTag) {
+    UserToken userToken = userhandler.getUserInfo();
+    return fileService
+        .unassignTag(userToken, fileId, unassignTag.tagId())
+        .map(
+            serviceResponse ->
+                contractMapper.toApiResponse(
+                    serviceResponse, (Boolean isSuccessful) -> isSuccessful));
+  }
 }

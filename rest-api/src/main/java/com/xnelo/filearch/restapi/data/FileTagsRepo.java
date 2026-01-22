@@ -63,4 +63,19 @@ public class FileTagsRepo {
         .onFailure()
         .recoverWithItem(Boolean.FALSE);
   }
+
+  public Uni<Boolean> unassignFileMapping(final long fileId, final long tagId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .deleteFrom(FileTags.FILE_TAGS)
+                .where(FileTags.FILE_TAGS.FILE_ID.eq(fileId))
+                .and(FileTags.FILE_TAGS.TAG_ID.eq(tagId))
+                .execute())
+        .map(res -> res == 1)
+        .onFailure()
+        .invoke(ex -> log.error("Error deleting a file tag mapping", ex))
+        .onFailure()
+        .recoverWithItem(Boolean.FALSE);
+  }
 }

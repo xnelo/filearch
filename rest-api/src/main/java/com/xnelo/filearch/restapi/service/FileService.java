@@ -756,4 +756,34 @@ public class FileService {
                                                 ActionType.ASSIGN,
                                                 assignFileMappingSuccess))))));
   }
+
+  public Uni<ServiceResponse<Boolean>> unassignTag(
+      final UserToken userToken, final long fileId, final long tagId) {
+    return userService.checkUserExist(
+        userToken,
+        ResourceType.TAG,
+        ActionType.UNASSIGN,
+        user ->
+            checkFileExists(
+                fileId,
+                user.getId(),
+                ResourceType.TAG,
+                ActionType.UNASSIGN,
+                file ->
+                    tagService.checkIfTagExists(
+                        user.getId(),
+                        tagId,
+                        ResourceType.TAG,
+                        ActionType.UNASSIGN,
+                        tag ->
+                            fileTagsRepo
+                                .unassignFileMapping(fileId, tagId)
+                                .map(
+                                    unassignFileTagSuccess ->
+                                        new ServiceResponse<>(
+                                            new ServiceActionResponse<>(
+                                                ResourceType.TAG,
+                                                ActionType.UNASSIGN,
+                                                unassignFileTagSuccess))))));
+  }
 }
