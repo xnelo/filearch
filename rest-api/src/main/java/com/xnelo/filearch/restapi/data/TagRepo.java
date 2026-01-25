@@ -5,6 +5,7 @@ import static com.xnelo.filearch.common.encryption.JooqFields.encryptField;
 
 import com.xnelo.filearch.common.model.SortDirection;
 import com.xnelo.filearch.common.model.Tag;
+import com.xnelo.filearch.jooq.tables.FileTags;
 import com.xnelo.filearch.jooq.tables.Tags;
 import io.agroal.api.AgroalDataSource;
 import io.smallrye.mutiny.Uni;
@@ -55,6 +56,30 @@ public class TagRepo {
     List<Tag> data = finalQuery.fetch().map(this::toTagModel);
 
     return Uni.createFrom().item(RepoUtils.toPaginatedData(after, data, sortDirection, limit));
+  }
+
+  public Uni<PaginatedData<Tag>> getAllTagsForFile(
+      final long userId,
+      final Long fileId,
+      final Long after,
+      final Integer limit,
+      final SortDirection sortDirection) {
+    SelectConditionStep<?> selectStatement =
+        context
+            .select(allFields)
+            .from(FileTags.FILE_TAGS)
+            .join(Tags.TAGS)
+            .on(FileTags.FILE_TAGS.TAG_ID.eq(Tags.TAGS.ID))
+            .where(Tags.TAGS.OWNER_USER_ID.eq(userId))
+            .and(FileTags.FILE_TAGS.FILE_ID.eq(fileId));
+
+    SelectLimitPercentStep<?> finalQuery =
+        RepoUtils.addPagination(selectStatement, Tags.TAGS.ID, after, limit, sortDirection);
+
+    return Uni.createFrom()
+        .item(
+            RepoUtils.toPaginatedData(
+                after, finalQuery.fetch().map(this::toTagModel), sortDirection, limit));
   }
 
   public Uni<Tag> createTag(final long userId, final String tagName) {

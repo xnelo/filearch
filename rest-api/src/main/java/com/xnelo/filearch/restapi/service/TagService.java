@@ -24,6 +24,7 @@ public class TagService {
   @Inject TagRepo tagRepo;
   @Inject FileTagsRepo fileTagsRepo;
   final PaginationMapper paginationMapper = Mappers.getMapper(PaginationMapper.class);
+  @Inject FileService fileService;
 
   public Uni<ServiceResponse<PaginatedResponse<Tag>>> getAllTags(
       final UserToken userInfo,
@@ -373,6 +374,34 @@ public class TagService {
 
               return tagExistAction.apply(tag);
             });
+  }
+
+  public Uni<ServiceResponse<PaginatedResponse<Tag>>> getTagsAssignedToFile(
+      final UserToken userToken,
+      final Long fileId,
+      final Long after,
+      final Integer limit,
+      final SortDirection sortDirection) {
+    return userService.checkUserExist(
+        userToken,
+        ResourceType.TAG,
+        ActionType.GET,
+        user ->
+            fileService.checkFileExists(
+                fileId,
+                user.getId(),
+                ResourceType.TAG,
+                ActionType.GET,
+                file ->
+                    tagRepo
+                        .getAllTagsForFile(user.getId(), fileId, after, limit, sortDirection)
+                        .map(
+                            paginatedTags ->
+                                new ServiceResponse<>(
+                                    new ServiceActionResponse<>(
+                                        ResourceType.TAG,
+                                        ActionType.GET,
+                                        paginationMapper.toPaginatedResponse(paginatedTags))))));
   }
 
   private Uni<ServiceResponse<Tag>> updateErrorAndPassThrough(ServiceResponse<?> response) {

@@ -13,6 +13,7 @@ import com.xnelo.filearch.restapi.api.contracts.FileUploadContract;
 import com.xnelo.filearch.restapi.api.mappers.ContractMapper;
 import com.xnelo.filearch.restapi.api.mappers.HttpStatusCodeMapper;
 import com.xnelo.filearch.restapi.service.FileService;
+import com.xnelo.filearch.restapi.service.TagService;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
@@ -29,6 +30,7 @@ import org.mapstruct.factory.Mappers;
 public class FileResource {
   @Inject UserTokenHandler userhandler;
   @Inject FileService fileService;
+  @Inject TagService tagService;
   private final ContractMapper contractMapper = Mappers.getMapper(ContractMapper.class);
 
   @GET
@@ -180,5 +182,25 @@ public class FileResource {
             serviceResponse ->
                 contractMapper.toApiResponse(
                     serviceResponse, (Boolean isSuccessful) -> isSuccessful));
+  }
+
+  @GET
+  @RolesAllowed("user")
+  @Path("{id}/tags")
+  public Uni<Response> getFileTags(
+      @PathParam("id") long fileId,
+      @QueryParam("after") Long after,
+      @QueryParam("limit") Integer limit,
+      @QueryParam("direction") SortDirection dir) {
+    UserToken userToken = userhandler.getUserInfo();
+    return tagService
+        .getTagsAssignedToFile(userToken, fileId, after, limit, dir)
+        .map(
+            paginatedServiceResponse ->
+                contractMapper.toApiResponse(
+                    paginatedServiceResponse,
+                    resp ->
+                        contractMapper.toPaginationContract(
+                            resp, contractMapper::toTagContractList)));
   }
 }
