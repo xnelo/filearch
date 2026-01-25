@@ -7,11 +7,13 @@ import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.usertoken.UserTokenHandler;
+import com.xnelo.filearch.restapi.api.contracts.AssignTagContract;
 import com.xnelo.filearch.restapi.api.contracts.FileBulkDeleteContract;
 import com.xnelo.filearch.restapi.api.contracts.FileUploadContract;
 import com.xnelo.filearch.restapi.api.mappers.ContractMapper;
 import com.xnelo.filearch.restapi.api.mappers.HttpStatusCodeMapper;
 import com.xnelo.filearch.restapi.service.FileService;
+import com.xnelo.filearch.restapi.service.TagService;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
@@ -28,6 +30,7 @@ import org.mapstruct.factory.Mappers;
 public class FileResource {
   @Inject UserTokenHandler userhandler;
   @Inject FileService fileService;
+  @Inject TagService tagService;
   private final ContractMapper contractMapper = Mappers.getMapper(ContractMapper.class);
 
   @GET
@@ -152,5 +155,52 @@ public class FileResource {
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toFileContract));
+  }
+
+  @POST
+  @RolesAllowed("user")
+  @Path("{id}/assign_tag")
+  public Uni<Response> assignTag(@PathParam("id") long fileId, final AssignTagContract assignTag) {
+    UserToken userToken = userhandler.getUserInfo();
+    return fileService
+        .assignTag(userToken, fileId, assignTag.tagId())
+        .map(
+            serviceResponse ->
+                contractMapper.toApiResponse(
+                    serviceResponse, (Boolean isSuccessful) -> isSuccessful));
+  }
+
+  @POST
+  @RolesAllowed("user")
+  @Path("{id}/unassign_tag")
+  public Uni<Response> unassignTag(
+      @PathParam("id") final long fileId, final AssignTagContract unassignTag) {
+    UserToken userToken = userhandler.getUserInfo();
+    return fileService
+        .unassignTag(userToken, fileId, unassignTag.tagId())
+        .map(
+            serviceResponse ->
+                contractMapper.toApiResponse(
+                    serviceResponse, (Boolean isSuccessful) -> isSuccessful));
+  }
+
+  @GET
+  @RolesAllowed("user")
+  @Path("{id}/tags")
+  public Uni<Response> getFileTags(
+      @PathParam("id") long fileId,
+      @QueryParam("after") Long after,
+      @QueryParam("limit") Integer limit,
+      @QueryParam("direction") SortDirection dir) {
+    UserToken userToken = userhandler.getUserInfo();
+    return tagService
+        .getTagsAssignedToFile(userToken, fileId, after, limit, dir)
+        .map(
+            paginatedServiceResponse ->
+                contractMapper.toApiResponse(
+                    paginatedServiceResponse,
+                    resp ->
+                        contractMapper.toPaginationContract(
+                            resp, contractMapper::toTagContractList)));
   }
 }

@@ -120,7 +120,7 @@ public class FolderRepo {
                 .and(Folders.FOLDERS.PARENT_ID.eq(folderId))
                 .and(decryptField(Folders.FOLDERS.NAME, encryptionKey).eq(nameToCheck))
                 .fetchOne())
-        .map(dbRecord -> dbRecord.getValue(0, Integer.class) > 0);
+        .map(dbRecord -> dbRecord != null && dbRecord.getValue(0, Integer.class) > 0);
   }
 
   public Uni<Folder> updateFolder(

@@ -5,5 +5,6 @@ public enum ResourceType {
   FILE,
   FILE_IDS,
   FOLDER,
+  TAG,
   USERNAME
 }

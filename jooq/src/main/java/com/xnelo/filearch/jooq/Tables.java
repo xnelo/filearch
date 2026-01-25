@@ -5,10 +5,12 @@ package com.xnelo.filearch.jooq;
 
 
 import com.xnelo.filearch.jooq.tables.Artifacts;
+import com.xnelo.filearch.jooq.tables.FileTags;
 import com.xnelo.filearch.jooq.tables.FlywaySchemaHistory;
 import com.xnelo.filearch.jooq.tables.Folders;
 import com.xnelo.filearch.jooq.tables.PgpArmorHeaders;
 import com.xnelo.filearch.jooq.tables.StoredFiles;
+import com.xnelo.filearch.jooq.tables.Tags;
 import com.xnelo.filearch.jooq.tables.Users;
 import com.xnelo.filearch.jooq.tables.records.PgpArmorHeadersRecord;
 
@@ -27,6 +29,11 @@ public class Tables {
      * The table <code>FILEARCH.artifacts</code>.
      */
     public static final Artifacts ARTIFACTS = Artifacts.ARTIFACTS;
+
+    /**
+     * The table <code>FILEARCH.file_tags</code>.
+     */
+    public static final FileTags FILE_TAGS = FileTags.FILE_TAGS;
 
     /**
      * The table <code>FILEARCH.flyway_schema_history</code>.
@@ -81,6 +88,11 @@ public class Tables {
      * The table <code>FILEARCH.stored_files</code>.
      */
     public static final StoredFiles STORED_FILES = StoredFiles.STORED_FILES;
+
+    /**
+     * The table <code>FILEARCH.tags</code>.
+     */
+    public static final Tags TAGS = Tags.TAGS;
 
     /**
      * The table <code>FILEARCH.users</code>.

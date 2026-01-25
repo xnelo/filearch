@@ -5,10 +5,12 @@ package com.xnelo.filearch.jooq;
 
 
 import com.xnelo.filearch.jooq.tables.Artifacts;
+import com.xnelo.filearch.jooq.tables.FileTags;
 import com.xnelo.filearch.jooq.tables.FlywaySchemaHistory;
 import com.xnelo.filearch.jooq.tables.Folders;
 import com.xnelo.filearch.jooq.tables.PgpArmorHeaders;
 import com.xnelo.filearch.jooq.tables.StoredFiles;
+import com.xnelo.filearch.jooq.tables.Tags;
 import com.xnelo.filearch.jooq.tables.Users;
 import com.xnelo.filearch.jooq.tables.records.PgpArmorHeadersRecord;
 
@@ -42,6 +44,11 @@ public class Filearch extends SchemaImpl {
      * The table <code>FILEARCH.artifacts</code>.
      */
     public final Artifacts ARTIFACTS = Artifacts.ARTIFACTS;
+
+    /**
+     * The table <code>FILEARCH.file_tags</code>.
+     */
+    public final FileTags FILE_TAGS = FileTags.FILE_TAGS;
 
     /**
      * The table <code>FILEARCH.flyway_schema_history</code>.
@@ -98,6 +105,11 @@ public class Filearch extends SchemaImpl {
     public final StoredFiles STORED_FILES = StoredFiles.STORED_FILES;
 
     /**
+     * The table <code>FILEARCH.tags</code>.
+     */
+    public final Tags TAGS = Tags.TAGS;
+
+    /**
      * The table <code>FILEARCH.users</code>.
      */
     public final Users USERS = Users.USERS;
@@ -122,6 +134,7 @@ public class Filearch extends SchemaImpl {
             Sequences.FOLDERS_ID_SEQ,
             Sequences.SEQ_FILE_UPLOAD_NUMBER,
             Sequences.STORED_FILES_ID_SEQ,
+            Sequences.TAGS_ID_SEQ,
             Sequences.USERS_ID_SEQ
         );
     }
@@ -130,10 +143,12 @@ public class Filearch extends SchemaImpl {
     public final List<Table<?>> getTables() {
         return Arrays.asList(
             Artifacts.ARTIFACTS,
+            FileTags.FILE_TAGS,
             FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY,
             Folders.FOLDERS,
             PgpArmorHeaders.PGP_ARMOR_HEADERS,
             StoredFiles.STORED_FILES,
+            Tags.TAGS,
             Users.USERS
         );
     }
