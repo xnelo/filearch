@@ -42,6 +42,20 @@ public class TagResource {
                             resp, contractMapper::toTagContractList)));
   }
 
+  @GET
+  @RolesAllowed("user")
+  @Path("/search")
+  public Uni<Response> search(
+      @QueryParam("search_text") String searchText, @QueryParam("limit") Integer limit) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return tagService
+        .searchTags(userToken, searchText, limit)
+        .map(
+            serviceResponseList ->
+                contractMapper.toApiResponse(
+                    serviceResponseList, contractMapper::toTagContractList));
+  }
+
   @POST
   @RolesAllowed("user")
   public Uni<Response> createNewTag(final TagContract newTag) {

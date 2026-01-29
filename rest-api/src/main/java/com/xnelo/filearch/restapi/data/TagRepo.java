@@ -22,6 +22,7 @@ import org.jooq.impl.DSL;
 @Slf4j
 @RequestScoped
 public class TagRepo {
+  private final int DEFAULT_SEARCH_LIMIT = 50;
   public static final String DECRYPTED_TAG_NAME = "DECRYPT_TAG_NAME";
 
   private final DSLContext context;
@@ -152,6 +153,26 @@ public class TagRepo {
         .invoke(ex -> log.error("Error deleting tag {}", tagId, ex))
         .onFailure()
         .recoverWithItem(Boolean.FALSE);
+  }
+
+  public Uni<List<Tag>> searchTags(
+      final long userId, final String searchText, final Integer limit) {
+    return Uni.createFrom()
+        .item(
+            context
+                .select(allFields)
+                .from(Tags.TAGS)
+                .where(Tags.TAGS.OWNER_USER_ID.eq(userId))
+                .and(
+                    decryptField(Tags.TAGS.TAG_NAME, encryptionKey)
+                        .likeIgnoreCase("%" + searchText + "%"))
+                .limit(limit == null ? DEFAULT_SEARCH_LIMIT : limit)
+                .fetch())
+        .map(resultList -> resultList.stream().map(this::toTagModel).toList())
+        .onFailure()
+        .invoke(ex -> log.error("Error searching tags {}", searchText, ex))
+        .onFailure()
+        .recoverWithItem(List.of());
   }
 
   Tag toTagModel(final Record toConvert) {
