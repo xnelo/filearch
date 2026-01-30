@@ -51,7 +51,7 @@ public class TagService {
           .item(
               new ServiceResponse<>(
                   new ServiceActionResponse<>(
-                      ResourceType.FILE,
+                      ResourceType.TAG,
                       ActionType.GET,
                       List.of(
                           ServiceError.builder()
@@ -74,7 +74,7 @@ public class TagService {
                     .item(
                         new ServiceResponse<>(
                             new ServiceActionResponse<>(
-                                ResourceType.FILE,
+                                ResourceType.TAG,
                                 ActionType.GET,
                                 List.of(
                                     ServiceError.builder()
@@ -402,6 +402,40 @@ public class TagService {
                                         ResourceType.TAG,
                                         ActionType.GET,
                                         paginationMapper.toPaginatedResponse(paginatedTags))))));
+  }
+
+  public Uni<ServiceResponse<List<Tag>>> searchTags(
+      final UserToken userInfo, final String searchText, final Integer limit) {
+    if (limit != null && limit <= 0) {
+      return Uni.createFrom()
+          .item(
+              new ServiceResponse<>(
+                  new ServiceActionResponse<>(
+                      ResourceType.TAG,
+                      ActionType.SEARCH,
+                      List.of(
+                          ServiceError.builder()
+                              .errorCode(ErrorCode.INVALID_RESPONSE_LIMIT)
+                              .errorMessage(
+                                  "A return limit of '"
+                                      + limit
+                                      + "' is invalid. Must be greater than 0")
+                              .httpCode(400)
+                              .build()))));
+    }
+
+    return userService.checkUserExist(
+        userInfo,
+        ResourceType.TAG,
+        ActionType.SEARCH,
+        user ->
+            tagRepo
+                .searchTags(user.getId(), searchText, limit)
+                .map(
+                    tagList ->
+                        new ServiceResponse<>(
+                            new ServiceActionResponse<>(
+                                ResourceType.TAG, ActionType.SEARCH, tagList))));
   }
 
   private Uni<ServiceResponse<Tag>> updateErrorAndPassThrough(ServiceResponse<?> response) {
