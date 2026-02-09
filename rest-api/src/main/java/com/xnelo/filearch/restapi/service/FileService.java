@@ -786,4 +786,75 @@ public class FileService {
                                                 ActionType.UNASSIGN,
                                                 unassignFileTagSuccess))))));
   }
+
+  public Uni<ServiceResponse<PaginatedResponse<File>>> searchFiles(
+      final UserToken userToken,
+      final String searchTerm,
+      final Long after,
+      final Integer limit,
+      final SortDirection sortDirection) {
+
+    if (searchTerm == null || searchTerm.trim().isEmpty()) {
+      return Uni.createFrom()
+          .item(
+              new ServiceResponse<>(
+                  new ServiceActionResponse<>(
+                      ResourceType.FILE,
+                      ActionType.SEARCH,
+                      List.of(
+                          ServiceError.builder()
+                              .errorCode(ErrorCode.INVALID_SEARCH_TEXT)
+                              .errorMessage("Search text cannot be empty")
+                              .httpCode(400)
+                              .build()))));
+    }
+
+    if (after != null && after < 0) {
+      return Uni.createFrom()
+          .item(
+              new ServiceResponse<>(
+                  new ServiceActionResponse<>(
+                      ResourceType.FILE,
+                      ActionType.SEARCH,
+                      List.of(
+                          ServiceError.builder()
+                              .errorCode(ErrorCode.INVALID_AFTER_VALUE)
+                              .errorMessage("After value must be greater than 0.")
+                              .httpCode(400)
+                              .build()))));
+    }
+
+    if (limit != null && limit <= 0) {
+      return Uni.createFrom()
+          .item(
+              new ServiceResponse<>(
+                  new ServiceActionResponse<>(
+                      ResourceType.FILE,
+                      ActionType.SEARCH,
+                      List.of(
+                          ServiceError.builder()
+                              .errorCode(ErrorCode.INVALID_RESPONSE_LIMIT)
+                              .errorMessage(
+                                  "A return limit of '"
+                                      + limit
+                                      + "' is invalid. Must be greater than 0")
+                              .httpCode(400)
+                              .build()))));
+    }
+
+    return userService.checkUserExist(
+        userToken,
+        ResourceType.FILE,
+        ActionType.SEARCH,
+        user ->
+            storedFilesRepo
+                .searchFiles(user.getId(), searchTerm.trim(), after, limit, sortDirection)
+                .map(
+                    paginatedFileData ->
+                        new ServiceResponse<>(
+                            new ServiceActionResponse<>(
+                                ResourceType.FILE,
+                                ActionType.SEARCH,
+                                paginationMapper.toPaginatedResponse(paginatedFileData)))));
+  }
 }

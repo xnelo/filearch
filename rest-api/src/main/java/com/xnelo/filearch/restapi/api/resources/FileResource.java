@@ -203,4 +203,24 @@ public class FileResource {
                         contractMapper.toPaginationContract(
                             resp, contractMapper::toTagContractList)));
   }
+
+  @GET
+  @RolesAllowed("user")
+  @Path("search")
+  public Uni<Response> searchFiles(
+      @QueryParam("search_term") String searchTerm,
+      @QueryParam("after") Long after,
+      @QueryParam("limit") Integer limit,
+      @QueryParam("direction") SortDirection sortDirection) {
+    UserToken userToken = userhandler.getUserInfo();
+    return fileService
+        .searchFiles(userToken, searchTerm, after, limit, sortDirection)
+        .map(
+            paginatedServiceResponse ->
+                contractMapper.toApiResponse(
+                    paginatedServiceResponse,
+                    resp ->
+                        contractMapper.toPaginationContract(
+                            resp, contractMapper::toFileContractList)));
+  }
 }

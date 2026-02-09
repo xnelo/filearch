@@ -6,7 +6,9 @@ import static com.xnelo.filearch.common.encryption.JooqFields.encryptField;
 import com.xnelo.filearch.common.model.File;
 import com.xnelo.filearch.common.model.SortDirection;
 import com.xnelo.filearch.common.model.StorageType;
+import com.xnelo.filearch.jooq.tables.FileTags;
 import com.xnelo.filearch.jooq.tables.StoredFiles;
+import com.xnelo.filearch.jooq.tables.Tags;
 import io.agroal.api.AgroalDataSource;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
@@ -60,6 +62,7 @@ public class StoredFilesRepo {
         RepoUtils.addPagination(
             selectStatement, StoredFiles.STORED_FILES.ID, after, limit, sortDirection);
 
+    // TODO: Move this inside the UNI
     List<File> data = finalQuery.fetch().map(this::toFileModel);
 
     return Uni.createFrom().item(RepoUtils.toPaginatedData(after, data, sortDirection, limit));
@@ -170,6 +173,40 @@ public class StoredFilesRepo {
                 .and(StoredFiles.STORED_FILES.FOLDER_ID.eq(folderId))
                 .fetch()
                 .map(Record1::value1));
+  }
+
+  public Uni<PaginatedData<File>> searchFiles(
+      final long userId,
+      final String searchTerm,
+      final Long after,
+      final Integer limit,
+      final SortDirection sortDirection) {
+    SelectConditionStep<?> selectStatement =
+        context
+            .selectDistinct(allFields)
+            .from(StoredFiles.STORED_FILES)
+            .leftOuterJoin(FileTags.FILE_TAGS)
+            .on(StoredFiles.STORED_FILES.ID.eq(FileTags.FILE_TAGS.FILE_ID))
+            .leftOuterJoin(Tags.TAGS)
+            .on(Tags.TAGS.ID.eq(FileTags.FILE_TAGS.TAG_ID))
+            .where(StoredFiles.STORED_FILES.OWNER_USER_ID.eq(userId))
+            .and(
+                decryptField(StoredFiles.STORED_FILES.ORIGINAL_FILENAME, encryptionKey)
+                    .likeIgnoreCase("%" + searchTerm + "%")
+                    .or(
+                        decryptField(Tags.TAGS.TAG_NAME, encryptionKey)
+                            .likeIgnoreCase("%" + searchTerm + "%")));
+
+    SelectLimitPercentStep<?> finalQuery =
+        RepoUtils.addPagination(
+            selectStatement, StoredFiles.STORED_FILES.ID, after, limit, sortDirection);
+
+    return Uni.createFrom()
+        .item(
+            () -> {
+              List<File> data = finalQuery.fetch().map(this::toFileModel);
+              return RepoUtils.toPaginatedData(after, data, sortDirection, limit);
+            });
   }
 
   File toFileModel(final Record toConvert) {
