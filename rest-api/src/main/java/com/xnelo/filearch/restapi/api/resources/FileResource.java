@@ -1,7 +1,7 @@
 package com.xnelo.filearch.restapi.api.resources;
 
 import com.xnelo.filearch.common.model.DownloadData;
-import com.xnelo.filearch.common.model.SortDirection;
+import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
@@ -10,6 +10,7 @@ import com.xnelo.filearch.common.usertoken.UserTokenHandler;
 import com.xnelo.filearch.restapi.api.contracts.AssignTagContract;
 import com.xnelo.filearch.restapi.api.contracts.FileBulkDeleteContract;
 import com.xnelo.filearch.restapi.api.contracts.FileUploadContract;
+import com.xnelo.filearch.restapi.api.contracts.PaginationRequest;
 import com.xnelo.filearch.restapi.api.mappers.ContractMapper;
 import com.xnelo.filearch.restapi.api.mappers.HttpStatusCodeMapper;
 import com.xnelo.filearch.restapi.service.FileService;
@@ -35,13 +36,11 @@ public class FileResource {
 
   @GET
   @RolesAllowed("user")
-  public Uni<Response> getAll(
-      @QueryParam("after") Long after,
-      @QueryParam("limit") Integer limit,
-      @QueryParam("direction") SortDirection dir) {
+  public Uni<Response> getAll(@BeanParam PaginationRequest pr) {
     UserToken userToken = userhandler.getUserInfo();
+    PaginationParameters paginationParameters = contractMapper.toPaginationParameters(pr);
     return fileService
-        .getAllFiles(userToken, after, limit, dir)
+        .getAllFiles(userToken, paginationParameters)
         .map(
             paginatedServiceResponse ->
                 contractMapper.toApiResponse(
@@ -188,13 +187,12 @@ public class FileResource {
   @RolesAllowed("user")
   @Path("{id}/tags")
   public Uni<Response> getFileTags(
-      @PathParam("id") long fileId,
-      @QueryParam("after") Long after,
-      @QueryParam("limit") Integer limit,
-      @QueryParam("direction") SortDirection dir) {
+      @PathParam("id") long fileId, @BeanParam PaginationRequest paginationRequest) {
     UserToken userToken = userhandler.getUserInfo();
+    PaginationParameters paginationParameters =
+        contractMapper.toPaginationParameters(paginationRequest);
     return tagService
-        .getTagsAssignedToFile(userToken, fileId, after, limit, dir)
+        .getTagsAssignedToFile(userToken, fileId, paginationParameters)
         .map(
             paginatedServiceResponse ->
                 contractMapper.toApiResponse(
@@ -209,12 +207,12 @@ public class FileResource {
   @Path("search")
   public Uni<Response> searchFiles(
       @QueryParam("search_term") String searchTerm,
-      @QueryParam("after") Long after,
-      @QueryParam("limit") Integer limit,
-      @QueryParam("direction") SortDirection sortDirection) {
+      @BeanParam PaginationRequest paginationRequest) {
     UserToken userToken = userhandler.getUserInfo();
+    PaginationParameters paginationParameters =
+        contractMapper.toPaginationParameters(paginationRequest);
     return fileService
-        .searchFiles(userToken, searchTerm, after, limit, sortDirection)
+        .searchFiles(userToken, searchTerm, paginationParameters)
         .map(
             paginatedServiceResponse ->
                 contractMapper.toApiResponse(

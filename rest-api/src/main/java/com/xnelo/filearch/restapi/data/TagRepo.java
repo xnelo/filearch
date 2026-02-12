@@ -3,7 +3,7 @@ package com.xnelo.filearch.restapi.data;
 import static com.xnelo.filearch.common.encryption.JooqFields.decryptField;
 import static com.xnelo.filearch.common.encryption.JooqFields.encryptField;
 
-import com.xnelo.filearch.common.model.SortDirection;
+import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.common.model.Tag;
 import com.xnelo.filearch.jooq.tables.FileTags;
 import com.xnelo.filearch.jooq.tables.Tags;
@@ -47,24 +47,23 @@ public class TagRepo {
   }
 
   public Uni<PaginatedData<Tag>> getAll(
-      final long userId, final Long after, final Integer limit, final SortDirection sortDirection) {
+      final long userId, final PaginationParameters paginationParameters) {
     SelectConditionStep<?> selectStatement =
         context.select(allFields).from(Tags.TAGS).where(Tags.TAGS.OWNER_USER_ID.eq(userId));
 
     SelectLimitPercentStep<?> finalQuery =
-        RepoUtils.addPagination(selectStatement, Tags.TAGS.ID, after, limit, sortDirection);
+        RepoUtils.addPagination(selectStatement, Tags.TAGS.ID, paginationParameters);
 
-    List<Tag> data = finalQuery.fetch().map(this::toTagModel);
-
-    return Uni.createFrom().item(RepoUtils.toPaginatedData(after, data, sortDirection, limit));
+    return Uni.createFrom()
+        .item(
+            () -> {
+              List<Tag> data = finalQuery.fetch().map(this::toTagModel);
+              return RepoUtils.toPaginatedData(data, paginationParameters);
+            });
   }
 
   public Uni<PaginatedData<Tag>> getAllTagsForFile(
-      final long userId,
-      final Long fileId,
-      final Long after,
-      final Integer limit,
-      final SortDirection sortDirection) {
+      final long userId, final Long fileId, final PaginationParameters paginationParameters) {
     SelectConditionStep<?> selectStatement =
         context
             .select(allFields)
@@ -75,12 +74,12 @@ public class TagRepo {
             .and(FileTags.FILE_TAGS.FILE_ID.eq(fileId));
 
     SelectLimitPercentStep<?> finalQuery =
-        RepoUtils.addPagination(selectStatement, Tags.TAGS.ID, after, limit, sortDirection);
+        RepoUtils.addPagination(selectStatement, Tags.TAGS.ID, paginationParameters);
 
     return Uni.createFrom()
         .item(
             RepoUtils.toPaginatedData(
-                after, finalQuery.fetch().map(this::toTagModel), sortDirection, limit));
+                finalQuery.fetch().map(this::toTagModel), paginationParameters));
   }
 
   public Uni<Tag> createTag(final long userId, final String tagName) {

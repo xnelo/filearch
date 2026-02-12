@@ -4,7 +4,7 @@ import static com.xnelo.filearch.common.encryption.JooqFields.decryptField;
 import static com.xnelo.filearch.common.encryption.JooqFields.encryptField;
 
 import com.xnelo.filearch.common.model.Folder;
-import com.xnelo.filearch.common.model.SortDirection;
+import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.jooq.tables.Folders;
 import io.agroal.api.AgroalDataSource;
 import io.quarkus.logging.Log;
@@ -51,7 +51,7 @@ public class FolderRepo {
   }
 
   public Uni<PaginatedData<Folder>> getAll(
-      final long userId, final Long after, final Integer limit, final SortDirection sortDirection) {
+      final long userId, final PaginationParameters paginationParameters) {
     SelectConditionStep<?> selectStatement =
         context
             .select(allFields)
@@ -59,11 +59,11 @@ public class FolderRepo {
             .where(Folders.FOLDERS.OWNER_USER_ID.eq(userId));
 
     SelectLimitPercentStep<?> finalQuery =
-        RepoUtils.addPagination(selectStatement, Folders.FOLDERS.ID, after, limit, sortDirection);
+        RepoUtils.addPagination(selectStatement, Folders.FOLDERS.ID, paginationParameters);
 
     List<Folder> data = finalQuery.fetch().map(this::toFolderModel);
 
-    return Uni.createFrom().item(RepoUtils.toPaginatedData(after, data, sortDirection, limit));
+    return Uni.createFrom().item(RepoUtils.toPaginatedData(data, paginationParameters));
   }
 
   public Uni<Folder> createRootFolder(final long userId) {

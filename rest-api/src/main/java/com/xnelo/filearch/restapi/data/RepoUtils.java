@@ -1,5 +1,6 @@
 package com.xnelo.filearch.restapi.data;
 
+import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.common.model.SortDirection;
 import java.util.List;
 import org.jooq.*;
@@ -10,33 +11,31 @@ public class RepoUtils {
   public static SelectLimitPercentStep<?> addPagination(
       final SelectConditionStep<?> conditionStep,
       final Field<Long> fieldToSort,
-      final Long after,
-      final Integer limit,
-      final SortDirection sortDirection) {
+      final PaginationParameters paginationParameters) {
     SelectConditionStep<?> selectStatement = conditionStep;
 
     SortField<?> sortField;
-    if (sortDirection == null || sortDirection == SortDirection.ASCENDING) {
-      if (after != null && after >= 0) {
-        selectStatement = selectStatement.and(fieldToSort.gt(after));
+    if (paginationParameters.getDir() == null
+        || paginationParameters.getDir() == SortDirection.ASCENDING) {
+      if (paginationParameters.getAfter() != null && paginationParameters.getAfter() >= 0) {
+        selectStatement = selectStatement.and(fieldToSort.gt(paginationParameters.getAfter()));
       }
       sortField = fieldToSort.asc();
     } else {
-      if (after != null && after >= 0) {
-        selectStatement = selectStatement.and(fieldToSort.lt(after));
+      if (paginationParameters.getAfter() != null && paginationParameters.getAfter() >= 0) {
+        selectStatement = selectStatement.and(fieldToSort.lt(paginationParameters.getAfter()));
       }
       sortField = fieldToSort.desc();
     }
 
-    return selectStatement.orderBy(sortField).limit(getLimitToUse(limit) + 1);
+    return selectStatement
+        .orderBy(sortField)
+        .limit(getLimitToUse(paginationParameters.getLimit()) + 1);
   }
 
   public static <T> PaginatedData<T> toPaginatedData(
-      final Long cursor,
-      final List<T> toReturn,
-      final SortDirection sortDirection,
-      final Integer limit) {
-    int limitToUse = getLimitToUse(limit);
+      final List<T> toReturn, final PaginationParameters paginationParameters) {
+    int limitToUse = getLimitToUse(paginationParameters.getLimit());
     // when adding pagination to the query we retrieve one more record so we can determine if we
     // have more data after this call. So we need to return 1 less record.
     boolean hasNext = false;
@@ -47,7 +46,8 @@ public class RepoUtils {
     } else {
       finalToReturn = toReturn;
     }
-    return new PaginatedData<>(cursor, finalToReturn, sortDirection, hasNext);
+    return new PaginatedData<>(
+        paginationParameters.getAfter(), finalToReturn, paginationParameters.getDir(), hasNext);
   }
 
   private static int getLimitToUse(final Integer passedInLimit) {

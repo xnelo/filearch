@@ -41,11 +41,8 @@ public class FolderService {
   }
 
   public Uni<ServiceResponse<PaginatedResponse<Folder>>> getAllFolders(
-      final UserToken userInfo,
-      final Long after,
-      final Integer limit,
-      final SortDirection sortDirection) {
-    if (after != null && after < 0) {
+      final UserToken userInfo, final PaginationParameters paginationParameters) {
+    if (paginationParameters.getAfter() != null && paginationParameters.getAfter() < 0) {
       return Uni.createFrom()
           .item(
               new ServiceResponse<>(
@@ -60,7 +57,7 @@ public class FolderService {
                               .build()))));
     }
 
-    if (limit != null && limit <= 0) {
+    if (paginationParameters.getLimit() != null && paginationParameters.getLimit() <= 0) {
       return Uni.createFrom()
           .item(
               new ServiceResponse<>(
@@ -72,7 +69,7 @@ public class FolderService {
                               .errorCode(ErrorCode.INVALID_RESPONSE_LIMIT)
                               .errorMessage(
                                   "A return limit of '"
-                                      + limit
+                                      + paginationParameters.getLimit()
                                       + "' is invalid. Must be greater than 0")
                               .httpCode(400)
                               .build()))));
@@ -99,7 +96,7 @@ public class FolderService {
               }
 
               return folderRepo
-                  .getAll(user.getId(), after, limit, sortDirection)
+                  .getAll(user.getId(), paginationParameters)
                   .map(
                       paginatedFolders ->
                           new ServiceResponse<>(
@@ -113,10 +110,8 @@ public class FolderService {
   public Uni<ServiceResponse<PaginatedResponse<File>>> getAllFilesInFolder(
       final UserToken userInfo,
       final Long folderId,
-      final Long after,
-      final Integer limit,
-      final SortDirection sortDirection) {
-    if (after != null && after < 0) {
+      final PaginationParameters paginationParameters) {
+    if (paginationParameters.getAfter() != null && paginationParameters.getAfter() < 0) {
       return Uni.createFrom()
           .item(
               new ServiceResponse<>(
@@ -131,7 +126,7 @@ public class FolderService {
                               .build()))));
     }
 
-    if (limit != null && limit <= 0) {
+    if (paginationParameters.getLimit() != null && paginationParameters.getLimit() <= 0) {
       return Uni.createFrom()
           .item(
               new ServiceResponse<>(
@@ -143,7 +138,7 @@ public class FolderService {
                               .errorCode(ErrorCode.INVALID_RESPONSE_LIMIT)
                               .errorMessage(
                                   "A return limit of '"
-                                      + limit
+                                      + paginationParameters.getLimit()
                                       + "' is invalid. Must be greater than 0")
                               .httpCode(400)
                               .build()))));
@@ -175,8 +170,7 @@ public class FolderService {
                   ResourceType.FOLDER,
                   ActionType.GET,
                   folder ->
-                      fileService.getAllFilesInFolder(
-                          userInfo, folderId, after, limit, sortDirection));
+                      fileService.getAllFilesInFolder(userInfo, folderId, paginationParameters));
             });
   }
 

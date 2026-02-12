@@ -27,11 +27,8 @@ public class TagService {
   @Inject FileService fileService;
 
   public Uni<ServiceResponse<PaginatedResponse<Tag>>> getAllTags(
-      final UserToken userInfo,
-      final Long after,
-      final Integer limit,
-      final SortDirection sortDirection) {
-    if (after != null && after < 0) {
+      final UserToken userInfo, final PaginationParameters paginationParameters) {
+    if (paginationParameters.getAfter() != null && paginationParameters.getAfter() < 0) {
       return Uni.createFrom()
           .item(
               new ServiceResponse<>(
@@ -46,7 +43,7 @@ public class TagService {
                               .build()))));
     }
 
-    if (limit != null && limit <= 0) {
+    if (paginationParameters.getLimit() != null && paginationParameters.getLimit() <= 0) {
       return Uni.createFrom()
           .item(
               new ServiceResponse<>(
@@ -58,7 +55,7 @@ public class TagService {
                               .errorCode(ErrorCode.INVALID_RESPONSE_LIMIT)
                               .errorMessage(
                                   "A return limit of '"
-                                      + limit
+                                      + paginationParameters.getLimit()
                                       + "' is invalid. Must be greater than 0")
                               .httpCode(400)
                               .build()))));
@@ -85,7 +82,7 @@ public class TagService {
               }
 
               return tagRepo
-                  .getAll(user.getId(), after, limit, sortDirection)
+                  .getAll(user.getId(), paginationParameters)
                   .map(
                       paginatedTags ->
                           new ServiceResponse<>(
@@ -379,9 +376,7 @@ public class TagService {
   public Uni<ServiceResponse<PaginatedResponse<Tag>>> getTagsAssignedToFile(
       final UserToken userToken,
       final Long fileId,
-      final Long after,
-      final Integer limit,
-      final SortDirection sortDirection) {
+      final PaginationParameters paginationParameters) {
     return userService.checkUserExist(
         userToken,
         ResourceType.TAG,
@@ -394,7 +389,7 @@ public class TagService {
                 ActionType.GET,
                 file ->
                     tagRepo
-                        .getAllTagsForFile(user.getId(), fileId, after, limit, sortDirection)
+                        .getAllTagsForFile(user.getId(), fileId, paginationParameters)
                         .map(
                             paginatedTags ->
                                 new ServiceResponse<>(
