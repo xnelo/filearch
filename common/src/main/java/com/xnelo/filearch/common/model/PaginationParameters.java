@@ -6,7 +6,7 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public class PaginationParameters {
-  private Long after;
-  private Integer limit;
-  private SortDirection dir;
+  private final Long after;
+  private final Integer limit;
+  private final SortDirection dir;
 }

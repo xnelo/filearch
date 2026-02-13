@@ -783,11 +783,10 @@ public class FileService {
   }
 
   public Uni<ServiceResponse<PaginatedResponse<File>>> searchFiles(
-      final UserToken userToken,
-      final String searchTerm,
-      final PaginationParameters paginationParameters) {
+      final UserToken userToken, final SearchParameters searchParameters) {
 
-    if (searchTerm == null || searchTerm.trim().isEmpty()) {
+    if (searchParameters.getSearchTerm() == null
+        || searchParameters.getSearchTerm().trim().isEmpty()) {
       return Uni.createFrom()
           .item(
               new ServiceResponse<>(
@@ -802,7 +801,7 @@ public class FileService {
                               .build()))));
     }
 
-    if (paginationParameters.getAfter() != null && paginationParameters.getAfter() < 0) {
+    if (searchParameters.getAfter() != null && searchParameters.getAfter() < 0) {
       return Uni.createFrom()
           .item(
               new ServiceResponse<>(
@@ -817,7 +816,7 @@ public class FileService {
                               .build()))));
     }
 
-    if (paginationParameters.getLimit() != null && paginationParameters.getLimit() <= 0) {
+    if (searchParameters.getLimit() != null && searchParameters.getLimit() <= 0) {
       return Uni.createFrom()
           .item(
               new ServiceResponse<>(
@@ -829,7 +828,7 @@ public class FileService {
                               .errorCode(ErrorCode.INVALID_RESPONSE_LIMIT)
                               .errorMessage(
                                   "A return limit of '"
-                                      + paginationParameters.getLimit()
+                                      + searchParameters.getLimit()
                                       + "' is invalid. Must be greater than 0")
                               .httpCode(400)
                               .build()))));
@@ -841,7 +840,7 @@ public class FileService {
         ActionType.SEARCH,
         user ->
             storedFilesRepo
-                .searchFiles(user.getId(), searchTerm.trim(), paginationParameters)
+                .searchFiles(user.getId(), searchParameters)
                 .map(
                     paginatedFileData ->
                         new ServiceResponse<>(

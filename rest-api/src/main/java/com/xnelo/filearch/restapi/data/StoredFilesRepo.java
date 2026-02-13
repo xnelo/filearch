@@ -5,6 +5,7 @@ import static com.xnelo.filearch.common.encryption.JooqFields.encryptField;
 
 import com.xnelo.filearch.common.model.File;
 import com.xnelo.filearch.common.model.PaginationParameters;
+import com.xnelo.filearch.common.model.SearchParameters;
 import com.xnelo.filearch.common.model.StorageType;
 import com.xnelo.filearch.jooq.tables.FileTags;
 import com.xnelo.filearch.jooq.tables.StoredFiles;
@@ -175,7 +176,9 @@ public class StoredFilesRepo {
   }
 
   public Uni<PaginatedData<File>> searchFiles(
-      final long userId, final String searchTerm, final PaginationParameters paginationParameters) {
+      final long userId, final SearchParameters searchParameters) {
+    final String finalSearchTerm = searchParameters.getSearchTerm().trim();
+
     SelectConditionStep<?> selectStatement =
         context
             .selectDistinct(allFields)
@@ -187,19 +190,19 @@ public class StoredFilesRepo {
             .where(StoredFiles.STORED_FILES.OWNER_USER_ID.eq(userId))
             .and(
                 decryptField(StoredFiles.STORED_FILES.ORIGINAL_FILENAME, encryptionKey)
-                    .likeIgnoreCase("%" + searchTerm + "%")
+                    .likeIgnoreCase("%" + finalSearchTerm + "%")
                     .or(
                         decryptField(Tags.TAGS.TAG_NAME, encryptionKey)
-                            .likeIgnoreCase("%" + searchTerm + "%")));
+                            .likeIgnoreCase("%" + finalSearchTerm + "%")));
 
     SelectLimitPercentStep<?> finalQuery =
-        RepoUtils.addPagination(selectStatement, StoredFiles.STORED_FILES.ID, paginationParameters);
+        RepoUtils.addPagination(selectStatement, StoredFiles.STORED_FILES.ID, searchParameters);
 
     return Uni.createFrom()
         .item(
             () -> {
               List<File> data = finalQuery.fetch().map(this::toFileModel);
-              return RepoUtils.toPaginatedData(data, paginationParameters);
+              return RepoUtils.toPaginatedData(data, searchParameters);
             });
   }
 

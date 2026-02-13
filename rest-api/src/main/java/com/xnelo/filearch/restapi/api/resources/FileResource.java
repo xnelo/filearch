@@ -2,6 +2,7 @@ package com.xnelo.filearch.restapi.api.resources;
 
 import com.xnelo.filearch.common.model.DownloadData;
 import com.xnelo.filearch.common.model.PaginationParameters;
+import com.xnelo.filearch.common.model.SearchParameters;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
@@ -11,6 +12,7 @@ import com.xnelo.filearch.restapi.api.contracts.AssignTagContract;
 import com.xnelo.filearch.restapi.api.contracts.FileBulkDeleteContract;
 import com.xnelo.filearch.restapi.api.contracts.FileUploadContract;
 import com.xnelo.filearch.restapi.api.contracts.PaginationRequest;
+import com.xnelo.filearch.restapi.api.contracts.SearchRequest;
 import com.xnelo.filearch.restapi.api.mappers.ContractMapper;
 import com.xnelo.filearch.restapi.api.mappers.HttpStatusCodeMapper;
 import com.xnelo.filearch.restapi.service.FileService;
@@ -205,14 +207,11 @@ public class FileResource {
   @GET
   @RolesAllowed("user")
   @Path("search")
-  public Uni<Response> searchFiles(
-      @QueryParam("search_term") String searchTerm,
-      @BeanParam PaginationRequest paginationRequest) {
+  public Uni<Response> searchFiles(@BeanParam SearchRequest searchRequest) {
     UserToken userToken = userhandler.getUserInfo();
-    PaginationParameters paginationParameters =
-        contractMapper.toPaginationParameters(paginationRequest);
+    SearchParameters searchParameters = contractMapper.toSearchParameters(searchRequest);
     return fileService
-        .searchFiles(userToken, searchTerm, paginationParameters)
+        .searchFiles(userToken, searchParameters)
         .map(
             paginatedServiceResponse ->
                 contractMapper.toApiResponse(
