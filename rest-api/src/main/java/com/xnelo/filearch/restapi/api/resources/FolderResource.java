@@ -2,10 +2,11 @@ package com.xnelo.filearch.restapi.api.resources;
 
 import static com.xnelo.filearch.common.json.JsonUtil.toJsonString;
 
-import com.xnelo.filearch.common.model.SortDirection;
+import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.usertoken.UserTokenHandler;
 import com.xnelo.filearch.restapi.api.contracts.FolderContract;
+import com.xnelo.filearch.restapi.api.contracts.PaginationRequest;
 import com.xnelo.filearch.restapi.api.mappers.ContractMapper;
 import com.xnelo.filearch.restapi.service.folder.FolderService;
 import io.quarkus.logging.Log;
@@ -26,13 +27,12 @@ public class FolderResource {
 
   @GET
   @RolesAllowed("user")
-  public Uni<Response> getAll(
-      @QueryParam("after") Long after,
-      @QueryParam("limit") Integer limit,
-      @QueryParam("direction") SortDirection dir) {
+  public Uni<Response> getAll(@BeanParam PaginationRequest paginationRequest) {
     UserToken userToken = userTokenHandler.getUserInfo();
+    PaginationParameters paginationParameters =
+        contractMapper.toPaginationParameters(paginationRequest);
     return folderService
-        .getAllFolders(userToken, after, limit, dir)
+        .getAllFolders(userToken, paginationParameters)
         .map(
             paginatedServiceResponse ->
                 contractMapper.toApiResponse(
@@ -98,13 +98,12 @@ public class FolderResource {
   @RolesAllowed("user")
   @Path("{id}/files")
   public Uni<Response> getFilesInFolder(
-      @PathParam("id") long folderId,
-      @QueryParam("after") Long after,
-      @QueryParam("limit") Integer limit,
-      @QueryParam("direction") SortDirection dir) {
+      @PathParam("id") long folderId, @BeanParam PaginationRequest paginationRequest) {
     UserToken userToken = userTokenHandler.getUserInfo();
+    PaginationParameters paginationParameters =
+        contractMapper.toPaginationParameters(paginationRequest);
     return folderService
-        .getAllFilesInFolder(userToken, folderId, after, limit, dir)
+        .getAllFilesInFolder(userToken, folderId, paginationParameters)
         .map(
             paginatedServiceResponse ->
                 contractMapper.toApiResponse(

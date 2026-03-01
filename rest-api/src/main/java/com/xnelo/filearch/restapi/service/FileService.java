@@ -49,11 +49,8 @@ public class FileService {
   Emitter<String> fileProcRequestEmitter;
 
   public Uni<ServiceResponse<PaginatedResponse<File>>> getAllFiles(
-      final UserToken userInfo,
-      final Long after,
-      final Integer limit,
-      final SortDirection sortDirection) {
-    if (after != null && after < 0) {
+      final UserToken userInfo, final PaginationParameters paginationParameters) {
+    if (paginationParameters.getAfter() != null && paginationParameters.getAfter() < 0) {
       return Uni.createFrom()
           .item(
               new ServiceResponse<>(
@@ -68,7 +65,7 @@ public class FileService {
                               .build()))));
     }
 
-    if (limit != null && limit <= 0) {
+    if (paginationParameters.getLimit() != null && paginationParameters.getLimit() <= 0) {
       return Uni.createFrom()
           .item(
               new ServiceResponse<>(
@@ -80,7 +77,7 @@ public class FileService {
                               .errorCode(ErrorCode.INVALID_RESPONSE_LIMIT)
                               .errorMessage(
                                   "A return limit of '"
-                                      + limit
+                                      + paginationParameters.getLimit()
                                       + "' is invalid. Must be greater than 0")
                               .httpCode(400)
                               .build()))));
@@ -107,7 +104,7 @@ public class FileService {
               }
 
               return storedFilesRepo
-                  .getAll(user.getId(), after, limit, sortDirection)
+                  .getAll(user.getId(), paginationParameters)
                   .map(
                       paginatedFiles ->
                           new ServiceResponse<>(
@@ -153,10 +150,8 @@ public class FileService {
   public Uni<ServiceResponse<PaginatedResponse<File>>> getAllFilesInFolder(
       final UserToken userInfo,
       final Long folderId,
-      final Long after,
-      final Integer limit,
-      final SortDirection sortDirection) {
-    if (after != null && after < 0) {
+      final PaginationParameters paginationParameters) {
+    if (paginationParameters.getAfter() != null && paginationParameters.getAfter() < 0) {
       return Uni.createFrom()
           .item(
               new ServiceResponse<>(
@@ -171,7 +166,7 @@ public class FileService {
                               .build()))));
     }
 
-    if (limit != null && limit <= 0) {
+    if (paginationParameters.getLimit() != null && paginationParameters.getLimit() <= 0) {
       return Uni.createFrom()
           .item(
               new ServiceResponse<>(
@@ -183,7 +178,7 @@ public class FileService {
                               .errorCode(ErrorCode.INVALID_RESPONSE_LIMIT)
                               .errorMessage(
                                   "A return limit of '"
-                                      + limit
+                                      + paginationParameters.getLimit()
                                       + "' is invalid. Must be greater than 0")
                               .httpCode(400)
                               .build()))));
@@ -210,7 +205,7 @@ public class FileService {
               }
 
               return storedFilesRepo
-                  .getFilesInFolder(folderId, user.getId(), after, limit, sortDirection)
+                  .getFilesInFolder(folderId, user.getId(), paginationParameters)
                   .map(
                       paginatedFiles ->
                           new ServiceResponse<>(
@@ -785,5 +780,73 @@ public class FileService {
                                                 ResourceType.TAG,
                                                 ActionType.UNASSIGN,
                                                 unassignFileTagSuccess))))));
+  }
+
+  public Uni<ServiceResponse<PaginatedResponse<File>>> searchFiles(
+      final UserToken userToken, final SearchParameters searchParameters) {
+
+    if (searchParameters.getSearchTerm() == null
+        || searchParameters.getSearchTerm().trim().isEmpty()) {
+      return Uni.createFrom()
+          .item(
+              new ServiceResponse<>(
+                  new ServiceActionResponse<>(
+                      ResourceType.FILE,
+                      ActionType.SEARCH,
+                      List.of(
+                          ServiceError.builder()
+                              .errorCode(ErrorCode.INVALID_SEARCH_TEXT)
+                              .errorMessage("Search text cannot be empty")
+                              .httpCode(400)
+                              .build()))));
+    }
+
+    if (searchParameters.getAfter() != null && searchParameters.getAfter() < 0) {
+      return Uni.createFrom()
+          .item(
+              new ServiceResponse<>(
+                  new ServiceActionResponse<>(
+                      ResourceType.FILE,
+                      ActionType.SEARCH,
+                      List.of(
+                          ServiceError.builder()
+                              .errorCode(ErrorCode.INVALID_AFTER_VALUE)
+                              .errorMessage("After value must be greater than 0.")
+                              .httpCode(400)
+                              .build()))));
+    }
+
+    if (searchParameters.getLimit() != null && searchParameters.getLimit() <= 0) {
+      return Uni.createFrom()
+          .item(
+              new ServiceResponse<>(
+                  new ServiceActionResponse<>(
+                      ResourceType.FILE,
+                      ActionType.SEARCH,
+                      List.of(
+                          ServiceError.builder()
+                              .errorCode(ErrorCode.INVALID_RESPONSE_LIMIT)
+                              .errorMessage(
+                                  "A return limit of '"
+                                      + searchParameters.getLimit()
+                                      + "' is invalid. Must be greater than 0")
+                              .httpCode(400)
+                              .build()))));
+    }
+
+    return userService.checkUserExist(
+        userToken,
+        ResourceType.FILE,
+        ActionType.SEARCH,
+        user ->
+            storedFilesRepo
+                .searchFiles(user.getId(), searchParameters)
+                .map(
+                    paginatedFileData ->
+                        new ServiceResponse<>(
+                            new ServiceActionResponse<>(
+                                ResourceType.FILE,
+                                ActionType.SEARCH,
+                                paginationMapper.toPaginatedResponse(paginatedFileData)))));
   }
 }
