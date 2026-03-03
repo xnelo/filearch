@@ -27,6 +27,11 @@ public class Sequences {
     public static final Sequence<Long> FOLDERS_ID_SEQ = Internal.createSequence("folders_id_seq", Filearch.FILEARCH, DSL.comment(""), SQLDataType.BIGINT.nullable(false), null, null, null, null, false, null);
 
     /**
+     * The sequence <code>FILEARCH.groups_id_seq</code>
+     */
+    public static final Sequence<Long> GROUPS_ID_SEQ = Internal.createSequence("groups_id_seq", Filearch.FILEARCH, DSL.comment(""), SQLDataType.BIGINT.nullable(false), null, null, null, null, false, null);
+
+    /**
      * The sequence <code>FILEARCH.seq_file_upload_number</code>
      */
     public static final Sequence<Long> SEQ_FILE_UPLOAD_NUMBER = Internal.createSequence("seq_file_upload_number", Filearch.FILEARCH, DSL.comment(""), SQLDataType.BIGINT.nullable(false), null, null, null, null, false, null);

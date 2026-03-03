@@ -8,6 +8,9 @@ import com.xnelo.filearch.jooq.tables.Artifacts;
 import com.xnelo.filearch.jooq.tables.FileTags;
 import com.xnelo.filearch.jooq.tables.FlywaySchemaHistory;
 import com.xnelo.filearch.jooq.tables.Folders;
+import com.xnelo.filearch.jooq.tables.GroupItems;
+import com.xnelo.filearch.jooq.tables.GroupMembers;
+import com.xnelo.filearch.jooq.tables.Groups;
 import com.xnelo.filearch.jooq.tables.PgpArmorHeaders;
 import com.xnelo.filearch.jooq.tables.StoredFiles;
 import com.xnelo.filearch.jooq.tables.Tags;
@@ -44,6 +47,21 @@ public class Tables {
      * The table <code>FILEARCH.folders</code>.
      */
     public static final Folders FOLDERS = Folders.FOLDERS;
+
+    /**
+     * The table <code>FILEARCH.group_items</code>.
+     */
+    public static final GroupItems GROUP_ITEMS = GroupItems.GROUP_ITEMS;
+
+    /**
+     * The table <code>FILEARCH.group_members</code>.
+     */
+    public static final GroupMembers GROUP_MEMBERS = GroupMembers.GROUP_MEMBERS;
+
+    /**
+     * The table <code>FILEARCH.groups</code>.
+     */
+    public static final Groups GROUPS = Groups.GROUPS;
 
     /**
      * The table <code>FILEARCH.pgp_armor_headers</code>.
