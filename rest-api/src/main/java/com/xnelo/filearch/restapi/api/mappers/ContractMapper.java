@@ -2,6 +2,7 @@ package com.xnelo.filearch.restapi.api.mappers;
 
 import com.xnelo.filearch.common.model.File;
 import com.xnelo.filearch.common.model.Folder;
+import com.xnelo.filearch.common.model.Group;
 import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.common.model.SearchParameters;
 import com.xnelo.filearch.common.model.Tag;
@@ -33,6 +34,10 @@ public interface ContractMapper {
   TagContract toTagContract(Tag tag);
 
   List<TagContract> toTagContractList(List<Tag> tags);
+
+  GroupContract toGroupContract(Group group);
+
+  List<GroupContract> toGroupContractList(List<Group> groups);
 
   PaginationParameters toPaginationParameters(PaginationRequest request);
 
