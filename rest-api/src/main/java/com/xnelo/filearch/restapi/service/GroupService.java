@@ -171,8 +171,8 @@ public class GroupService {
                       return groupRepo
                           .deleteGroup(user.getId(), groupId)
                           .chain(
-                              deleteResult -> {
-                                if (deleteResult == false) {
+                              deleteGroupResult -> {
+                                if (deleteGroupResult == false) {
                                   return Uni.createFrom()
                                       .item(
                                           new ServiceResponse<>(
@@ -191,16 +191,56 @@ public class GroupService {
 
                                 return groupRepo
                                     .deleteAllUsersFromGroup(groupId)
-                                    .map(
-                                        res ->
-                                            new ServiceResponse<>(
-                                                new ServiceActionResponse<>(
-                                                    ResourceType.GROUP,
-                                                    ActionType.DELETE,
-                                                    groupServiceResponse
-                                                        .getActionResponses()
-                                                        .getFirst()
-                                                        .getData())));
+                                    .chain(
+                                        deleteGroupUsersResult -> {
+                                          if (deleteGroupUsersResult == false) {
+                                            return Uni.createFrom()
+                                                .item(
+                                                    new ServiceResponse<>(
+                                                        new ServiceActionResponse<>(
+                                                            ResourceType.GROUP,
+                                                            ActionType.DELETE,
+                                                            List.of(
+                                                                ServiceError.builder()
+                                                                    .errorCode(
+                                                                        ErrorCode
+                                                                            .UNABLE_TO_DELETE_GROUP)
+                                                                    .errorMessage(
+                                                                        "Error occured while deleting group users.")
+                                                                    .httpCode(500)
+                                                                    .build()))));
+                                          }
+
+                                          return groupRepo
+                                              .deleteAllItemsFromGroup(groupId)
+                                              .map(
+                                                  res -> {
+                                                    if (res == false) {
+                                                      return new ServiceResponse<>(
+                                                          new ServiceActionResponse<>(
+                                                              ResourceType.GROUP,
+                                                              ActionType.DELETE,
+                                                              List.of(
+                                                                  ServiceError.builder()
+                                                                      .errorCode(
+                                                                          ErrorCode
+                                                                              .UNABLE_TO_DELETE_GROUP)
+                                                                      .errorMessage(
+                                                                          "Error occurred while deleting group items.")
+                                                                      .httpCode(500)
+                                                                      .build())));
+                                                    }
+
+                                                    return new ServiceResponse<>(
+                                                        new ServiceActionResponse<>(
+                                                            ResourceType.GROUP,
+                                                            ActionType.DELETE,
+                                                            groupServiceResponse
+                                                                .getActionResponses()
+                                                                .getFirst()
+                                                                .getData()));
+                                                  });
+                                        });
                               });
                     }));
   }

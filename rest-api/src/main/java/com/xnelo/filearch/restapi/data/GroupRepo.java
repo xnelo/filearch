@@ -5,6 +5,7 @@ import static com.xnelo.filearch.common.encryption.JooqFields.encryptField;
 
 import com.xnelo.filearch.common.model.Group;
 import com.xnelo.filearch.common.model.PaginationParameters;
+import com.xnelo.filearch.jooq.tables.GroupItems;
 import com.xnelo.filearch.jooq.tables.GroupMembers;
 import com.xnelo.filearch.jooq.tables.Groups;
 import com.xnelo.filearch.jooq.tables.records.GroupMembersRecord;
@@ -145,6 +146,20 @@ public class GroupRepo {
         .map(res -> Boolean.TRUE)
         .onFailure()
         .invoke(ex -> log.error("Error deleting group members from group {}", groupId, ex))
+        .onFailure()
+        .recoverWithItem(Boolean.FALSE);
+  }
+
+  public Uni<Boolean> deleteAllItemsFromGroup(final long groupId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .deleteFrom(GroupItems.GROUP_ITEMS)
+                .where(GroupItems.GROUP_ITEMS.GROUP_ID.eq(groupId))
+                .execute())
+        .map(res -> Boolean.TRUE)
+        .onFailure()
+        .invoke(ex -> log.error("Error deleting group items from group {}", groupId, ex))
         .onFailure()
         .recoverWithItem(Boolean.FALSE);
   }
