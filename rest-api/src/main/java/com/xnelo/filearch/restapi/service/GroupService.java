@@ -5,17 +5,20 @@ import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.Group;
 import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.common.model.ResourceType;
+import com.xnelo.filearch.common.model.User;
 import com.xnelo.filearch.common.service.PaginatedResponse;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.usertoken.UserToken;
+import com.xnelo.filearch.restapi.api.contracts.GroupAddUsersContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupCreateContract;
 import com.xnelo.filearch.restapi.api.mappers.PaginationMapper;
 import com.xnelo.filearch.restapi.data.GroupRepo;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.mapstruct.factory.Mappers;
@@ -242,6 +245,165 @@ public class GroupService {
                                                   });
                                         });
                               });
+                    }));
+  }
+
+  public Uni<ServiceResponse<String>> addUsersToGroup(
+      final UserToken userInfo, final long groupId, final GroupAddUsersContract usersToAdd) {
+    return userService.checkUserExist(
+        userInfo,
+        ResourceType.GROUP,
+        ActionType.ADD_USER_TO_GROUP,
+        user ->
+            groupRepo
+                .getGroupById(user.getId(), groupId)
+                .chain(
+                    group -> {
+                      if (group == null) {
+                        return Uni.createFrom()
+                            .item(
+                                new ServiceResponse<>(
+                                    new ServiceActionResponse<>(
+                                        ResourceType.GROUP,
+                                        ActionType.ADD_USER_TO_GROUP,
+                                        List.of(
+                                            ServiceError.builder()
+                                                .errorCode(ErrorCode.GROUP_DOES_NOT_EXIST)
+                                                .errorMessage(
+                                                    "Group (" + groupId + ") does not exist.")
+                                                .httpCode(404)
+                                                .build()))));
+                      }
+
+                      ArrayList<Uni<ServiceActionResponse<String>>> individualUserAdds =
+                          new ArrayList<>();
+                      usersToAdd
+                          .usersToAdd()
+                          .forEach(
+                              individualUser ->
+                                  individualUserAdds.add(
+                                      addSingleUserToGroup(groupId, individualUser)));
+                      return Uni.combine()
+                          .all()
+                          .unis(individualUserAdds)
+                          .with(GroupService::combineAddUserToGroupUnis);
+                    }));
+  }
+
+  @SuppressWarnings("unchecked")
+  static ServiceResponse<String> combineAddUserToGroupUnis(List<?> toCombine) {
+    ArrayList<ServiceActionResponse<String>> combinedResponses = new ArrayList<>();
+    for (Object serviceAction : toCombine) {
+      if (serviceAction instanceof ServiceActionResponse<?> checkedServiceAction) {
+        if (checkedServiceAction.getData() != null
+            && !(checkedServiceAction.getData() instanceof String)) {
+          throw new RuntimeException(
+              "Return type of action was not 'String'. This should NEVER HAPPEN.");
+        }
+        combinedResponses.add((ServiceActionResponse<String>) checkedServiceAction);
+      } else {
+        throw new RuntimeException(
+            "Object returned not of type 'ServiceResponse'. This should NEVER HAPPEN.");
+      }
+    }
+    return new ServiceResponse<>(combinedResponses);
+  }
+
+  Uni<ServiceActionResponse<String>> addSingleUserToGroup(
+      final long groupId, final String username) {
+    return userService
+        .getUserByUsername(username)
+        .chain(
+            userResponse -> {
+              if (userResponse.hasError()) {
+                return Uni.createFrom()
+                    .item(
+                        new ServiceActionResponse<>(
+                            ResourceType.GROUP,
+                            ActionType.ADD_USER_TO_GROUP,
+                            userResponse.getActionResponses().getFirst().getErrors()));
+              }
+
+              User userToAddData = userResponse.getActionResponses().getFirst().getData();
+
+              return groupRepo
+                  .userInGroup(userToAddData.getId(), groupId)
+                  .chain(
+                      userInGroup -> {
+                        if (userInGroup != null && userInGroup) {
+                          return Uni.createFrom()
+                              .item(
+                                  new ServiceActionResponse<>(
+                                      ResourceType.GROUP,
+                                      ActionType.ADD_USER_TO_GROUP,
+                                      List.of(
+                                          ServiceError.builder()
+                                              .errorCode(ErrorCode.UNABLE_TO_ADD_USER_TO_GROUP)
+                                              .errorMessage(
+                                                  "User ("
+                                                      + username
+                                                      + ") is already part of group ("
+                                                      + groupId
+                                                      + ")")
+                                              .httpCode(400)
+                                              .build())));
+                        }
+
+                        return groupRepo
+                            .addUserToGroup(userToAddData.getId(), groupId, false)
+                            .map(
+                                successfullyAdded -> {
+                                  if (successfullyAdded) {
+                                    return new ServiceActionResponse<>(
+                                        ResourceType.GROUP, ActionType.ADD_USER_TO_GROUP, username);
+                                  } else {
+                                    return new ServiceActionResponse<>(
+                                        ResourceType.GROUP,
+                                        ActionType.ADD_USER_TO_GROUP,
+                                        List.of(
+                                            ServiceError.builder()
+                                                .errorCode(ErrorCode.UNABLE_TO_ADD_USER_TO_GROUP)
+                                                .errorMessage(
+                                                    "Unable to add '" + username + "' to group.")
+                                                .httpCode(500)
+                                                .build()));
+                                  }
+                                });
+                      });
+            });
+  }
+
+  public Uni<ServiceResponse<Boolean>> acceptGroupInvitation(
+      final UserToken userInfo, final long groupId) {
+    return userService.checkUserExist(
+        userInfo,
+        ResourceType.GROUP,
+        ActionType.ACCEPT_GROUP_INVITE,
+        user ->
+            groupRepo
+                .acceptGroupInvite(user.getId(), groupId)
+                .map(
+                    acceptSuccess -> {
+                      if (!acceptSuccess) {
+                        return new ServiceResponse<>(
+                            new ServiceActionResponse<>(
+                                ResourceType.GROUP,
+                                ActionType.ACCEPT_GROUP_INVITE,
+                                List.of(
+                                    ServiceError.builder()
+                                        .errorCode(ErrorCode.UNABLE_TO_ACCEPT_GROUP_INVITE)
+                                        .errorMessage("User is has not been invited to group.")
+                                        .httpCode(400)
+                                        .build())));
+                      } else {
+                        return new ServiceResponse<>(
+                            new ServiceActionResponse<>(
+                                ResourceType.GROUP,
+                                ActionType.ACCEPT_GROUP_INVITE,
+                                true // This will always be true since we have an error message for
+                                // false
+                                ));
+                      }
                     }));
   }
 }

@@ -15,6 +15,7 @@ import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jooq.DSLContext;
@@ -160,6 +161,37 @@ public class GroupRepo {
         .map(res -> Boolean.TRUE)
         .onFailure()
         .invoke(ex -> log.error("Error deleting group items from group {}", groupId, ex))
+        .onFailure()
+        .recoverWithItem(Boolean.FALSE);
+  }
+
+  public Uni<Boolean> userInGroup(final long userId, final long groupId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .selectFrom(GroupMembers.GROUP_MEMBERS)
+                .where(GroupMembers.GROUP_MEMBERS.GROUP_ID.eq(groupId))
+                .and(GroupMembers.GROUP_MEMBERS.USER_ID.eq(userId))
+                .fetchOne())
+        .map(Objects::nonNull)
+        .onFailure()
+        .invoke(ex -> log.error("Error in user {} in group {}", userId, groupId, ex))
+        .onFailure()
+        .recoverWithItem(Boolean.FALSE);
+  }
+
+  public Uni<Boolean> acceptGroupInvite(final long userId, final long groupId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .update(GroupMembers.GROUP_MEMBERS)
+                .set(GroupMembers.GROUP_MEMBERS.ACCEPTED, true)
+                .where(GroupMembers.GROUP_MEMBERS.GROUP_ID.eq(groupId))
+                .and(GroupMembers.GROUP_MEMBERS.USER_ID.eq(userId))
+                .execute())
+        .map(updateResult -> (updateResult != null && updateResult == 1))
+        .onFailure()
+        .invoke(ex -> log.error("Error accepting group invite {}", groupId, ex))
         .onFailure()
         .recoverWithItem(Boolean.FALSE);
   }

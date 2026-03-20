@@ -3,6 +3,7 @@ package com.xnelo.filearch.restapi.api.resources;
 import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.usertoken.UserTokenHandler;
+import com.xnelo.filearch.restapi.api.contracts.GroupAddUsersContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupCreateContract;
 import com.xnelo.filearch.restapi.api.contracts.PaginationRequest;
 import com.xnelo.filearch.restapi.api.mappers.ContractMapper;
@@ -66,5 +67,26 @@ public class GroupResource {
             groupServiceResponse ->
                 contractMapper.toApiResponse(
                     groupServiceResponse, contractMapper::toGroupContract));
+  }
+
+  @POST
+  @RolesAllowed("user")
+  @Path("{id}/add_users")
+  public Uni<Response> addUser(@PathParam("id") long groupId, GroupAddUsersContract usersToAdd) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return groupService
+        .addUsersToGroup(userToken, groupId, usersToAdd)
+        .map(
+            serviceResponse -> contractMapper.toApiResponse(serviceResponse, username -> username));
+  }
+
+  @POST
+  @RolesAllowed("user")
+  @Path("{id}/accept_invite")
+  public Uni<Response> acceptInvite(@PathParam("id") long groupId) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return groupService
+        .acceptGroupInvitation(userToken, groupId)
+        .map(serviceResponse -> contractMapper.toApiResponse(serviceResponse, success -> success));
   }
 }

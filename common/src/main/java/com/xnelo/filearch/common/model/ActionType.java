@@ -9,5 +9,7 @@ public enum ActionType {
   DOWNLOAD,
   ASSIGN,
   UNASSIGN,
-  SEARCH
+  SEARCH,
+  ADD_USER_TO_GROUP,
+  ACCEPT_GROUP_INVITE
 }
