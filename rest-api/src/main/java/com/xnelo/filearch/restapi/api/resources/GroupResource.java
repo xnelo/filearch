@@ -5,6 +5,7 @@ import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.usertoken.UserTokenHandler;
 import com.xnelo.filearch.restapi.api.contracts.GroupAddUsersContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupCreateContract;
+import com.xnelo.filearch.restapi.api.contracts.GroupRemoveUsersContract;
 import com.xnelo.filearch.restapi.api.contracts.PaginationRequest;
 import com.xnelo.filearch.restapi.api.mappers.ContractMapper;
 import com.xnelo.filearch.restapi.service.GroupService;
@@ -76,6 +77,18 @@ public class GroupResource {
     UserToken userToken = userTokenHandler.getUserInfo();
     return groupService
         .addUsersToGroup(userToken, groupId, usersToAdd)
+        .map(
+            serviceResponse -> contractMapper.toApiResponse(serviceResponse, username -> username));
+  }
+
+  @POST
+  @RolesAllowed("user")
+  @Path("{id}/remove_users")
+  public Uni<Response> removeUser(
+      @PathParam("id") long groupId, GroupRemoveUsersContract usersToRemove) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return groupService
+        .removeUsersFromGroup(userToken, groupId, usersToRemove)
         .map(
             serviceResponse -> contractMapper.toApiResponse(serviceResponse, username -> username));
   }

@@ -196,6 +196,21 @@ public class GroupRepo {
         .recoverWithItem(Boolean.FALSE);
   }
 
+  public Uni<Boolean> removeUserFromGroup(final long userId, final long groupId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .deleteFrom(GroupMembers.GROUP_MEMBERS)
+                .where(GroupMembers.GROUP_MEMBERS.USER_ID.eq(userId))
+                .and(GroupMembers.GROUP_MEMBERS.GROUP_ID.eq(groupId))
+                .execute())
+        .map(updateResult -> (updateResult != null && updateResult == 1))
+        .onFailure()
+        .invoke(ex -> log.error("Error removing user {} from group {}", userId, groupId, ex))
+        .onFailure()
+        .recoverWithItem(Boolean.FALSE);
+  }
+
   Group toGroupModel(final Record toConvert) {
     if (toConvert == null) {
       return null;

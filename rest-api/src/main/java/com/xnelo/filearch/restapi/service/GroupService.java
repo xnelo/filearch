@@ -13,6 +13,7 @@ import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.restapi.api.contracts.GroupAddUsersContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupCreateContract;
+import com.xnelo.filearch.restapi.api.contracts.GroupRemoveUsersContract;
 import com.xnelo.filearch.restapi.api.mappers.PaginationMapper;
 import com.xnelo.filearch.restapi.data.GroupRepo;
 import io.smallrye.mutiny.Uni;
@@ -286,12 +287,12 @@ public class GroupService {
                       return Uni.combine()
                           .all()
                           .unis(individualUserAdds)
-                          .with(GroupService::combineAddUserToGroupUnis);
+                          .with(GroupService::combineUserGroupModifyUnis);
                     }));
   }
 
   @SuppressWarnings("unchecked")
-  static ServiceResponse<String> combineAddUserToGroupUnis(List<?> toCombine) {
+  static ServiceResponse<String> combineUserGroupModifyUnis(List<?> toCombine) {
     ArrayList<ServiceActionResponse<String>> combinedResponses = new ArrayList<>();
     for (Object serviceAction : toCombine) {
       if (serviceAction instanceof ServiceActionResponse<?> checkedServiceAction) {
@@ -405,5 +406,83 @@ public class GroupService {
                                 ));
                       }
                     }));
+  }
+
+  public Uni<ServiceResponse<String>> removeUsersFromGroup(
+      final UserToken userInfo, final long groupId, final GroupRemoveUsersContract usersToRemove) {
+    return userService.checkUserExist(
+        userInfo,
+        ResourceType.GROUP,
+        ActionType.REMOVE_USER_FROM_GROUP,
+        user ->
+            getGroupById(user.getId(), groupId)
+                .chain(
+                    groupResponse -> {
+                      if (groupResponse.hasError()) {
+                        return Uni.createFrom()
+                            .item(
+                                Utils.updateErrorAndPassThrough(
+                                    groupResponse,
+                                    ResourceType.GROUP,
+                                    ActionType.REMOVE_USER_FROM_GROUP));
+                      }
+
+                      ArrayList<Uni<ServiceActionResponse<String>>> individualRemoveUserUnis =
+                          new ArrayList<>();
+                      usersToRemove
+                          .usersToRemove()
+                          .forEach(
+                              username ->
+                                  individualRemoveUserUnis.add(
+                                      removeIndividualUser(groupId, username)));
+                      return Uni.combine()
+                          .all()
+                          .unis(individualRemoveUserUnis)
+                          .with(GroupService::combineUserGroupModifyUnis);
+                    }));
+  }
+
+  Uni<ServiceActionResponse<String>> removeIndividualUser(
+      final long groupId, final String username) {
+    return userService
+        .getUserByUsername(username)
+        .chain(
+            userServiceResponse -> {
+              if (userServiceResponse.hasError()) {
+                return Uni.createFrom()
+                    .item(
+                        new ServiceActionResponse<>(
+                            ResourceType.GROUP,
+                            ActionType.REMOVE_USER_FROM_GROUP,
+                            userServiceResponse.getActionResponses().getFirst().getErrors()));
+              }
+
+              User userToRemove = userServiceResponse.getActionResponses().getFirst().getData();
+
+              return groupRepo
+                  .removeUserFromGroup(userToRemove.getId(), groupId)
+                  .map(
+                      successful -> {
+                        if (!successful) {
+                          return new ServiceActionResponse<>(
+                              ResourceType.GROUP,
+                              ActionType.REMOVE_USER_FROM_GROUP,
+                              List.of(
+                                  ServiceError.builder()
+                                      .errorCode(ErrorCode.UNABLE_TO_REMOVE_USER_FROM_GROUP)
+                                      .errorMessage(
+                                          "Error while removing user("
+                                              + username
+                                              + ") from group ("
+                                              + groupId
+                                              + ").")
+                                      .httpCode(500)
+                                      .build()));
+                        } else {
+                          return new ServiceActionResponse<>(
+                              ResourceType.GROUP, ActionType.REMOVE_USER_FROM_GROUP, username);
+                        }
+                      });
+            });
   }
 }
