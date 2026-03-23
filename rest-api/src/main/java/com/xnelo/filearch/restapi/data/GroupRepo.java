@@ -68,6 +68,27 @@ public class GroupRepo {
             });
   }
 
+  public Uni<PaginatedData<Group>> getGroupsIn(
+      final long userId, final PaginationParameters paginationParameters) {
+    SelectConditionStep<?> selectStatment =
+        context
+            .select(allFields)
+            .from(Groups.GROUPS)
+            .join(GroupMembers.GROUP_MEMBERS)
+            .on(Groups.GROUPS.ID.eq(GroupMembers.GROUP_MEMBERS.GROUP_ID))
+            .where(GroupMembers.GROUP_MEMBERS.USER_ID.eq(userId));
+
+    SelectLimitPercentStep<?> finalQuery =
+        RepoUtils.addPagination(selectStatment, Groups.GROUPS.ID, paginationParameters);
+
+    return Uni.createFrom()
+        .item(
+            () -> {
+              List<Group> data = finalQuery.fetch().map(this::toGroupModel);
+              return RepoUtils.toPaginatedData(data, paginationParameters);
+            });
+  }
+
   public Uni<Boolean> groupNameExists(final long userId, final String groupName) {
     return Uni.createFrom()
         .item(

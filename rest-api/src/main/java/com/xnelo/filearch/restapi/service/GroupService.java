@@ -57,6 +57,32 @@ public class GroupService {
                                 paginationMapper.toPaginatedResponse(paginatedGroups)))));
   }
 
+  public Uni<ServiceResponse<PaginatedResponse<Group>>> getGroupsIn(
+      final UserToken userInfo, final PaginationParameters paginationParameters) {
+    ServiceResponse<PaginatedResponse<Group>> response;
+    response =
+        Utils.validatePaginationParameters(
+            paginationParameters, ResourceType.GROUP, ActionType.GET);
+    if (response != null) {
+      return Uni.createFrom().item(response);
+    }
+
+    return userService.checkUserExist(
+        userInfo,
+        ResourceType.GROUP,
+        ActionType.GET,
+        user ->
+            groupRepo
+                .getGroupsIn(user.getId(), paginationParameters)
+                .map(
+                    paginatedGroups ->
+                        new ServiceResponse<>(
+                            new ServiceActionResponse<>(
+                                ResourceType.GROUP,
+                                ActionType.GET,
+                                paginationMapper.toPaginatedResponse(paginatedGroups)))));
+  }
+
   public Uni<ServiceResponse<Group>> createNewGroup(
       final GroupCreateContract newGroup, final UserToken userToken) {
     return userService.checkUserExist(

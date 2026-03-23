@@ -102,4 +102,22 @@ public class GroupResource {
         .acceptGroupInvitation(userToken, groupId)
         .map(serviceResponse -> contractMapper.toApiResponse(serviceResponse, success -> success));
   }
+
+  @GET
+  @RolesAllowed("user")
+  @Path("groups_in")
+  public Uni<Response> getGroupsIn(@BeanParam PaginationRequest paginationRequest) {
+    PaginationParameters paginationParameters =
+        contractMapper.toPaginationParameters(paginationRequest);
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return groupService
+        .getGroupsIn(userToken, paginationParameters)
+        .map(
+            paginatedServiceResponse ->
+                contractMapper.toApiResponse(
+                    paginatedServiceResponse,
+                    resp ->
+                        contractMapper.toPaginationContract(
+                            resp, contractMapper::toGroupContractList)));
+  }
 }
