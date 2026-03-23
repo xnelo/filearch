@@ -427,6 +427,9 @@ public class GroupService {
                                     ActionType.REMOVE_USER_FROM_GROUP));
                       }
 
+                      Group groupData = groupResponse.getActionResponses().getFirst().getData();
+                      long groupOwnerId = groupData.getOwnerId();
+
                       ArrayList<Uni<ServiceActionResponse<String>>> individualRemoveUserUnis =
                           new ArrayList<>();
                       usersToRemove
@@ -434,7 +437,7 @@ public class GroupService {
                           .forEach(
                               username ->
                                   individualRemoveUserUnis.add(
-                                      removeIndividualUser(groupId, username)));
+                                      removeIndividualUser(groupId, groupOwnerId, username)));
                       return Uni.combine()
                           .all()
                           .unis(individualRemoveUserUnis)
@@ -443,7 +446,7 @@ public class GroupService {
   }
 
   Uni<ServiceActionResponse<String>> removeIndividualUser(
-      final long groupId, final String username) {
+      final long groupId, final long groupOwnerId, final String username) {
     return userService
         .getUserByUsername(username)
         .chain(
@@ -458,6 +461,20 @@ public class GroupService {
               }
 
               User userToRemove = userServiceResponse.getActionResponses().getFirst().getData();
+
+              if (userToRemove.getId() == groupOwnerId) {
+                return Uni.createFrom()
+                    .item(
+                        new ServiceActionResponse<>(
+                            ResourceType.GROUP,
+                            ActionType.REMOVE_USER_FROM_GROUP,
+                            List.of(
+                                ServiceError.builder()
+                                    .errorCode(ErrorCode.UNABLE_TO_REMOVE_USER_FROM_GROUP)
+                                    .errorMessage("Cannot remove owner of group from group.")
+                                    .httpCode(400)
+                                    .build())));
+              }
 
               return groupRepo
                   .removeUserFromGroup(userToRemove.getId(), groupId)
