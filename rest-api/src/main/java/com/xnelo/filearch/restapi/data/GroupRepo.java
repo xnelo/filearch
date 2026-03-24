@@ -4,6 +4,7 @@ import static com.xnelo.filearch.common.encryption.JooqFields.decryptField;
 import static com.xnelo.filearch.common.encryption.JooqFields.encryptField;
 
 import com.xnelo.filearch.common.model.Group;
+import com.xnelo.filearch.common.model.GroupMembershipStatus;
 import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.jooq.tables.GroupItems;
 import com.xnelo.filearch.jooq.tables.GroupMembers;
@@ -69,7 +70,9 @@ public class GroupRepo {
   }
 
   public Uni<PaginatedData<Group>> getGroupsIn(
-      final long userId, final PaginationParameters paginationParameters) {
+      final long userId,
+      final GroupMembershipStatus membershipStatus,
+      final PaginationParameters paginationParameters) {
     SelectConditionStep<?> selectStatment =
         context
             .select(allFields)
@@ -77,6 +80,20 @@ public class GroupRepo {
             .join(GroupMembers.GROUP_MEMBERS)
             .on(Groups.GROUPS.ID.eq(GroupMembers.GROUP_MEMBERS.GROUP_ID))
             .where(GroupMembers.GROUP_MEMBERS.USER_ID.eq(userId));
+
+    // If membershipStatus is null or GroupMembershipStatus.ALL then do nothing to the query.
+    if (membershipStatus != null) {
+      if (membershipStatus == GroupMembershipStatus.JOINED) {
+        selectStatment = selectStatment.and(GroupMembers.GROUP_MEMBERS.ACCEPTED.isTrue());
+      } else if (membershipStatus == GroupMembershipStatus.PENDING) {
+        selectStatment =
+            selectStatment.and(
+                GroupMembers.GROUP_MEMBERS
+                    .ACCEPTED
+                    .isNull()
+                    .or(GroupMembers.GROUP_MEMBERS.ACCEPTED.isFalse()));
+      }
+    }
 
     SelectLimitPercentStep<?> finalQuery =
         RepoUtils.addPagination(selectStatment, Groups.GROUPS.ID, paginationParameters);

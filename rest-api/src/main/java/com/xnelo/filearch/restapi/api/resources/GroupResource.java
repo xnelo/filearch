@@ -1,5 +1,6 @@
 package com.xnelo.filearch.restapi.api.resources;
 
+import com.xnelo.filearch.common.model.GroupMembershipStatus;
 import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.usertoken.UserTokenHandler;
@@ -19,6 +20,7 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Response;
 import org.mapstruct.factory.Mappers;
 
@@ -106,12 +108,14 @@ public class GroupResource {
   @GET
   @RolesAllowed("user")
   @Path("groups_in")
-  public Uni<Response> getGroupsIn(@BeanParam PaginationRequest paginationRequest) {
+  public Uni<Response> getGroupsIn(
+      @BeanParam PaginationRequest paginationRequest,
+      @QueryParam("membership_status") GroupMembershipStatus membershipStatus) {
     PaginationParameters paginationParameters =
         contractMapper.toPaginationParameters(paginationRequest);
     UserToken userToken = userTokenHandler.getUserInfo();
     return groupService
-        .getGroupsIn(userToken, paginationParameters)
+        .getGroupsIn(userToken, membershipStatus, paginationParameters)
         .map(
             paginatedServiceResponse ->
                 contractMapper.toApiResponse(

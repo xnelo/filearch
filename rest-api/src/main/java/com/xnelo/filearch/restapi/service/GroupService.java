@@ -3,6 +3,7 @@ package com.xnelo.filearch.restapi.service;
 import com.xnelo.filearch.common.model.ActionType;
 import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.Group;
+import com.xnelo.filearch.common.model.GroupMembershipStatus;
 import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.common.model.ResourceType;
 import com.xnelo.filearch.common.model.User;
@@ -58,7 +59,9 @@ public class GroupService {
   }
 
   public Uni<ServiceResponse<PaginatedResponse<Group>>> getGroupsIn(
-      final UserToken userInfo, final PaginationParameters paginationParameters) {
+      final UserToken userInfo,
+      final GroupMembershipStatus membershipStatus,
+      final PaginationParameters paginationParameters) {
     ServiceResponse<PaginatedResponse<Group>> response;
     response =
         Utils.validatePaginationParameters(
@@ -73,7 +76,7 @@ public class GroupService {
         ActionType.GET,
         user ->
             groupRepo
-                .getGroupsIn(user.getId(), paginationParameters)
+                .getGroupsIn(user.getId(), membershipStatus, paginationParameters)
                 .map(
                     paginatedGroups ->
                         new ServiceResponse<>(
