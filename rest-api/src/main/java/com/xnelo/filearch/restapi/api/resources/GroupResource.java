@@ -4,6 +4,7 @@ import com.xnelo.filearch.common.model.GroupMembershipStatus;
 import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.usertoken.UserTokenHandler;
+import com.xnelo.filearch.restapi.api.contracts.GroupAddItemContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupAddUsersContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupCreateContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupRemoveUsersContract;
@@ -123,5 +124,17 @@ public class GroupResource {
                     resp ->
                         contractMapper.toPaginationContract(
                             resp, contractMapper::toGroupContractList)));
+  }
+
+  @POST
+  @RolesAllowed("user")
+  @Path("{id}/add_items")
+  public Uni<Response> addItems(@PathParam("id") long groupId, GroupAddItemContract itemsToAdd) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return groupService
+        .addItemsToGroup(userToken, groupId, itemsToAdd)
+        .map(
+            serviceResponse ->
+                contractMapper.toApiResponse(serviceResponse, contractMapper::toGroupItemContract));
   }
 }

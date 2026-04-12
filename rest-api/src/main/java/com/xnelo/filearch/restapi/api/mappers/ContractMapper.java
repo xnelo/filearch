@@ -3,6 +3,7 @@ package com.xnelo.filearch.restapi.api.mappers;
 import com.xnelo.filearch.common.model.File;
 import com.xnelo.filearch.common.model.Folder;
 import com.xnelo.filearch.common.model.Group;
+import com.xnelo.filearch.common.model.GroupItem;
 import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.common.model.SearchParameters;
 import com.xnelo.filearch.common.model.Tag;
@@ -42,6 +43,8 @@ public interface ContractMapper {
   PaginationParameters toPaginationParameters(PaginationRequest request);
 
   SearchParameters toSearchParameters(SearchRequest request);
+
+  GroupItemContract toGroupItemContract(GroupItem groupItem);
 
   default <R, S> PaginationContract<R> toPaginationContract(
       PaginatedResponse<S> toConvert, Function<List<S>, List<R>> howToConvert) {

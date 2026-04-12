@@ -70,4 +70,26 @@ public class Utils {
     }
     return new ServiceResponse<>(actionResponses);
   }
+
+  @SuppressWarnings("unchecked")
+  public static <T> ServiceResponse<T> combineServiceActionResponses(
+      List<?> toCombine, Class<T> classType) {
+    ArrayList<ServiceActionResponse<T>> combinedResponses = new ArrayList<>();
+    for (Object serviceAction : toCombine) {
+      if (serviceAction instanceof ServiceActionResponse<?> checkedServiceAction) {
+        if (checkedServiceAction.getData() != null
+            && !(classType.isInstance(checkedServiceAction.getData()))) {
+          throw new RuntimeException(
+              "Return type of action was not '"
+                  + classType.getName()
+                  + "'. This should NEVER HAPPEN.");
+        }
+        combinedResponses.add((ServiceActionResponse<T>) checkedServiceAction);
+      } else {
+        throw new RuntimeException(
+            "Object returned not of type 'ServiceResponse'. This should NEVER HAPPEN.");
+      }
+    }
+    return new ServiceResponse<>(combinedResponses);
+  }
 }

@@ -3,6 +3,8 @@ package com.xnelo.filearch.restapi.service;
 import com.xnelo.filearch.common.model.ActionType;
 import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.Group;
+import com.xnelo.filearch.common.model.GroupItem;
+import com.xnelo.filearch.common.model.GroupItemType;
 import com.xnelo.filearch.common.model.GroupMembershipStatus;
 import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.common.model.ResourceType;
@@ -12,10 +14,13 @@ import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.usertoken.UserToken;
+import com.xnelo.filearch.restapi.api.contracts.GroupAddItemContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupAddUsersContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupCreateContract;
+import com.xnelo.filearch.restapi.api.contracts.GroupItemContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupRemoveUsersContract;
 import com.xnelo.filearch.restapi.api.mappers.PaginationMapper;
+import com.xnelo.filearch.restapi.data.GroupItemsRepo;
 import com.xnelo.filearch.restapi.data.GroupRepo;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
@@ -30,6 +35,8 @@ import org.mapstruct.factory.Mappers;
 public class GroupService {
   @Inject UserService userService;
   @Inject GroupRepo groupRepo;
+  @Inject GroupItemService groupItemService;
+  @Inject GroupItemsRepo groupItemsRepo;
   final PaginationMapper paginationMapper = Mappers.getMapper(PaginationMapper.class);
 
   public Uni<ServiceResponse<PaginatedResponse<Group>>> getAllGroups(
@@ -316,27 +323,10 @@ public class GroupService {
                       return Uni.combine()
                           .all()
                           .unis(individualUserAdds)
-                          .with(GroupService::combineUserGroupModifyUnis);
+                          .with(
+                              toCombine ->
+                                  Utils.combineServiceActionResponses(toCombine, String.class));
                     }));
-  }
-
-  @SuppressWarnings("unchecked")
-  static ServiceResponse<String> combineUserGroupModifyUnis(List<?> toCombine) {
-    ArrayList<ServiceActionResponse<String>> combinedResponses = new ArrayList<>();
-    for (Object serviceAction : toCombine) {
-      if (serviceAction instanceof ServiceActionResponse<?> checkedServiceAction) {
-        if (checkedServiceAction.getData() != null
-            && !(checkedServiceAction.getData() instanceof String)) {
-          throw new RuntimeException(
-              "Return type of action was not 'String'. This should NEVER HAPPEN.");
-        }
-        combinedResponses.add((ServiceActionResponse<String>) checkedServiceAction);
-      } else {
-        throw new RuntimeException(
-            "Object returned not of type 'ServiceResponse'. This should NEVER HAPPEN.");
-      }
-    }
-    return new ServiceResponse<>(combinedResponses);
   }
 
   Uni<ServiceActionResponse<String>> addSingleUserToGroup(
@@ -470,7 +460,9 @@ public class GroupService {
                       return Uni.combine()
                           .all()
                           .unis(individualRemoveUserUnis)
-                          .with(GroupService::combineUserGroupModifyUnis);
+                          .with(
+                              toCombine ->
+                                  Utils.combineServiceActionResponses(toCombine, String.class));
                     }));
   }
 
@@ -528,6 +520,160 @@ public class GroupService {
                           return new ServiceActionResponse<>(
                               ResourceType.GROUP, ActionType.REMOVE_USER_FROM_GROUP, username);
                         }
+                      });
+            });
+  }
+
+  public Uni<ServiceResponse<GroupItem>> addItemsToGroup(
+      final UserToken userInfo, final long groupId, final GroupAddItemContract itemsToAdd) {
+    // Step 1: Check user exists
+    return userService.checkUserExist(
+        userInfo,
+        ResourceType.GROUP,
+        ActionType.ADD_ITEM_TO_GROUP,
+        user ->
+            // Step 2: check user is member of group and accepted
+            groupRepo
+                .userActiveMemberInGroup(user.getId(), groupId)
+                .chain(
+                    isActiveMember -> {
+                      if (!isActiveMember) {
+                        return Uni.createFrom()
+                            .item(
+                                new ServiceResponse<>(
+                                    new ServiceActionResponse<>(
+                                        ResourceType.GROUP,
+                                        ActionType.ADD_ITEM_TO_GROUP,
+                                        List.of(
+                                            ServiceError.builder()
+                                                .errorCode(ErrorCode.USER_NOT_ACTIVE)
+                                                .errorMessage(
+                                                    "User ("
+                                                        + userInfo.getId()
+                                                        + ") is not active in group ("
+                                                        + groupId
+                                                        + "). Check that the group exists and user is active member. ")
+                                                .httpCode(400)
+                                                .build()))));
+                      }
+                      // step 3: iterate over each item and add them individually
+                      return addEachItemIndividually(itemsToAdd, groupId, user.getId());
+                    }));
+  }
+
+  Uni<ServiceResponse<GroupItem>> addEachItemIndividually(
+      final GroupAddItemContract itemsToAdd, final long groupId, final long userId) {
+    ArrayList<Uni<ServiceActionResponse<GroupItem>>> individualItemAdd = new ArrayList<>();
+
+    itemsToAdd
+        .itemsToAdd()
+        .forEach(
+            itemContract ->
+                individualItemAdd.add(individualAddItem(itemContract, groupId, userId)));
+
+    return Uni.combine()
+        .all()
+        .unis(individualItemAdd)
+        .with(toCombine -> Utils.combineServiceActionResponses(toCombine, GroupItem.class));
+  }
+
+  Uni<ServiceActionResponse<GroupItem>> individualAddItem(
+      final GroupItemContract itemToAdd, final long groupId, final long userId) {
+    // Step 1: Check that the item id is not null and < 0
+    if (itemToAdd.itemId() < 0) {
+      return Uni.createFrom()
+          .item(
+              new ServiceActionResponse<>(
+                  ResourceType.GROUP,
+                  ActionType.ADD_ITEM_TO_GROUP,
+                  List.of(
+                      ServiceError.builder()
+                          .errorCode(ErrorCode.INVALID_INPUT_VALUE)
+                          .errorMessage("Item id must be 0 or greater.")
+                          .httpCode(400)
+                          .build())));
+    }
+
+    // Step 2: Check that the item type is not null and not UNKNOWN
+    if (itemToAdd.itemType() == null || itemToAdd.itemType().equals(GroupItemType.UNKNOWN)) {
+      return Uni.createFrom()
+          .item(
+              new ServiceActionResponse<>(
+                  ResourceType.GROUP,
+                  ActionType.ADD_ITEM_TO_GROUP,
+                  List.of(
+                      ServiceError.builder()
+                          .errorCode(ErrorCode.INVALID_INPUT_VALUE)
+                          .errorMessage("Item type must be present and NOT UNKNOWN.")
+                          .httpCode(400)
+                          .build())));
+    }
+
+    // Step 3: Check item exists
+    return groupItemService
+        .itemExists(itemToAdd.itemType(), itemToAdd.itemId(), userId)
+        .chain(
+            itemExist -> {
+              if (!itemExist) {
+                return Uni.createFrom()
+                    .item(
+                        new ServiceActionResponse<>(
+                            ResourceType.GROUP,
+                            ActionType.ADD_ITEM_TO_GROUP,
+                            List.of(
+                                ServiceError.builder()
+                                    .errorCode(ErrorCode.UNABLE_TO_ADD_ITEM_TO_GROUP)
+                                    .errorMessage(
+                                        "Unable to add item ("
+                                            + itemToAdd.itemId()
+                                            + " - "
+                                            + groupId
+                                            + ")")
+                                    .httpCode(400)
+                                    .build())));
+              }
+
+              return groupItemsRepo
+                  .isItemInGroup(itemToAdd.itemId(), itemToAdd.itemType(), groupId)
+                  .chain(
+                      isItemInGroup -> {
+                        if (isItemInGroup) {
+                          return Uni.createFrom()
+                              .item(
+                                  new ServiceActionResponse<>(
+                                      ResourceType.GROUP,
+                                      ActionType.ADD_ITEM_TO_GROUP,
+                                      List.of(
+                                          ServiceError.builder()
+                                              .errorCode(ErrorCode.ITEM_ALREADY_IN_GROUP)
+                                              .errorMessage("Item already part of group.")
+                                              .httpCode(400)
+                                              .build())));
+                        }
+
+                        // Step 4: add item to group items table
+                        return groupItemsRepo
+                            .addItemToGroup(itemToAdd.itemId(), itemToAdd.itemType(), groupId)
+                            .map(
+                                newGroupItem -> {
+                                  if (newGroupItem == null) {
+                                    return new ServiceActionResponse<>(
+                                        ResourceType.GROUP,
+                                        ActionType.ADD_ITEM_TO_GROUP,
+                                        List.of(
+                                            ServiceError.builder()
+                                                .errorCode(ErrorCode.UNABLE_TO_ADD_ITEM_TO_GROUP)
+                                                .errorMessage(
+                                                    "Error inserting item to DB. Contact support.")
+                                                .httpCode(500)
+                                                .build()));
+                                  }
+
+                                  return new ServiceActionResponse<>(
+                                      ResourceType.GROUP,
+                                      ActionType.ADD_ITEM_TO_GROUP,
+                                      newGroupItem);
+                                });
                       });
             });
   }

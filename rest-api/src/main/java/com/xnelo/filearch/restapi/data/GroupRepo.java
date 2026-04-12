@@ -218,6 +218,23 @@ public class GroupRepo {
         .recoverWithItem(Boolean.FALSE);
   }
 
+  public Uni<Boolean> userActiveMemberInGroup(final long userId, final long groupId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .selectFrom(GroupMembers.GROUP_MEMBERS)
+                .where(GroupMembers.GROUP_MEMBERS.USER_ID.eq(userId))
+                .and(GroupMembers.GROUP_MEMBERS.GROUP_ID.eq(groupId))
+                .and(GroupMembers.GROUP_MEMBERS.ACCEPTED.isTrue())
+                .fetchOne())
+        .map(Objects::nonNull)
+        .onFailure()
+        .invoke(
+            ex -> log.error("Error getting user {} membership in group {}", userId, groupId, ex))
+        .onFailure()
+        .recoverWithItem(Boolean.FALSE);
+  }
+
   public Uni<Boolean> acceptGroupInvite(final long userId, final long groupId) {
     return Uni.createFrom()
         .item(
