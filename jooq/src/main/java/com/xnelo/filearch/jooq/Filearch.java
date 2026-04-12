@@ -8,7 +8,9 @@ import com.xnelo.filearch.jooq.tables.Artifacts;
 import com.xnelo.filearch.jooq.tables.FileTags;
 import com.xnelo.filearch.jooq.tables.FlywaySchemaHistory;
 import com.xnelo.filearch.jooq.tables.Folders;
+import com.xnelo.filearch.jooq.tables.GroupAuditLog;
 import com.xnelo.filearch.jooq.tables.GroupItems;
+import com.xnelo.filearch.jooq.tables.GroupMemberPermissions;
 import com.xnelo.filearch.jooq.tables.GroupMembers;
 import com.xnelo.filearch.jooq.tables.Groups;
 import com.xnelo.filearch.jooq.tables.PgpArmorHeaders;
@@ -64,9 +66,19 @@ public class Filearch extends SchemaImpl {
     public final Folders FOLDERS = Folders.FOLDERS;
 
     /**
+     * The table <code>FILEARCH.group_audit_log</code>.
+     */
+    public final GroupAuditLog GROUP_AUDIT_LOG = GroupAuditLog.GROUP_AUDIT_LOG;
+
+    /**
      * The table <code>FILEARCH.group_items</code>.
      */
     public final GroupItems GROUP_ITEMS = GroupItems.GROUP_ITEMS;
+
+    /**
+     * The table <code>FILEARCH.group_member_permissions</code>.
+     */
+    public final GroupMemberPermissions GROUP_MEMBER_PERMISSIONS = GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS;
 
     /**
      * The table <code>FILEARCH.group_members</code>.
@@ -150,6 +162,7 @@ public class Filearch extends SchemaImpl {
         return Arrays.asList(
             Sequences.ARTIFACTS_ID_SEQ,
             Sequences.FOLDERS_ID_SEQ,
+            Sequences.GROUP_AUDIT_LOG_ID_SEQ,
             Sequences.GROUPS_ID_SEQ,
             Sequences.SEQ_FILE_UPLOAD_NUMBER,
             Sequences.STORED_FILES_ID_SEQ,
@@ -165,7 +178,9 @@ public class Filearch extends SchemaImpl {
             FileTags.FILE_TAGS,
             FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY,
             Folders.FOLDERS,
+            GroupAuditLog.GROUP_AUDIT_LOG,
             GroupItems.GROUP_ITEMS,
+            GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS,
             GroupMembers.GROUP_MEMBERS,
             Groups.GROUPS,
             PgpArmorHeaders.PGP_ARMOR_HEADERS,
