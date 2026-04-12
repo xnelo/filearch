@@ -10,6 +10,7 @@ import com.xnelo.filearch.restapi.api.contracts.GroupCreateContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupRemoveUsersContract;
 import com.xnelo.filearch.restapi.api.contracts.PaginationRequest;
 import com.xnelo.filearch.restapi.api.mappers.ContractMapper;
+import com.xnelo.filearch.restapi.service.GroupPermissionsService;
 import com.xnelo.filearch.restapi.service.GroupService;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
@@ -30,6 +31,7 @@ import org.mapstruct.factory.Mappers;
 public class GroupResource {
   @Inject UserTokenHandler userTokenHandler;
   @Inject GroupService groupService;
+  @Inject GroupPermissionsService groupPermissionsService;
   private final ContractMapper contractMapper = Mappers.getMapper(ContractMapper.class);
 
   @GET
@@ -136,5 +138,19 @@ public class GroupResource {
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toGroupItemContract));
+  }
+
+  @GET
+  @RolesAllowed("user")
+  @Path("{id}/permissions")
+  public Uni<Response> getPermissions(
+      @PathParam("id") long groupId, @QueryParam("user_id") long userId) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return groupPermissionsService
+        .getUserPermissions(userToken, userId, groupId)
+        .map(
+            serviceResponse ->
+                contractMapper.toApiResponse(
+                    serviceResponse, contractMapper::toGroupMemberPermissionContractList));
   }
 }

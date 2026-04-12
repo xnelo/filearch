@@ -271,6 +271,8 @@ public class GroupService {
                                                                       .build())));
                                                     }
 
+                                                    // TODO: DELETE ALL USER PERMISSIONS FROM GROUP
+
                                                     return new ServiceResponse<>(
                                                         new ServiceActionResponse<>(
                                                             ResourceType.GROUP,
@@ -517,6 +519,9 @@ public class GroupService {
                                       .httpCode(500)
                                       .build()));
                         } else {
+
+                          // TODO: Remove user permissions from group
+
                           return new ServiceActionResponse<>(
                               ResourceType.GROUP, ActionType.REMOVE_USER_FROM_GROUP, username);
                         }

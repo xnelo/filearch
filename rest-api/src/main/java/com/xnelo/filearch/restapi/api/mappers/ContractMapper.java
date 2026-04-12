@@ -4,6 +4,7 @@ import com.xnelo.filearch.common.model.File;
 import com.xnelo.filearch.common.model.Folder;
 import com.xnelo.filearch.common.model.Group;
 import com.xnelo.filearch.common.model.GroupItem;
+import com.xnelo.filearch.common.model.GroupMemberPermission;
 import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.common.model.SearchParameters;
 import com.xnelo.filearch.common.model.Tag;
@@ -45,6 +46,12 @@ public interface ContractMapper {
   SearchParameters toSearchParameters(SearchRequest request);
 
   GroupItemContract toGroupItemContract(GroupItem groupItem);
+
+  GroupMemberPermissionContract toGroupMemberPermissionContract(
+      GroupMemberPermission groupMemberPermission);
+
+  List<GroupMemberPermissionContract> toGroupMemberPermissionContractList(
+      List<GroupMemberPermission> groupMemberPermissions);
 
   default <R, S> PaginationContract<R> toPaginationContract(
       PaginatedResponse<S> toConvert, Function<List<S>, List<R>> howToConvert) {
