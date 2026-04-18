@@ -21,6 +21,7 @@ import com.xnelo.filearch.restapi.api.contracts.GroupItemContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupRemoveUsersContract;
 import com.xnelo.filearch.restapi.api.mappers.PaginationMapper;
 import com.xnelo.filearch.restapi.data.GroupItemsRepo;
+import com.xnelo.filearch.restapi.data.GroupMemberPermissionsRepo;
 import com.xnelo.filearch.restapi.data.GroupRepo;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
@@ -37,6 +38,7 @@ public class GroupService {
   @Inject GroupRepo groupRepo;
   @Inject GroupItemService groupItemService;
   @Inject GroupItemsRepo groupItemsRepo;
+  @Inject GroupMemberPermissionsRepo groupMemberPermissionsRepo;
   final PaginationMapper paginationMapper = Mappers.getMapper(PaginationMapper.class);
 
   public Uni<ServiceResponse<PaginatedResponse<Group>>> getAllGroups(
@@ -253,34 +255,55 @@ public class GroupService {
 
                                           return groupRepo
                                               .deleteAllItemsFromGroup(groupId)
-                                              .map(
+                                              .chain(
                                                   res -> {
                                                     if (res == false) {
-                                                      return new ServiceResponse<>(
-                                                          new ServiceActionResponse<>(
-                                                              ResourceType.GROUP,
-                                                              ActionType.DELETE,
-                                                              List.of(
-                                                                  ServiceError.builder()
-                                                                      .errorCode(
-                                                                          ErrorCode
-                                                                              .UNABLE_TO_DELETE_GROUP)
-                                                                      .errorMessage(
-                                                                          "Error occurred while deleting group items.")
-                                                                      .httpCode(500)
-                                                                      .build())));
+                                                      return Uni.createFrom()
+                                                          .item(
+                                                              new ServiceResponse<>(
+                                                                  new ServiceActionResponse<>(
+                                                                      ResourceType.GROUP,
+                                                                      ActionType.DELETE,
+                                                                      List.of(
+                                                                          ServiceError.builder()
+                                                                              .errorCode(
+                                                                                  ErrorCode
+                                                                                      .UNABLE_TO_DELETE_GROUP)
+                                                                              .errorMessage(
+                                                                                  "Error occurred while deleting group items.")
+                                                                              .httpCode(500)
+                                                                              .build()))));
                                                     }
 
-                                                    // TODO: DELETE ALL USER PERMISSIONS FROM GROUP
+                                                    return groupMemberPermissionsRepo
+                                                        .deleteAllGroupPermissions(groupId)
+                                                        .map(
+                                                            permissionDeleteSuccess -> {
+                                                              if (!permissionDeleteSuccess) {
+                                                                return new ServiceResponse<>(
+                                                                    new ServiceActionResponse<>(
+                                                                        ResourceType.GROUP,
+                                                                        ActionType.DELETE,
+                                                                        List.of(
+                                                                            ServiceError.builder()
+                                                                                .errorCode(
+                                                                                    ErrorCode
+                                                                                        .UNABLE_TO_DELETE_GROUP_USER_PERMISSIONS)
+                                                                                .errorMessage(
+                                                                                    "Error while deleting group user permissions.")
+                                                                                .httpCode(500)
+                                                                                .build())));
+                                                              }
 
-                                                    return new ServiceResponse<>(
-                                                        new ServiceActionResponse<>(
-                                                            ResourceType.GROUP,
-                                                            ActionType.DELETE,
-                                                            groupServiceResponse
-                                                                .getActionResponses()
-                                                                .getFirst()
-                                                                .getData()));
+                                                              return new ServiceResponse<>(
+                                                                  new ServiceActionResponse<>(
+                                                                      ResourceType.GROUP,
+                                                                      ActionType.DELETE,
+                                                                      groupServiceResponse
+                                                                          .getActionResponses()
+                                                                          .getFirst()
+                                                                          .getData()));
+                                                            });
                                                   });
                                         });
                               });
@@ -501,29 +524,51 @@ public class GroupService {
 
               return groupRepo
                   .removeUserFromGroup(userToRemove.getId(), groupId)
-                  .map(
+                  .chain(
                       successful -> {
                         if (!successful) {
-                          return new ServiceActionResponse<>(
-                              ResourceType.GROUP,
-                              ActionType.REMOVE_USER_FROM_GROUP,
-                              List.of(
-                                  ServiceError.builder()
-                                      .errorCode(ErrorCode.UNABLE_TO_REMOVE_USER_FROM_GROUP)
-                                      .errorMessage(
-                                          "Error while removing user("
-                                              + username
-                                              + ") from group ("
-                                              + groupId
-                                              + ").")
-                                      .httpCode(500)
-                                      .build()));
+                          return Uni.createFrom()
+                              .item(
+                                  new ServiceActionResponse<>(
+                                      ResourceType.GROUP,
+                                      ActionType.REMOVE_USER_FROM_GROUP,
+                                      List.of(
+                                          ServiceError.builder()
+                                              .errorCode(ErrorCode.UNABLE_TO_REMOVE_USER_FROM_GROUP)
+                                              .errorMessage(
+                                                  "Error while removing user("
+                                                      + username
+                                                      + ") from group ("
+                                                      + groupId
+                                                      + ").")
+                                              .httpCode(500)
+                                              .build())));
                         } else {
 
-                          // TODO: Remove user permissions from group
+                          return groupMemberPermissionsRepo
+                              .deleteUserPermissionsFromGroup(userToRemove.getId(), groupId)
+                              .map(
+                                  deletePermissionsSuccess -> {
+                                    if (!deletePermissionsSuccess) {
+                                      return new ServiceActionResponse<>(
+                                          ResourceType.GROUP,
+                                          ActionType.REMOVE_USER_FROM_GROUP,
+                                          List.of(
+                                              ServiceError.builder()
+                                                  .errorCode(
+                                                      ErrorCode
+                                                          .UNABLE_TO_DELETE_GROUP_USER_PERMISSIONS)
+                                                  .errorMessage(
+                                                      "Unable to remove user permissions from group.")
+                                                  .httpCode(500)
+                                                  .build()));
+                                    }
 
-                          return new ServiceActionResponse<>(
-                              ResourceType.GROUP, ActionType.REMOVE_USER_FROM_GROUP, username);
+                                    return new ServiceActionResponse<>(
+                                        ResourceType.GROUP,
+                                        ActionType.REMOVE_USER_FROM_GROUP,
+                                        username);
+                                  });
                         }
                       });
             });

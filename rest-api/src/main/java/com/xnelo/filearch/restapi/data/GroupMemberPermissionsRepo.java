@@ -8,12 +8,14 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 import org.jooq.DSLContext;
 import org.jooq.Record;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 
 @RequestScoped
+@Slf4j
 public class GroupMemberPermissionsRepo {
   private final DSLContext context;
 
@@ -32,6 +34,35 @@ public class GroupMemberPermissionsRepo {
                 .and(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.GROUP_ID.eq(groupId))
                 .fetch()
                 .map(this::toGroupMemberPermission));
+  }
+
+  public Uni<Boolean> deleteUserPermissionsFromGroup(final long userId, final long groupId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .deleteFrom(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS)
+                .where(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.GROUP_ID.eq(groupId))
+                .and(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.USER_ID.eq(userId))
+                .execute())
+        .map(numDeleted -> numDeleted > 0)
+        .onFailure()
+        .invoke(ex -> log.error("Error deleting user permissions", ex))
+        .onFailure()
+        .recoverWithItem(Boolean.FALSE);
+  }
+
+  public Uni<Boolean> deleteAllGroupPermissions(final long groupId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .deleteFrom(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS)
+                .where(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.GROUP_ID.eq(groupId))
+                .execute())
+        .map(numDeleted -> numDeleted > 0)
+        .onFailure()
+        .invoke(ex -> log.error("Error deleting all group permissions", ex))
+        .onFailure()
+        .recoverWithItem(Boolean.FALSE);
   }
 
   GroupMemberPermission toGroupMemberPermission(final Record toConvert) {
