@@ -7,6 +7,7 @@ import com.xnelo.filearch.common.usertoken.UserTokenHandler;
 import com.xnelo.filearch.restapi.api.contracts.GroupAddItemContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupAddUsersContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupCreateContract;
+import com.xnelo.filearch.restapi.api.contracts.GroupMemberPermissionModifyContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupRemoveUsersContract;
 import com.xnelo.filearch.restapi.api.contracts.PaginationRequest;
 import com.xnelo.filearch.restapi.api.mappers.ContractMapper;
@@ -24,6 +25,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Response;
+import java.util.List;
 import org.mapstruct.factory.Mappers;
 
 @RequestScoped
@@ -152,5 +154,19 @@ public class GroupResource {
             serviceResponse ->
                 contractMapper.toApiResponse(
                     serviceResponse, contractMapper::toGroupMemberPermissionContractList));
+  }
+
+  @POST
+  @RolesAllowed("user")
+  @Path("{id}/permissions")
+  public Uni<Response> modifyPermissions(
+      @PathParam("id") long groupId, List<GroupMemberPermissionModifyContract> permissions) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return groupPermissionsService
+        .modifyPermissions(userToken, groupId, permissions)
+        .map(
+            serviceResponse ->
+                contractMapper.toApiResponse(
+                    serviceResponse, contractMapper::toGroupMemberPermissionContract));
   }
 }

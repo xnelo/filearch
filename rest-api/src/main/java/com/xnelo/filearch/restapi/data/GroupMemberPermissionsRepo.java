@@ -8,6 +8,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import java.util.List;
+import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.DSLContext;
 import org.jooq.Record;
@@ -61,6 +62,74 @@ public class GroupMemberPermissionsRepo {
         .map(numDeleted -> numDeleted > 0)
         .onFailure()
         .invoke(ex -> log.error("Error deleting all group permissions", ex))
+        .onFailure()
+        .recoverWithItem(Boolean.FALSE);
+  }
+
+  public Uni<GroupMemberPermission> addPermission(
+      final long userId, final long groupId, final GroupPermissionType permission) {
+    return Uni.createFrom()
+        .item(
+            context
+                .insertInto(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS)
+                .set(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.USER_ID, userId)
+                .set(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.GROUP_ID, groupId)
+                .set(
+                    GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.PERMISSION_GRANTED,
+                    permission.getDbValue())
+                .returningResult(DSL.asterisk())
+                .fetchOne())
+        .map(this::toGroupMemberPermission);
+  }
+
+  public Uni<Boolean> removePermission(
+      final long userId, final long groupId, final GroupPermissionType permission) {
+    return Uni.createFrom()
+        .item(
+            context
+                .deleteFrom(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS)
+                .where(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.USER_ID.eq(userId))
+                .and(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.GROUP_ID.eq(groupId))
+                .and(
+                    GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.PERMISSION_GRANTED.eq(
+                        permission.getDbValue()))
+                .execute())
+        .map(numDeleted -> numDeleted > 0)
+        .onFailure()
+        .invoke(
+            ex ->
+                log.error(
+                    "Error deleting permission userId={} groupId={} permission={}",
+                    userId,
+                    groupId,
+                    permission,
+                    ex))
+        .onFailure()
+        .recoverWithItem(Boolean.FALSE);
+  }
+
+  public Uni<Boolean> permissionExists(
+      final long userId, final long groupId, final GroupPermissionType permission) {
+    return Uni.createFrom()
+        .item(
+            context
+                .selectFrom(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS)
+                .where(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.USER_ID.eq(userId))
+                .and(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.GROUP_ID.eq(groupId))
+                .and(
+                    GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.PERMISSION_GRANTED.eq(
+                        permission.getDbValue()))
+                .fetchOne())
+        .map(Objects::nonNull)
+        .onFailure()
+        .invoke(
+            ex ->
+                log.error(
+                    "Error looking up group permissions for userid={} groupid={} permission={}",
+                    userId,
+                    groupId,
+                    permission,
+                    ex))
         .onFailure()
         .recoverWithItem(Boolean.FALSE);
   }
