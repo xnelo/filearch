@@ -142,6 +142,8 @@ public class GroupResource {
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toGroupItemContract));
   }
 
+  // TODO: Add a remove Items endpoint
+
   @GET
   @RolesAllowed("user")
   @Path("{id}/permissions")

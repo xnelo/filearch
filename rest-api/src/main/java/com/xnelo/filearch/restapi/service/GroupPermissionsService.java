@@ -17,6 +17,7 @@ import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 @RequestScoped
 public class GroupPermissionsService {
@@ -166,6 +167,64 @@ public class GroupPermissionsService {
                     }));
   }
 
+  /**
+   * Check if a specific user has a specific permission. This will return an error in the
+   * ServiceResponse object if the user does NOT have the required permission.
+   *
+   * @param resourceType The resource the action is being performed on.
+   * @param actionType The action that is being performed.
+   * @param userId The user who needs permission.
+   * @param groupId The group the user needs permissions on.
+   * @param permissionNeeded The specific permission needed for the action.
+   * @param hasPermissionAction The action to execute if the permission exists and is valid.
+   * @return A Uni with the ServiceResponse in it. If the user does NOT have the permission then a
+   *     ServiceResponse with an error is returned.
+   * @param <T> The specific resource type object.
+   */
+  public <T> Uni<ServiceResponse<T>> userHasPermissionError(
+      final ResourceType resourceType,
+      final ActionType actionType,
+      final long userId,
+      final long groupId,
+      final GroupPermissionType permissionNeeded,
+      final Supplier<Uni<ServiceResponse<T>>> hasPermissionAction) {
+    return userHasPermission(userId, groupId, permissionNeeded)
+        .chain(
+            hasPermission -> {
+              if (!hasPermission) {
+                return Uni.createFrom()
+                    .item(
+                        new ServiceResponse<>(
+                            new ServiceActionResponse<>(
+                                resourceType,
+                                actionType,
+                                List.of(
+                                    ServiceError.builder()
+                                        .errorCode(ErrorCode.PERMISSION_NOT_GRANTED)
+                                        .errorMessage(
+                                            "User("
+                                                + userId
+                                                + ") does not have permission("
+                                                + permissionNeeded
+                                                + ") on group("
+                                                + groupId
+                                                + ").")
+                                        .httpCode(403)
+                                        .build()))));
+              }
+
+              return hasPermissionAction.get();
+            });
+  }
+
+  /**
+   * Check if a specific user has a specific permission.
+   *
+   * @param userId The user to check permissions on.
+   * @param groupId The group the user has permissions on.
+   * @param permissionNeeded The specific permission needed.
+   * @return If the user has the specific permission on the group then true is returned.
+   */
   Uni<Boolean> userHasPermission(
       final long userId, final long groupId, final GroupPermissionType permissionNeeded) {
     return groupRepo
@@ -176,7 +235,7 @@ public class GroupPermissionsService {
                 return Uni.createFrom().item(true);
               }
 
-              // We do NOT own the group... see if we have ADMIN or EDIT_MEMBER_PERMISSIONS
+              // We do NOT own the group... see if we have ADMIN or permissionNeeded
               return groupMemberPermissionsRepo
                   .getPermissions(userId, groupId)
                   .map(

@@ -729,6 +729,7 @@ public class FileService {
         ResourceType.TAG,
         ActionType.ASSIGN,
         user ->
+            // TODO: Check TAG_ITEMS permissions.
             checkFileExists(
                 fileId,
                 user.getId(),
@@ -759,6 +760,7 @@ public class FileService {
         ResourceType.TAG,
         ActionType.UNASSIGN,
         user ->
+            // TODO: Check REMOVE_TAGS PERMISSIONS
             checkFileExists(
                 fileId,
                 user.getId(),

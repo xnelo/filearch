@@ -45,7 +45,7 @@ public class GroupMemberPermissionsRepo {
                 .where(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.GROUP_ID.eq(groupId))
                 .and(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.USER_ID.eq(userId))
                 .execute())
-        .map(numDeleted -> numDeleted > 0)
+        .map(numDeleted -> numDeleted >= 0)
         .onFailure()
         .invoke(ex -> log.error("Error deleting user permissions", ex))
         .onFailure()

@@ -6,6 +6,7 @@ import com.xnelo.filearch.common.model.Group;
 import com.xnelo.filearch.common.model.GroupItem;
 import com.xnelo.filearch.common.model.GroupItemType;
 import com.xnelo.filearch.common.model.GroupMembershipStatus;
+import com.xnelo.filearch.common.model.GroupPermissionType;
 import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.common.model.ResourceType;
 import com.xnelo.filearch.common.model.User;
@@ -39,6 +40,7 @@ public class GroupService {
   @Inject GroupItemService groupItemService;
   @Inject GroupItemsRepo groupItemsRepo;
   @Inject GroupMemberPermissionsRepo groupMemberPermissionsRepo;
+  @Inject GroupPermissionsService groupPermissionsService;
   final PaginationMapper paginationMapper = Mappers.getMapper(PaginationMapper.class);
 
   public Uni<ServiceResponse<PaginatedResponse<Group>>> getAllGroups(
@@ -317,41 +319,29 @@ public class GroupService {
         ResourceType.GROUP,
         ActionType.ADD_USER_TO_GROUP,
         user ->
-            groupRepo
-                .getGroupById(user.getId(), groupId)
-                .chain(
-                    group -> {
-                      if (group == null) {
-                        return Uni.createFrom()
-                            .item(
-                                new ServiceResponse<>(
-                                    new ServiceActionResponse<>(
-                                        ResourceType.GROUP,
-                                        ActionType.ADD_USER_TO_GROUP,
-                                        List.of(
-                                            ServiceError.builder()
-                                                .errorCode(ErrorCode.GROUP_DOES_NOT_EXIST)
-                                                .errorMessage(
-                                                    "Group (" + groupId + ") does not exist.")
-                                                .httpCode(404)
-                                                .build()))));
-                      }
-
-                      ArrayList<Uni<ServiceActionResponse<String>>> individualUserAdds =
-                          new ArrayList<>();
-                      usersToAdd
-                          .usersToAdd()
-                          .forEach(
-                              individualUser ->
-                                  individualUserAdds.add(
-                                      addSingleUserToGroup(groupId, individualUser)));
-                      return Uni.combine()
-                          .all()
-                          .unis(individualUserAdds)
-                          .with(
-                              toCombine ->
-                                  Utils.combineServiceActionResponses(toCombine, String.class));
-                    }));
+            groupPermissionsService.userHasPermissionError(
+                ResourceType.GROUP,
+                ActionType.ADD_USER_TO_GROUP,
+                user.getId(),
+                groupId,
+                GroupPermissionType.ADD_MEMBERS,
+                () -> {
+                  // if this is being executed then the group exists
+                  ArrayList<Uni<ServiceActionResponse<String>>> individualUserAdds =
+                      new ArrayList<>();
+                  usersToAdd
+                      .usersToAdd()
+                      .forEach(
+                          individualUser ->
+                              individualUserAdds.add(
+                                  addSingleUserToGroup(groupId, individualUser)));
+                  return Uni.combine()
+                      .all()
+                      .unis(individualUserAdds)
+                      .with(
+                          toCombine ->
+                              Utils.combineServiceActionResponses(toCombine, String.class));
+                }));
   }
 
   Uni<ServiceActionResponse<String>> addSingleUserToGroup(
@@ -459,36 +449,49 @@ public class GroupService {
         ResourceType.GROUP,
         ActionType.REMOVE_USER_FROM_GROUP,
         user ->
-            getGroupById(user.getId(), groupId)
-                .chain(
-                    groupResponse -> {
-                      if (groupResponse.hasError()) {
-                        return Uni.createFrom()
-                            .item(
-                                Utils.updateErrorAndPassThrough(
-                                    groupResponse,
-                                    ResourceType.GROUP,
-                                    ActionType.REMOVE_USER_FROM_GROUP));
-                      }
-
-                      Group groupData = groupResponse.getActionResponses().getFirst().getData();
-                      long groupOwnerId = groupData.getOwnerId();
-
-                      ArrayList<Uni<ServiceActionResponse<String>>> individualRemoveUserUnis =
-                          new ArrayList<>();
-                      usersToRemove
-                          .usersToRemove()
-                          .forEach(
-                              username ->
-                                  individualRemoveUserUnis.add(
-                                      removeIndividualUser(groupId, groupOwnerId, username)));
-                      return Uni.combine()
-                          .all()
-                          .unis(individualRemoveUserUnis)
-                          .with(
-                              toCombine ->
-                                  Utils.combineServiceActionResponses(toCombine, String.class));
-                    }));
+            groupPermissionsService.userHasPermissionError(
+                ResourceType.GROUP,
+                ActionType.REMOVE_USER_FROM_GROUP,
+                user.getId(),
+                groupId,
+                GroupPermissionType.REMOVE_MEMBERS,
+                () ->
+                    // if we are here then the group exists, and we have permissions in it.
+                    groupRepo
+                        .getOwnerOfGroup(groupId)
+                        .chain(
+                            groupOwnerId -> {
+                              if (groupOwnerId == null) {
+                                return Uni.createFrom()
+                                    .item(
+                                        new ServiceResponse<>(
+                                            new ServiceActionResponse<>(
+                                                ResourceType.GROUP,
+                                                ActionType.REMOVE_USER_FROM_GROUP,
+                                                List.of(
+                                                    ServiceError.builder()
+                                                        .errorCode(ErrorCode.GROUP_DOES_NOT_EXIST)
+                                                        .errorMessage("Group does not exist")
+                                                        .httpCode(404)
+                                                        .build()))));
+                              }
+                              ArrayList<Uni<ServiceActionResponse<String>>>
+                                  individualRemoveUserUnis = new ArrayList<>();
+                              usersToRemove
+                                  .usersToRemove()
+                                  .forEach(
+                                      username ->
+                                          individualRemoveUserUnis.add(
+                                              removeIndividualUser(
+                                                  groupId, groupOwnerId, username)));
+                              return Uni.combine()
+                                  .all()
+                                  .unis(individualRemoveUserUnis)
+                                  .with(
+                                      toCombine ->
+                                          Utils.combineServiceActionResponses(
+                                              toCombine, String.class));
+                            })));
   }
 
   Uni<ServiceActionResponse<String>> removeIndividualUser(
@@ -606,6 +609,8 @@ public class GroupService {
                                                 .httpCode(400)
                                                 .build()))));
                       }
+
+                      // TODO: Check user has permission to add
                       // step 3: iterate over each item and add them individually
                       return addEachItemIndividually(itemsToAdd, groupId, user.getId());
                     }));

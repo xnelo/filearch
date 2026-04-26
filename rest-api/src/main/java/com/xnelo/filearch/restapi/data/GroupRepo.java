@@ -266,6 +266,20 @@ public class GroupRepo {
         .recoverWithItem(Boolean.FALSE);
   }
 
+  public Uni<Long> getOwnerOfGroup(final long groupId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .select(Groups.GROUPS.OWNER_USER_ID)
+                .from(Groups.GROUPS)
+                .where(Groups.GROUPS.ID.eq(groupId))
+                .fetchOne(Groups.GROUPS.OWNER_USER_ID))
+        .onFailure()
+        .invoke(ex -> log.error("Error getting owner of group {}", groupId, ex))
+        .onFailure()
+        .recoverWithItem((Long) null);
+  }
+
   Group toGroupModel(final Record toConvert) {
     if (toConvert == null) {
       return null;
