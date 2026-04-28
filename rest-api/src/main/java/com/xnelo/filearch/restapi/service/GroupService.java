@@ -610,9 +610,15 @@ public class GroupService {
                                                 .build()))));
                       }
 
-                      // TODO: Check user has permission to add
-                      // step 3: iterate over each item and add them individually
-                      return addEachItemIndividually(itemsToAdd, groupId, user.getId());
+                      // step 3: Check user has permission to add
+                      // step 4: iterate over each item and add them individually
+                      return groupPermissionsService.userHasPermissionError(
+                          ResourceType.GROUP,
+                          ActionType.ADD_ITEM_TO_GROUP,
+                          user.getId(),
+                          groupId,
+                          GroupPermissionType.ADD_ITEMS,
+                          () -> addEachItemIndividually(itemsToAdd, groupId, user.getId()));
                     }));
   }
 
