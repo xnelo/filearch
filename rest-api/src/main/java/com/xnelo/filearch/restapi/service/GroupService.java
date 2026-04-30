@@ -19,6 +19,7 @@ import com.xnelo.filearch.restapi.api.contracts.GroupAddItemContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupAddUsersContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupCreateContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupItemContract;
+import com.xnelo.filearch.restapi.api.contracts.GroupRemoveItemContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupRemoveUsersContract;
 import com.xnelo.filearch.restapi.api.mappers.PaginationMapper;
 import com.xnelo.filearch.restapi.data.GroupItemsRepo;
@@ -736,6 +737,125 @@ public class GroupService {
                                       newGroupItem);
                                 });
                       });
+            });
+  }
+
+  public Uni<ServiceResponse<GroupItem>> removeItemsFromGroup(
+      final UserToken userInfo, final long groupId, final GroupRemoveItemContract itemsToRemove) {
+    // Step 1: Check user exists
+    return userService.checkUserExist(
+        userInfo,
+        ResourceType.GROUP,
+        ActionType.REMOVE_ITEM_FROM_GROUP,
+        user ->
+            groupRepo
+                .userActiveMemberInGroup(user.getId(), groupId)
+                .chain(
+                    isActiveMember -> {
+                      if (!isActiveMember) {
+                        return Uni.createFrom()
+                            .item(
+                                new ServiceResponse<>(
+                                    new ServiceActionResponse<>(
+                                        ResourceType.GROUP,
+                                        ActionType.REMOVE_ITEM_FROM_GROUP,
+                                        List.of(
+                                            ServiceError.builder()
+                                                .errorCode(ErrorCode.USER_NOT_ACTIVE)
+                                                .errorMessage(
+                                                    "User ("
+                                                        + userInfo.getId()
+                                                        + ") is not active in group ("
+                                                        + groupId
+                                                        + "). Check that the group exists and user is active member. ")
+                                                .httpCode(400)
+                                                .build()))));
+                      }
+
+                      // step 3: Check user has permission to add
+                      // step 4: iterate over each item and add them individually
+                      return groupPermissionsService.userHasPermissionError(
+                          ResourceType.GROUP,
+                          ActionType.REMOVE_ITEM_FROM_GROUP,
+                          user.getId(),
+                          groupId,
+                          GroupPermissionType.REMOVE_ITEMS,
+                          () -> removeEachItemIndividually(itemsToRemove, groupId));
+                    }));
+  }
+
+  Uni<ServiceResponse<GroupItem>> removeEachItemIndividually(
+      final GroupRemoveItemContract itemsToRemove, final long groupId) {
+    ArrayList<Uni<ServiceActionResponse<GroupItem>>> individualItemRemove = new ArrayList<>();
+
+    itemsToRemove
+        .itemsToRemove()
+        .forEach(
+            itemContract -> individualItemRemove.add(individualRemoveItem(itemContract, groupId)));
+
+    return Uni.combine()
+        .all()
+        .unis(individualItemRemove)
+        .with(toCombine -> Utils.combineServiceActionResponses(toCombine, GroupItem.class));
+  }
+
+  Uni<ServiceActionResponse<GroupItem>> individualRemoveItem(
+      final GroupItemContract itemToRemove, final long groupId) {
+    // Step 1: Check that the item id is not null and < 0
+    if (itemToRemove.itemId() < 0) {
+      return Uni.createFrom()
+          .item(
+              new ServiceActionResponse<>(
+                  ResourceType.GROUP,
+                  ActionType.REMOVE_ITEM_FROM_GROUP,
+                  List.of(
+                      ServiceError.builder()
+                          .errorCode(ErrorCode.INVALID_INPUT_VALUE)
+                          .errorMessage("Item id must be 0 or greater.")
+                          .httpCode(400)
+                          .build())));
+    }
+
+    // Step 2: Check that the item type is not null and not UNKNOWN
+    if (itemToRemove.itemType() == null || itemToRemove.itemType().equals(GroupItemType.UNKNOWN)) {
+      return Uni.createFrom()
+          .item(
+              new ServiceActionResponse<>(
+                  ResourceType.GROUP,
+                  ActionType.REMOVE_ITEM_FROM_GROUP,
+                  List.of(
+                      ServiceError.builder()
+                          .errorCode(ErrorCode.INVALID_INPUT_VALUE)
+                          .errorMessage("Item type must be present and NOT UNKNOWN.")
+                          .httpCode(400)
+                          .build())));
+    }
+
+    return groupItemsRepo
+        .removeItemFromGroup(itemToRemove.itemId(), itemToRemove.itemType(), groupId)
+        .map(
+            returnedGroupItem -> {
+              if (returnedGroupItem == null) {
+                return new ServiceActionResponse<>(
+                    ResourceType.GROUP,
+                    ActionType.REMOVE_ITEM_FROM_GROUP,
+                    List.of(
+                        ServiceError.builder()
+                            .errorCode(ErrorCode.UNABLE_TO_REMOVE_ITEM_FROM_GROUP)
+                            .errorMessage(
+                                "Unable to remove item("
+                                    + itemToRemove.itemId()
+                                    + ") of type("
+                                    + itemToRemove.itemType()
+                                    + ") from group ("
+                                    + groupId
+                                    + ").")
+                            .httpCode(500)
+                            .build()));
+              }
+
+              return new ServiceActionResponse<>(
+                  ResourceType.GROUP, ActionType.REMOVE_ITEM_FROM_GROUP, returnedGroupItem);
             });
   }
 }

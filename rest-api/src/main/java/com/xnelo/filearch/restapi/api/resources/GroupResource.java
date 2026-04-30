@@ -8,6 +8,7 @@ import com.xnelo.filearch.restapi.api.contracts.GroupAddItemContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupAddUsersContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupCreateContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupMemberPermissionModifyContract;
+import com.xnelo.filearch.restapi.api.contracts.GroupRemoveItemContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupRemoveUsersContract;
 import com.xnelo.filearch.restapi.api.contracts.PaginationRequest;
 import com.xnelo.filearch.restapi.api.mappers.ContractMapper;
@@ -142,7 +143,18 @@ public class GroupResource {
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toGroupItemContract));
   }
 
-  // TODO: Add a remove Items endpoint
+  @POST
+  @RolesAllowed("user")
+  @Path("{id}/remove_items")
+  public Uni<Response> removeItems(
+      @PathParam("id") long groupId, GroupRemoveItemContract itemsToRemove) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return groupService
+        .removeItemsFromGroup(userToken, groupId, itemsToRemove)
+        .map(
+            serviceResponse ->
+                contractMapper.toApiResponse(serviceResponse, contractMapper::toGroupItemContract));
+  }
 
   @GET
   @RolesAllowed("user")

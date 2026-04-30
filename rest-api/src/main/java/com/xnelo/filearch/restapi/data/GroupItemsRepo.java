@@ -56,6 +56,24 @@ public class GroupItemsRepo {
         .map(this::toGroupItemModel);
   }
 
+  public Uni<GroupItem> removeItemFromGroup(
+      final long itemId, final GroupItemType groupItemType, final long groupId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .deleteFrom(GroupItems.GROUP_ITEMS)
+                .where(GroupItems.GROUP_ITEMS.GROUP_ID.eq(groupId))
+                .and(GroupItems.GROUP_ITEMS.ITEM_ID.eq(itemId))
+                .and(GroupItems.GROUP_ITEMS.ITEM_TYPE.eq(groupItemType.getDbValue()))
+                .returningResult()
+                .fetchOne())
+        .map(this::toGroupItemModel)
+        .onFailure()
+        .invoke(ex -> log.error("Error deleting group item.", ex))
+        .onFailure()
+        .recoverWithItem((GroupItem) null);
+  }
+
   GroupItem toGroupItemModel(final Record toConvert) {
     if (toConvert == null) {
       return null;
