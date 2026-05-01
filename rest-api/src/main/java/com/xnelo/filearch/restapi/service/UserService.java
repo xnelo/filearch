@@ -362,4 +362,28 @@ public class UserService {
                     new ServiceActionResponse<>(
                         ResourceType.USERNAME, ActionType.GET, isUsernameUnique)));
   }
+
+  Uni<ServiceResponse<User>> getUserByUsername(final String username) {
+    return userRepo
+        .getUserFromUsername(username)
+        .map(
+            user -> {
+              if (user == null) {
+                return new ServiceResponse<>(
+                    new ServiceActionResponse<>(
+                        ResourceType.USER,
+                        ActionType.GET,
+                        List.of(
+                            ServiceError.builder()
+                                .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
+                                .errorMessage(
+                                    "User with username '" + username + "' does not exist")
+                                .httpCode(404)
+                                .build())));
+              }
+
+              return new ServiceResponse<>(
+                  new ServiceActionResponse<>(ResourceType.USER, ActionType.GET, user));
+            });
+  }
 }

@@ -122,6 +122,17 @@ public class UserRepo {
         .map(this::toUserModel);
   }
 
+  public Uni<User> getUserFromUsername(final String username) {
+    return Uni.createFrom()
+        .item(
+            context
+                .select(allFields)
+                .from(Users.USERS)
+                .where(decryptField(Users.USERS.USERNAME, encryptionKey).equalIgnoreCase(username))
+                .fetchOne())
+        .map(this::toUserModel);
+  }
+
   public Uni<User> updateUser(final long userId, Map<String, Object> updateFields) {
     Map<String, Object> encryptedUpdateFields = encryptFields(updateFields);
     return Uni.createFrom()
