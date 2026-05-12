@@ -4,9 +4,12 @@ import static com.xnelo.filearch.common.encryption.JooqFields.decryptField;
 import static com.xnelo.filearch.common.encryption.JooqFields.encryptField;
 
 import com.xnelo.filearch.common.model.Group;
+import com.xnelo.filearch.common.model.GroupMemberType;
 import com.xnelo.filearch.common.model.GroupMembershipStatus;
+import com.xnelo.filearch.common.model.GroupPermissionType;
 import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.jooq.tables.GroupItems;
+import com.xnelo.filearch.jooq.tables.GroupMemberPermissions;
 import com.xnelo.filearch.jooq.tables.GroupMembers;
 import com.xnelo.filearch.jooq.tables.Groups;
 import com.xnelo.filearch.jooq.tables.records.GroupMembersRecord;
@@ -19,6 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jooq.CommonTableExpression;
 import org.jooq.DSLContext;
 import org.jooq.Record;
 import org.jooq.SQLDialect;
@@ -31,6 +35,8 @@ import org.jooq.impl.DSL;
 @RequestScoped
 public class GroupRepo {
   public static final String DECRYPTED_GROUP_NAME = "DECRYPT_GROUP_NAME";
+  public static final String GROUPS_IN_IS_ADMIN = "IS_ADMIN";
+  public static final String GROUP_MEMBERSHIP_TYPE = "GROUP_MEMBERSHIP_TYPE";
 
   private final DSLContext context;
   private final String encryptionKey;
@@ -73,12 +79,49 @@ public class GroupRepo {
       final long userId,
       final GroupMembershipStatus membershipStatus,
       final PaginationParameters paginationParameters) {
+    final String ADMIN_TABLE_NAME = "admin_table";
+    final String CTE_USER_ID = "CTE_USER_ID";
+    final String CTE_GROUP_ID = "CTE_GROUP_ID";
+
+    CommonTableExpression<?> adminTable =
+        DSL.name(ADMIN_TABLE_NAME)
+            .as(
+                context
+                    .select(
+                        GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.USER_ID.as(CTE_USER_ID),
+                        GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.GROUP_ID.as(CTE_GROUP_ID),
+                        DSL.inline(true).as(GROUPS_IN_IS_ADMIN))
+                    .from(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS)
+                    .where(
+                        GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.PERMISSION_GRANTED.eq(
+                            GroupPermissionType.ADMIN.getDbValue())));
+
     SelectConditionStep<?> selectStatment =
         context
-            .select(allFields)
+            .with(adminTable)
+            .select(
+                Groups.GROUPS.ID,
+                Groups.GROUPS.OWNER_USER_ID,
+                decryptField(Groups.GROUPS.GROUP_NAME, encryptionKey).as(DECRYPTED_GROUP_NAME),
+                GroupMembers.GROUP_MEMBERS.USER_ID,
+                GroupMembers.GROUP_MEMBERS.ACCEPTED,
+                DSL.case_()
+                    .when(Groups.GROUPS.OWNER_USER_ID.eq(userId), GroupMemberType.OWNER.name())
+                    .when(
+                        Objects.requireNonNull(adminTable.field(GROUPS_IN_IS_ADMIN)).isTrue(),
+                        GroupMemberType.ADMIN.name())
+                    .otherwise(GroupMemberType.MEMBER.name())
+                    .as(GROUP_MEMBERSHIP_TYPE))
             .from(Groups.GROUPS)
             .join(GroupMembers.GROUP_MEMBERS)
             .on(Groups.GROUPS.ID.eq(GroupMembers.GROUP_MEMBERS.GROUP_ID))
+            .leftOuterJoin(adminTable)
+            .on(
+                Objects.requireNonNull(adminTable.field(CTE_GROUP_ID, Long.class))
+                    .eq(Groups.GROUPS.ID))
+            .and(
+                Objects.requireNonNull(adminTable.field(CTE_USER_ID, Long.class))
+                    .eq(GroupMembers.GROUP_MEMBERS.USER_ID))
             .where(GroupMembers.GROUP_MEMBERS.USER_ID.eq(userId));
 
     // If membershipStatus is null or GroupMembershipStatus.ALL then do nothing to the query.
@@ -285,10 +328,26 @@ public class GroupRepo {
       return null;
     }
 
-    return Group.builder()
-        .id(toConvert.get(Groups.GROUPS.ID))
-        .ownerId(toConvert.get(Groups.GROUPS.OWNER_USER_ID))
-        .name(toConvert.get(DECRYPTED_GROUP_NAME, String.class))
-        .build();
+    Group.GroupBuilder builder =
+        Group.builder()
+            .id(toConvert.get(Groups.GROUPS.ID))
+            .ownerId(toConvert.get(Groups.GROUPS.OWNER_USER_ID))
+            .name(toConvert.get(DECRYPTED_GROUP_NAME, String.class));
+
+    if (toConvert.field(GroupMembers.GROUP_MEMBERS.ACCEPTED) != null) {
+      builder.accepted(toConvert.get(GroupMembers.GROUP_MEMBERS.ACCEPTED));
+    } else {
+      builder.accepted(true);
+    }
+
+    if (toConvert.field(GROUP_MEMBERSHIP_TYPE) != null) {
+      String rawGroupMembershipType = toConvert.get(GROUP_MEMBERSHIP_TYPE, String.class);
+      GroupMemberType membershipType = GroupMemberType.valueOf(rawGroupMembershipType);
+      builder.groupMembershipType(membershipType);
+    } else {
+      builder.groupMembershipType(GroupMemberType.OWNER);
+    }
+
+    return builder.build();
   }
 }
