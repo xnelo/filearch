@@ -59,7 +59,7 @@ public class GroupMemberPermissionsRepo {
                 .deleteFrom(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS)
                 .where(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.GROUP_ID.eq(groupId))
                 .execute())
-        .map(numDeleted -> numDeleted > 0)
+        .map(numDeleted -> Boolean.TRUE)
         .onFailure()
         .invoke(ex -> log.error("Error deleting all group permissions", ex))
         .onFailure()
