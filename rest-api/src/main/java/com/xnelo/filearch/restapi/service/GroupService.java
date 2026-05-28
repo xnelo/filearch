@@ -5,6 +5,7 @@ import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.Group;
 import com.xnelo.filearch.common.model.GroupItem;
 import com.xnelo.filearch.common.model.GroupItemType;
+import com.xnelo.filearch.common.model.GroupMember;
 import com.xnelo.filearch.common.model.GroupMembershipStatus;
 import com.xnelo.filearch.common.model.GroupPermissionType;
 import com.xnelo.filearch.common.model.PaginationParameters;
@@ -857,5 +858,47 @@ public class GroupService {
               return new ServiceActionResponse<>(
                   ResourceType.GROUP, ActionType.REMOVE_ITEM_FROM_GROUP, returnedGroupItem);
             });
+  }
+
+  public Uni<ServiceResponse<List<GroupMember>>> getUsersInGroup(
+      final UserToken userInfo, final long groupId) {
+    // Step 1: Check user exists
+    return userService.checkUserExist(
+        userInfo,
+        ResourceType.GROUP,
+        ActionType.GET_USERS_IN_GROUP,
+        // Step 2: Check user active member of group
+        user ->
+            groupRepo
+                .userActiveMemberInGroup(user.getId(), groupId)
+                .chain(
+                    isActiveMember -> {
+                      if (!isActiveMember) {
+                        return Uni.createFrom()
+                            .item(
+                                new ServiceResponse<>(
+                                    new ServiceActionResponse<>(
+                                        ResourceType.GROUP,
+                                        ActionType.GET_USERS_IN_GROUP,
+                                        List.of(
+                                            ServiceError.builder()
+                                                .errorCode(ErrorCode.USER_NOT_ACTIVE)
+                                                .errorMessage(
+                                                    "User is not an active member of this group.")
+                                                .httpCode(400)
+                                                .build()))));
+                      }
+
+                      // Step 3 get all group member info
+                      return groupRepo
+                          .getUsersInGroup(groupId)
+                          .map(
+                              groupMembersList ->
+                                  new ServiceResponse<>(
+                                      new ServiceActionResponse<>(
+                                          ResourceType.GROUP,
+                                          ActionType.GET_USERS_IN_GROUP,
+                                          groupMembersList)));
+                    }));
   }
 }

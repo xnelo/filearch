@@ -4,6 +4,7 @@ import static com.xnelo.filearch.common.encryption.JooqFields.decryptField;
 import static com.xnelo.filearch.common.encryption.JooqFields.encryptField;
 
 import com.xnelo.filearch.common.model.Group;
+import com.xnelo.filearch.common.model.GroupMember;
 import com.xnelo.filearch.common.model.GroupMemberType;
 import com.xnelo.filearch.common.model.GroupMembershipStatus;
 import com.xnelo.filearch.common.model.GroupPermissionType;
@@ -12,6 +13,7 @@ import com.xnelo.filearch.jooq.tables.GroupItems;
 import com.xnelo.filearch.jooq.tables.GroupMemberPermissions;
 import com.xnelo.filearch.jooq.tables.GroupMembers;
 import com.xnelo.filearch.jooq.tables.Groups;
+import com.xnelo.filearch.jooq.tables.Users;
 import com.xnelo.filearch.jooq.tables.records.GroupMembersRecord;
 import io.agroal.api.AgroalDataSource;
 import io.smallrye.mutiny.Uni;
@@ -37,6 +39,12 @@ public class GroupRepo {
   public static final String DECRYPTED_GROUP_NAME = "DECRYPT_GROUP_NAME";
   public static final String GROUPS_IN_IS_ADMIN = "IS_ADMIN";
   public static final String GROUP_MEMBERSHIP_TYPE = "GROUP_MEMBERSHIP_TYPE";
+
+  public static final String DECRYPTED_USERNAME = "decrypted_username_col";
+
+  private static final String ADMIN_TABLE_NAME = "admin_table";
+  private static final String CTE_USER_ID = "CTE_USER_ID";
+  private static final String CTE_GROUP_ID = "CTE_GROUP_ID";
 
   private final DSLContext context;
   private final String encryptionKey;
@@ -79,22 +87,8 @@ public class GroupRepo {
       final long userId,
       final GroupMembershipStatus membershipStatus,
       final PaginationParameters paginationParameters) {
-    final String ADMIN_TABLE_NAME = "admin_table";
-    final String CTE_USER_ID = "CTE_USER_ID";
-    final String CTE_GROUP_ID = "CTE_GROUP_ID";
 
-    CommonTableExpression<?> adminTable =
-        DSL.name(ADMIN_TABLE_NAME)
-            .as(
-                context
-                    .select(
-                        GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.USER_ID.as(CTE_USER_ID),
-                        GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.GROUP_ID.as(CTE_GROUP_ID),
-                        DSL.inline(true).as(GROUPS_IN_IS_ADMIN))
-                    .from(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS)
-                    .where(
-                        GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.PERMISSION_GRANTED.eq(
-                            GroupPermissionType.ADMIN.getDbValue())));
+    CommonTableExpression<?> adminTable = getAdminTable();
 
     SelectConditionStep<?> selectStatment =
         context
@@ -349,5 +343,90 @@ public class GroupRepo {
     }
 
     return builder.build();
+  }
+
+  GroupMember toGroupMember(final Record toConvert) {
+    if (toConvert == null) {
+      return null;
+    }
+
+    GroupMember.GroupMemberBuilder builder =
+        GroupMember.builder()
+            .userId(toConvert.get(Users.USERS.ID))
+            .username(toConvert.get(DECRYPTED_USERNAME, String.class))
+            .groupId(toConvert.get(GroupMembers.GROUP_MEMBERS.GROUP_ID));
+
+    if (toConvert.field(GroupMembers.GROUP_MEMBERS.ACCEPTED) != null) {
+      builder.accepted(toConvert.get(GroupMembers.GROUP_MEMBERS.ACCEPTED));
+    } else {
+      builder.accepted(true);
+    }
+
+    if (toConvert.field(GROUP_MEMBERSHIP_TYPE) != null) {
+      String rawGroupMembershipType = toConvert.get(GROUP_MEMBERSHIP_TYPE, String.class);
+      GroupMemberType membershipType = GroupMemberType.valueOf(rawGroupMembershipType);
+      builder.memberType(membershipType);
+    } else {
+      builder.memberType(GroupMemberType.OWNER);
+    }
+
+    return builder.build();
+  }
+
+  public Uni<List<GroupMember>> getUsersInGroup(final long groupId) {
+    CommonTableExpression<?> adminTable = getAdminTable();
+
+    SelectConditionStep<?> selectStatement =
+        context
+            .with(adminTable)
+            .select(
+                Users.USERS.ID,
+                decryptField(Users.USERS.USERNAME, encryptionKey).as(DECRYPTED_USERNAME),
+                GroupMembers.GROUP_MEMBERS.GROUP_ID,
+                GroupMembers.GROUP_MEMBERS.ACCEPTED,
+                DSL.case_()
+                    .when(
+                        Groups.GROUPS.OWNER_USER_ID.eq(Users.USERS.ID),
+                        GroupMemberType.OWNER.name())
+                    .when(
+                        Objects.requireNonNull(adminTable.field(GROUPS_IN_IS_ADMIN)).isTrue(),
+                        GroupMemberType.ADMIN.name())
+                    .otherwise(GroupMemberType.MEMBER.name())
+                    .as(GROUP_MEMBERSHIP_TYPE))
+            .from(GroupMembers.GROUP_MEMBERS)
+            .join(Users.USERS)
+            .on(Users.USERS.ID.eq(GroupMembers.GROUP_MEMBERS.USER_ID))
+            .join(Groups.GROUPS)
+            .on(Groups.GROUPS.ID.eq(GroupMembers.GROUP_MEMBERS.GROUP_ID))
+            .leftOuterJoin(adminTable)
+            .on(
+                Objects.requireNonNull(adminTable.field(CTE_GROUP_ID, Long.class))
+                    .eq(Groups.GROUPS.ID))
+            .and(
+                Objects.requireNonNull(adminTable.field(CTE_USER_ID, Long.class))
+                    .eq(GroupMembers.GROUP_MEMBERS.USER_ID))
+            .where(GroupMembers.GROUP_MEMBERS.GROUP_ID.eq(groupId));
+
+    return Uni.createFrom().item(() -> selectStatement.fetch().map(this::toGroupMember));
+  }
+
+  private CommonTableExpression<?> getAdminTable() {
+    return DSL.name(ADMIN_TABLE_NAME)
+        .as(
+            context
+                .select(
+                    GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.USER_ID.as(CTE_USER_ID),
+                    GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.GROUP_ID.as(CTE_GROUP_ID),
+                    DSL.inline(true).as(GROUPS_IN_IS_ADMIN))
+                .from(GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS)
+                .where(
+                    GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS.PERMISSION_GRANTED.eq(
+                        GroupPermissionType.ADMIN.getDbValue())));
+  }
+
+  public Uni<Boolean> groupExists(final long groupId) {
+    var query = context.selectFrom(Groups.GROUPS).where(Groups.GROUPS.ID.eq(groupId));
+
+    return Uni.createFrom().item(query::fetchOne).map(Objects::nonNull);
   }
 }
