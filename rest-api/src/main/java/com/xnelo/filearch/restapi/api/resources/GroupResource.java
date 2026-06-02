@@ -196,4 +196,17 @@ public class GroupResource {
                 contractMapper.toApiResponse(
                     serviceResponse, contractMapper::toGroupMemberContractList));
   }
+
+  @GET
+  @RolesAllowed("user")
+  @Path("{id}/all_user_permissions")
+  public Uni<Response> getAllUserPermissionsInGroup(@PathParam("id") long groupId) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return groupPermissionsService
+        .getAllGroupPermissionByUser(userToken, groupId)
+        .map(
+            serviceResponse ->
+                contractMapper.toApiResponse(
+                    serviceResponse, contractMapper::toGroupMemberAllPermissionsContractList));
+  }
 }

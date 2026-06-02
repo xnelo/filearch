@@ -2,6 +2,7 @@ package com.xnelo.filearch.restapi.service;
 
 import com.xnelo.filearch.common.model.ActionType;
 import com.xnelo.filearch.common.model.ErrorCode;
+import com.xnelo.filearch.common.model.GroupMemberAllPermissions;
 import com.xnelo.filearch.common.model.GroupMemberPermission;
 import com.xnelo.filearch.common.model.GroupPermissionType;
 import com.xnelo.filearch.common.model.ResourceType;
@@ -24,6 +25,83 @@ public class GroupPermissionsService {
   @Inject UserService userService;
   @Inject GroupRepo groupRepo;
   @Inject GroupMemberPermissionsRepo groupMemberPermissionsRepo;
+
+  public Uni<ServiceResponse<List<GroupMemberAllPermissions>>> getAllGroupPermissionByUser(
+      final UserToken userInfo, final long groupId) {
+    return userService.checkUserExist(
+        userInfo,
+        ResourceType.GROUP,
+        ActionType.GET_GROUP_PERMISSIONS,
+        user ->
+            groupRepo
+                .userActiveMemberInGroup(user.getId(), groupId)
+                .chain(
+                    isActiveMember -> {
+                      if (!isActiveMember) {
+                        return Uni.createFrom()
+                            .item(
+                                new ServiceResponse<>(
+                                    new ServiceActionResponse<>(
+                                        ResourceType.GROUP,
+                                        ActionType.GET_GROUP_PERMISSIONS,
+                                        List.of(
+                                            ServiceError.builder()
+                                                .errorCode(ErrorCode.USER_NOT_ACTIVE)
+                                                .errorMessage(
+                                                    "User is not an active member of group("
+                                                        + groupId
+                                                        + ")")
+                                                .httpCode(404)
+                                                .build()))));
+                      }
+                      return canUserViewPermissions(user.getId(), null, groupId)
+                          .chain(
+                              canUserView -> {
+                                if (!canUserView) {
+                                  return Uni.createFrom()
+                                      .item(
+                                          new ServiceResponse<>(
+                                              new ServiceActionResponse<>(
+                                                  ResourceType.GROUP,
+                                                  ActionType.GET_GROUP_PERMISSIONS,
+                                                  List.of(
+                                                      ServiceError.builder()
+                                                          .errorCode(
+                                                              ErrorCode.PERMISSION_NOT_GRANTED)
+                                                          .errorMessage(
+                                                              "You do not have permission to view user permission in this group("
+                                                                  + groupId
+                                                                  + ")")
+                                                          .httpCode(403)
+                                                          .build()))));
+                                }
+
+                                return groupMemberPermissionsRepo
+                                    .getAllGroupPermissionsByUser(groupId)
+                                    .map(
+                                        res -> {
+                                          List<GroupMemberAllPermissions> finalOutput =
+                                              res.entrySet().stream()
+                                                  .map(
+                                                      (e) ->
+                                                          new GroupMemberAllPermissions(
+                                                              e.getKey(),
+                                                              groupId,
+                                                              e.getValue().stream()
+                                                                  .map(
+                                                                      GroupMemberPermission
+                                                                          ::getPermission)
+                                                                  .toList()))
+                                                  .toList();
+                                          return new ServiceResponse<>(
+                                              new ServiceActionResponse<>(
+                                                  ResourceType.GROUP,
+                                                  ActionType.GET_GROUP_PERMISSIONS,
+                                                  finalOutput));
+                                        });
+                              });
+                    }));
+  }
 
   public Uni<ServiceResponse<List<GroupMemberPermission>>> getUserPermissions(
       final UserToken userInfo, final long userToViewId, final long groupId) {
@@ -88,8 +166,8 @@ public class GroupPermissionsService {
   }
 
   Uni<Boolean> canUserViewPermissions(
-      final long userRequestingView, final long userToView, final long groupId) {
-    if (userRequestingView == userToView) {
+      final long userRequestingView, final Long userToView, final long groupId) {
+    if (userToView != null && userRequestingView == userToView) {
       return Uni.createFrom().item(true);
     }
 
