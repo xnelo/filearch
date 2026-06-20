@@ -2,6 +2,7 @@ package com.xnelo.filearch.restapi.data;
 
 import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.common.model.SortDirection;
+import java.util.ArrayList;
 import java.util.List;
 import org.jooq.*;
 
@@ -30,6 +31,36 @@ public class RepoUtils {
 
     return selectStatement
         .orderBy(sortField)
+        .limit(getLimitToUse(paginationParameters.getLimit()) + 1);
+  }
+
+  public static SelectLimitPercentStep<?> addPagination(
+      final SelectJoinStep<?> joinStep,
+      final Field<Long> fieldToSort,
+      final PaginationParameters paginationParameters,
+      final List<SortField<?>> additionalSortFields) {
+    SelectConditionStep<?> selectStatement = null;
+
+    SortField<?> sortField;
+    if (paginationParameters.getDir() == null
+        || paginationParameters.getDir() == SortDirection.ASCENDING) {
+      if (paginationParameters.getAfter() != null && paginationParameters.getAfter() >= 0) {
+        selectStatement = joinStep.where(fieldToSort.gt(paginationParameters.getAfter()));
+      }
+      sortField = fieldToSort.asc();
+    } else {
+      if (paginationParameters.getAfter() != null && paginationParameters.getAfter() >= 0) {
+        selectStatement = joinStep.where(fieldToSort.lt(paginationParameters.getAfter()));
+      }
+      sortField = fieldToSort.desc();
+    }
+
+    List<SortField<?>> sortFields = new ArrayList<>(additionalSortFields.size() + 1);
+    sortFields.add(sortField);
+    sortFields.addAll(additionalSortFields);
+
+    return ((selectStatement != null) ? selectStatement : joinStep)
+        .orderBy(sortFields)
         .limit(getLimitToUse(paginationParameters.getLimit()) + 1);
   }
 

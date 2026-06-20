@@ -3,6 +3,7 @@ package com.xnelo.filearch.restapi.api.mappers;
 import com.xnelo.filearch.common.model.File;
 import com.xnelo.filearch.common.model.Folder;
 import com.xnelo.filearch.common.model.Group;
+import com.xnelo.filearch.common.model.GroupFile;
 import com.xnelo.filearch.common.model.GroupItem;
 import com.xnelo.filearch.common.model.GroupMember;
 import com.xnelo.filearch.common.model.GroupMemberAllPermissions;
@@ -42,6 +43,10 @@ public interface ContractMapper {
   GroupContract toGroupContract(Group group);
 
   List<GroupContract> toGroupContractList(List<Group> groups);
+
+  GroupFileContract toGroupFileContract(GroupFile groupFile);
+
+  List<GroupFileContract> toGroupFileContractList(List<GroupFile> groupFiles);
 
   PaginationParameters toPaginationParameters(PaginationRequest request);
 
