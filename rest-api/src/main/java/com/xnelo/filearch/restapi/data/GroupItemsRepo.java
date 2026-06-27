@@ -74,6 +74,22 @@ public class GroupItemsRepo {
         .recoverWithItem((GroupItem) null);
   }
 
+  public Uni<Boolean> removeItemFromAllGroups(
+      final long itemId, final GroupItemType groupItemType) {
+    return Uni.createFrom()
+        .item(
+            context
+                .deleteFrom(GroupItems.GROUP_ITEMS)
+                .where(GroupItems.GROUP_ITEMS.ITEM_ID.eq(itemId))
+                .and(GroupItems.GROUP_ITEMS.ITEM_TYPE.eq(groupItemType.getDbValue()))
+                .execute())
+        .map(deletedRecords -> Boolean.TRUE)
+        .onFailure()
+        .invoke(ex -> log.error("Error deleting group item from all groups.", ex))
+        .onFailure()
+        .recoverWithItem(Boolean.FALSE);
+  }
+
   GroupItem toGroupItemModel(final Record toConvert) {
     if (toConvert == null) {
       return null;
