@@ -35,4 +35,7 @@ public class GroupFileContract {
 
   @JsonProperty("folder_in")
   private final String folderIn;
+
+  @JsonProperty("folder_in_id")
+  private final Long folderInId;
 }

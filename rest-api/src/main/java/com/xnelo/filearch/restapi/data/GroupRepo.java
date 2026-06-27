@@ -56,6 +56,7 @@ public class GroupRepo {
 
   private static final String DECRYPTED_FOLDER_NAME = "DECRYPTED_FOLDER_NAME";
   private static final String DECRYPTED_ORIGINAL_FILENAME = "DECRYPTED_ORIGINAL_FILENAME";
+  private static final String FOLDER_IN_ID = "FOLDER_IN_ID";
 
   private final DSLContext context;
   private final String encryptionKey;
@@ -458,7 +459,8 @@ public class GroupRepo {
                             .as(DECRYPTED_ORIGINAL_FILENAME),
                         StoredFiles.STORED_FILES.MIME_TYPE,
                         GroupItems.GROUP_ITEMS.ITEM_TYPE,
-                        DSL.inline(null, SQLDataType.VARCHAR).as(DECRYPTED_FOLDER_NAME))
+                        DSL.inline(null, SQLDataType.VARCHAR).as(DECRYPTED_FOLDER_NAME),
+                        DSL.inline(null, SQLDataType.BIGINT).as(FOLDER_IN_ID))
                     .from(StoredFiles.STORED_FILES)
                     .join(GroupItems.GROUP_ITEMS)
                     .on(StoredFiles.STORED_FILES.ID.eq(GroupItems.GROUP_ITEMS.ITEM_ID))
@@ -478,7 +480,8 @@ public class GroupRepo {
                                 StoredFiles.STORED_FILES.MIME_TYPE,
                                 GroupItems.GROUP_ITEMS.ITEM_TYPE,
                                 decryptField(Folders.FOLDERS.NAME, encryptionKey)
-                                    .as(DECRYPTED_FOLDER_NAME))
+                                    .as(DECRYPTED_FOLDER_NAME),
+                                GroupItems.GROUP_ITEMS.ITEM_ID.as(FOLDER_IN_ID))
                             .from(StoredFiles.STORED_FILES)
                             .join(GroupItems.GROUP_ITEMS)
                             .on(
@@ -541,6 +544,7 @@ public class GroupRepo {
         toConvert.get(DECRYPTED_ORIGINAL_FILENAME, String.class),
         toConvert.get(StoredFiles.STORED_FILES.MIME_TYPE),
         groupItemType,
-        toConvert.get(DECRYPTED_FOLDER_NAME, String.class));
+        toConvert.get(DECRYPTED_FOLDER_NAME, String.class),
+        toConvert.get(FOLDER_IN_ID, Long.class));
   }
 }
