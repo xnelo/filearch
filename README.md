@@ -14,3 +14,8 @@ A file archiving application that allows tagging and searching.
 3) Update JOOQ project
    1) cd into jooq folder
    2) execute `../gradlew generatejooq`
+      1) You need to set the environment variable `FILEARCH_DB_HOST_ADDRESS` (it defaults to localhost). You
+         can do this in a single command 
+         ```
+         powershell -Command { $env:FILEARCH_DB_HOST_ADDRESS="<DB_ADDRESS>"; ../gradlew generatejooq }
+         ```
