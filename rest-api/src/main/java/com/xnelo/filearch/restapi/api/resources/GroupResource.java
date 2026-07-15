@@ -158,6 +158,25 @@ public class GroupResource {
 
   @GET
   @RolesAllowed("user")
+  @Path("{id}/files")
+  public Uni<Response> getFilesInGroup(
+      @PathParam("id") long groupId, @BeanParam PaginationRequest paginationRequest) {
+    PaginationParameters paginationParameters =
+        contractMapper.toPaginationParameters(paginationRequest);
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return groupService
+        .getFilesInGroup(userToken, groupId, paginationParameters)
+        .map(
+            serviceResponse ->
+                contractMapper.toApiResponse(
+                    serviceResponse,
+                    resp ->
+                        contractMapper.toPaginationContract(
+                            resp, contractMapper::toGroupFileContractList)));
+  }
+
+  @GET
+  @RolesAllowed("user")
   @Path("{id}/permissions")
   public Uni<Response> getPermissions(
       @PathParam("id") long groupId, @QueryParam("user_id") long userId) {
@@ -182,5 +201,31 @@ public class GroupResource {
             serviceResponse ->
                 contractMapper.toApiResponse(
                     serviceResponse, contractMapper::toGroupMemberPermissionContract));
+  }
+
+  @GET
+  @RolesAllowed("user")
+  @Path("{id}/users_in_group")
+  public Uni<Response> getUsersInGroup(@PathParam("id") long groupId) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return groupService
+        .getUsersInGroup(userToken, groupId)
+        .map(
+            serviceResponse ->
+                contractMapper.toApiResponse(
+                    serviceResponse, contractMapper::toGroupMemberContractList));
+  }
+
+  @GET
+  @RolesAllowed("user")
+  @Path("{id}/all_user_permissions")
+  public Uni<Response> getAllUserPermissionsInGroup(@PathParam("id") long groupId) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return groupPermissionsService
+        .getAllGroupPermissionByUser(userToken, groupId)
+        .map(
+            serviceResponse ->
+                contractMapper.toApiResponse(
+                    serviceResponse, contractMapper::toGroupMemberAllPermissionsContractList));
   }
 }

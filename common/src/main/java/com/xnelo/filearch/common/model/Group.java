@@ -13,4 +13,6 @@ public class Group {
   private long id;
   private long ownerId;
   private String name;
+  private boolean accepted;
+  private GroupMemberType groupMembershipType;
 }

@@ -344,6 +344,24 @@ public class FolderService {
                         }
                         Folder folderMetadata =
                             folderResponse.getActionResponses().getFirst().getData();
+
+                        // Check if this is the root folder
+                        if (folderMetadata.isRootFolder()) {
+                          return Uni.createFrom()
+                              .item(
+                                  new ServiceResponse<>(
+                                      new ServiceActionResponse<>(
+                                          ResourceType.FOLDER,
+                                          ActionType.UPDATE,
+                                          List.of(
+                                              ServiceError.builder()
+                                                  .errorCode(
+                                                      ErrorCode.ROOT_FOLDER_CANNOT_BE_UPDATED)
+                                                  .errorMessage("Root Folder cannot be updated.")
+                                                  .httpCode(400)
+                                                  .build()))));
+                        }
+
                         ArrayList<Uni<Map<String, Object>>> checkUnis = new ArrayList<>();
                         long destFolderId = folderId;
                         if (folderData.getParentId() != null) {
