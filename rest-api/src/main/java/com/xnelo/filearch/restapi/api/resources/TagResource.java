@@ -8,7 +8,7 @@ import com.xnelo.filearch.common.usertoken.UserTokenHandler;
 import com.xnelo.filearch.restapi.api.contracts.PaginationRequest;
 import com.xnelo.filearch.restapi.api.contracts.TagContract;
 import com.xnelo.filearch.restapi.api.mappers.ContractMapper;
-import com.xnelo.filearch.restapi.service.TagService;
+import com.xnelo.filearch.restapi.service.tag.TagService;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;

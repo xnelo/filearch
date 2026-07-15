@@ -1,4 +1,4 @@
-package com.xnelo.filearch.restapi.service;
+package com.xnelo.filearch.restapi.service.tag;
 
 import com.xnelo.filearch.common.model.*;
 import com.xnelo.filearch.common.service.PaginatedResponse;
@@ -10,6 +10,8 @@ import com.xnelo.filearch.restapi.api.contracts.TagContract;
 import com.xnelo.filearch.restapi.api.mappers.PaginationMapper;
 import com.xnelo.filearch.restapi.data.FileTagsRepo;
 import com.xnelo.filearch.restapi.data.TagRepo;
+import com.xnelo.filearch.restapi.service.FileService;
+import com.xnelo.filearch.restapi.service.UserService;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;

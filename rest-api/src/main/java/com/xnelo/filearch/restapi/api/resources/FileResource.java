@@ -16,7 +16,7 @@ import com.xnelo.filearch.restapi.api.contracts.SearchRequest;
 import com.xnelo.filearch.restapi.api.mappers.ContractMapper;
 import com.xnelo.filearch.restapi.api.mappers.HttpStatusCodeMapper;
 import com.xnelo.filearch.restapi.service.FileService;
-import com.xnelo.filearch.restapi.service.TagService;
+import com.xnelo.filearch.restapi.service.tag.TagService;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
