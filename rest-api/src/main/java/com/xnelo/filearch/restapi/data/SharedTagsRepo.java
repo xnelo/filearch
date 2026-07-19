@@ -32,4 +32,18 @@ public class SharedTagsRepo {
         .onFailure()
         .recoverWithItem(Boolean.FALSE);
   }
+
+  public Uni<Boolean> deleteSharedTag(final Long tagId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .deleteFrom(SharedTags.SHARED_TAGS)
+                .where(SharedTags.SHARED_TAGS.TAG_ID.eq(tagId))
+                .execute())
+        .map(res -> Boolean.TRUE)
+        .onFailure()
+        .invoke(ex -> log.error("Error deleting shared tagid:{}", tagId, ex))
+        .onFailure()
+        .recoverWithItem(Boolean.FALSE);
+  }
 }

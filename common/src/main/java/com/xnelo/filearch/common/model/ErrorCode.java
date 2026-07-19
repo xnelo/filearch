@@ -12,6 +12,7 @@ public enum ErrorCode {
   INVALID_INPUT_VALUE(23),
   NO_FIELDS_TO_UPDATE(50),
   TOO_MANY_BULK_OPERATIONS(70),
+  DB_ERROR(98),
   NOT_IMPLEMENTED(99),
 
   // USER Service Errors 100 - 199

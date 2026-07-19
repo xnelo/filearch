@@ -298,11 +298,11 @@ public class TagService {
 
               Tag tagData = tagServiceResponse.getActionResponses().getFirst().getData();
 
-              return fileTagsRepo
-                  .deleteAllTagUses(tagId)
+              return sharedTagsRepo
+                  .deleteSharedTag(tagId)
                   .chain(
-                      deleteTagUsesSuccess -> {
-                        if (!deleteTagUsesSuccess) {
+                      deleteSuccess -> {
+                        if (!deleteSuccess) {
                           return Uni.createFrom()
                               .item(
                                   new ServiceResponse<>(
@@ -311,38 +311,64 @@ public class TagService {
                                           ActionType.DELETE,
                                           List.of(
                                               ServiceError.builder()
-                                                  .errorCode(
-                                                      ErrorCode.TAG_USES_COULD_NOT_BE_DELETED)
+                                                  .errorCode(ErrorCode.DB_ERROR)
                                                   .errorMessage(
-                                                      "Error deleting tag uses from database '"
+                                                      "Error removing tag("
                                                           + tagId
-                                                          + "'")
+                                                          + ") from shared tag table.")
                                                   .httpCode(500)
                                                   .build()))));
                         }
 
-                        return tagRepo
-                            .deleteTag(userId, tagId)
-                            .map(
-                                deleteTagSuccess -> {
-                                  if (!deleteTagSuccess) {
-                                    return new ServiceResponse<>(
-                                        new ServiceActionResponse<>(
-                                            ResourceType.TAG,
-                                            ActionType.DELETE,
-                                            List.of(
-                                                ServiceError.builder()
-                                                    .errorCode(ErrorCode.TAG_COULD_NOT_BE_DELETED)
-                                                    .errorMessage(
-                                                        "Error deleting tag from database '"
-                                                            + tagId
-                                                            + "'")
-                                                    .httpCode(500)
-                                                    .build())));
+                        return fileTagsRepo
+                            .deleteAllTagUses(tagId)
+                            .chain(
+                                deleteTagUsesSuccess -> {
+                                  if (!deleteTagUsesSuccess) {
+                                    return Uni.createFrom()
+                                        .item(
+                                            new ServiceResponse<>(
+                                                new ServiceActionResponse<>(
+                                                    ResourceType.TAG,
+                                                    ActionType.DELETE,
+                                                    List.of(
+                                                        ServiceError.builder()
+                                                            .errorCode(
+                                                                ErrorCode
+                                                                    .TAG_USES_COULD_NOT_BE_DELETED)
+                                                            .errorMessage(
+                                                                "Error deleting tag uses from database '"
+                                                                    + tagId
+                                                                    + "'")
+                                                            .httpCode(500)
+                                                            .build()))));
                                   }
-                                  return new ServiceResponse<>(
-                                      new ServiceActionResponse<>(
-                                          ResourceType.TAG, ActionType.DELETE, tagData));
+
+                                  return tagRepo
+                                      .deleteTag(userId, tagId)
+                                      .map(
+                                          deleteTagSuccess -> {
+                                            if (!deleteTagSuccess) {
+                                              return new ServiceResponse<>(
+                                                  new ServiceActionResponse<>(
+                                                      ResourceType.TAG,
+                                                      ActionType.DELETE,
+                                                      List.of(
+                                                          ServiceError.builder()
+                                                              .errorCode(
+                                                                  ErrorCode
+                                                                      .TAG_COULD_NOT_BE_DELETED)
+                                                              .errorMessage(
+                                                                  "Error deleting tag from database '"
+                                                                      + tagId
+                                                                      + "'")
+                                                              .httpCode(500)
+                                                              .build())));
+                                            }
+                                            return new ServiceResponse<>(
+                                                new ServiceActionResponse<>(
+                                                    ResourceType.TAG, ActionType.DELETE, tagData));
+                                          });
                                 });
                       });
             });
