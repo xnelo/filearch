@@ -7,11 +7,16 @@ import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.restapi.api.contracts.TagContract;
+import com.xnelo.filearch.restapi.api.contracts.TagShareBulkContract;
+import com.xnelo.filearch.restapi.api.contracts.TagShareContract;
 import com.xnelo.filearch.restapi.api.mappers.PaginationMapper;
 import com.xnelo.filearch.restapi.data.FileTagsRepo;
+import com.xnelo.filearch.restapi.data.GroupRepo;
+import com.xnelo.filearch.restapi.data.SharedTagsRepo;
 import com.xnelo.filearch.restapi.data.TagRepo;
 import com.xnelo.filearch.restapi.service.FileService;
 import com.xnelo.filearch.restapi.service.UserService;
+import com.xnelo.filearch.restapi.service.Utils;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
@@ -25,6 +30,8 @@ public class TagService {
   @Inject UserService userService;
   @Inject TagRepo tagRepo;
   @Inject FileTagsRepo fileTagsRepo;
+  @Inject GroupRepo groupRepo;
+  @Inject SharedTagsRepo sharedTagsRepo;
   final PaginationMapper paginationMapper = Mappers.getMapper(PaginationMapper.class);
   @Inject FileService fileService;
 
@@ -443,5 +450,86 @@ public class TagService {
               ResourceType.TAG, actionResponse.getActionType(), actionResponse.getErrors()));
     }
     return Uni.createFrom().item(new ServiceResponse<>(actionResponses));
+  }
+
+  public Uni<ServiceResponse<TagShareResult>> shareTagsBulk(
+      final UserToken userInfo, final TagShareBulkContract tagsToShare) {
+    return userService.checkUserExist(
+        userInfo,
+        ResourceType.TAG,
+        ActionType.SHARE_TAG,
+        user -> {
+          ArrayList<Uni<ServiceActionResponse<TagShareResult>>> actions = new ArrayList<>();
+          tagsToShare
+              .getTagsToShare()
+              .forEach(tagShare -> actions.add(shareTagIndividual(user, tagShare)));
+          return Uni.combine()
+              .all()
+              .unis(actions)
+              .with(
+                  toCombine ->
+                      Utils.combineServiceActionResponses(toCombine, TagShareResult.class));
+        });
+  }
+
+  Uni<ServiceActionResponse<TagShareResult>> shareTagIndividual(
+      final User user, final TagShareContract tagToShare) {
+    return groupRepo
+        .userActiveMemberInGroup(user.getId(), tagToShare.getGroupId())
+        .chain(
+            isActiveMember -> {
+              if (!isActiveMember) {
+                return Uni.createFrom()
+                    .item(
+                        new ServiceActionResponse<>(
+                            ResourceType.TAG,
+                            ActionType.SHARE_TAG,
+                            List.of(
+                                ServiceError.builder()
+                                    .errorCode(ErrorCode.USER_NOT_ACTIVE)
+                                    .errorMessage(
+                                        "User "
+                                            + user.getId()
+                                            + " is not active member of "
+                                            + tagToShare.getGroupId()
+                                            + " group")
+                                    .httpCode(403)
+                                    .build())));
+              }
+
+              return tagRepo
+                  .getTagById(tagToShare.getTagId(), user.getId())
+                  .chain(
+                      tagData -> {
+                        if (tagData == null) {
+                          return Uni.createFrom()
+                              .item(
+                                  new ServiceActionResponse<>(
+                                      ResourceType.TAG,
+                                      ActionType.SHARE_TAG,
+                                      List.of(
+                                          ServiceError.builder()
+                                              .errorCode(ErrorCode.TAG_DOES_NOT_EXIST)
+                                              .errorMessage(
+                                                  "Tag("
+                                                      + tagToShare.getTagId()
+                                                      + ") doesn't exist")
+                                              .httpCode(404)
+                                              .build())));
+                        }
+
+                        return sharedTagsRepo
+                            .addSharedTag(tagToShare.getTagId(), tagToShare.getGroupId())
+                            .map(
+                                insertSuccess ->
+                                    new ServiceActionResponse<>(
+                                        ResourceType.TAG,
+                                        ActionType.SHARE_TAG,
+                                        new TagShareResult(
+                                            tagToShare.getTagId(),
+                                            tagToShare.getGroupId(),
+                                            insertSuccess)));
+                      });
+            });
   }
 }

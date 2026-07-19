@@ -17,6 +17,7 @@ import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.restapi.api.contracts.*;
+import com.xnelo.filearch.restapi.service.tag.TagShareResult;
 import jakarta.ws.rs.core.Response;
 import java.util.ArrayList;
 import java.util.List;
@@ -69,6 +70,8 @@ public interface ContractMapper {
 
   List<GroupMemberAllPermissionsContract> toGroupMemberAllPermissionsContractList(
       List<GroupMemberAllPermissions> groupMemberAllPermissionsList);
+
+  TagShareResponse toTagShareResponse(TagShareResult tagShareResult);
 
   default <R, S> PaginationContract<R> toPaginationContract(
       PaginatedResponse<S> toConvert, Function<List<S>, List<R>> howToConvert) {
