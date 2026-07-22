@@ -545,16 +545,110 @@ public class TagService {
                         }
 
                         return sharedTagsRepo
-                            .addSharedTag(tagToShare.getTagId(), tagToShare.getGroupId())
+                            .tagShareExists(tagToShare.getTagId(), tagToShare.getGroupId())
+                            .chain(tagShareExists -> {
+                              if (tagShareExists) {
+                                return Uni.createFrom().item(
+                                    new ServiceActionResponse<>(ResourceType.TAG, ActionType.SHARE_TAG, List.of(
+                                        ServiceError.builder()
+                                            .errorCode(ErrorCode.TAG_SHARE_EXISTS)
+                                            .errorMessage("Tag " + tagToShare.getTagId() + " already shared with group " + tagToShare.getGroupId())
+                                            .httpCode(400)
+                                            .build()
+                                    ))
+                                );
+                              }
+
+                              return sharedTagsRepo
+                                  .addSharedTag(tagToShare.getTagId(), tagToShare.getGroupId())
+                                  .map(
+                                      insertSuccess ->
+                                          new ServiceActionResponse<>(
+                                              ResourceType.TAG,
+                                              ActionType.SHARE_TAG,
+                                              new TagShareResult(
+                                                  tagToShare.getTagId(),
+                                                  tagToShare.getGroupId(),
+                                                  insertSuccess)));
+                            });
+                      });
+            });
+  }
+
+  public Uni<ServiceResponse<TagShareResult>> unshareTagsBulk(
+      final UserToken userInfo, final TagShareBulkContract tagsToUnshare) {
+    return userService.checkUserExist(
+        userInfo,
+        ResourceType.TAG,
+        ActionType.SHARE_TAG,
+        user -> {
+          ArrayList<Uni<ServiceActionResponse<TagShareResult>>> actions = new ArrayList<>();
+          tagsToUnshare
+              .getTagsToShare()
+              .forEach(tagShare -> actions.add(unshareTagIndividual(user, tagShare)));
+          return Uni.combine()
+              .all()
+              .unis(actions)
+              .with(
+                  toCombine ->
+                      Utils.combineServiceActionResponses(toCombine, TagShareResult.class));
+        });
+  }
+
+  Uni<ServiceActionResponse<TagShareResult>> unshareTagIndividual(
+      final User user, final TagShareContract tagToUnshare) {
+    return tagRepo
+        .getTagById(tagToUnshare.getTagId(), user.getId())
+        .chain(
+            tagData -> {
+              if (tagData == null) {
+                return Uni.createFrom()
+                    .item(
+                        new ServiceActionResponse<>(
+                            ResourceType.TAG,
+                            ActionType.SHARE_TAG,
+                            List.of(
+                                ServiceError.builder()
+                                    .errorCode(ErrorCode.TAG_DOES_NOT_EXIST)
+                                    .errorMessage(
+                                        "Tag (" + tagToUnshare.getTagId() + ") doesn't exist")
+                                    .httpCode(404)
+                                    .build())));
+              }
+
+              return groupRepo
+                  .userActiveMemberInGroup(user.getId(), tagToUnshare.getGroupId())
+                  .chain(
+                      isActiveMember -> {
+                        if (!isActiveMember) {
+                          return Uni.createFrom()
+                              .item(
+                                  new ServiceActionResponse<>(
+                                      ResourceType.TAG,
+                                      ActionType.SHARE_TAG,
+                                      List.of(
+                                          ServiceError.builder()
+                                              .errorCode(ErrorCode.USER_NOT_ACTIVE)
+                                              .errorMessage(
+                                                  "User "
+                                                      + user.getId()
+                                                      + " is not active member of group "
+                                                      + tagToUnshare.getGroupId())
+                                              .httpCode(400)
+                                              .build())));
+                        }
+
+                        return sharedTagsRepo
+                            .unshareTag(tagToUnshare.getTagId(), tagToUnshare.getGroupId())
                             .map(
-                                insertSuccess ->
+                                dbSuccess ->
                                     new ServiceActionResponse<>(
                                         ResourceType.TAG,
                                         ActionType.SHARE_TAG,
                                         new TagShareResult(
-                                            tagToShare.getTagId(),
-                                            tagToShare.getGroupId(),
-                                            insertSuccess)));
+                                            tagToUnshare.getTagId(),
+                                            tagToUnshare.getGroupId(),
+                                            dbSuccess)));
                       });
             });
   }

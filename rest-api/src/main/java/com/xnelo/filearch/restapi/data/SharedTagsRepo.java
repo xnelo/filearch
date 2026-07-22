@@ -11,6 +11,8 @@ import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 
+import java.util.Objects;
+
 @Slf4j
 @RequestScoped
 public class SharedTagsRepo {
@@ -20,6 +22,21 @@ public class SharedTagsRepo {
   public SharedTagsRepo(final AgroalDataSource dataSource) {
     this.context = DSL.using(dataSource, SQLDialect.POSTGRES);
     this.context.setSchema("FILEARCH").execute();
+  }
+
+  public Uni<Boolean> tagShareExists(final Long tagId, final Long groupId) {
+    return Uni.createFrom().item(
+        context
+            .selectFrom(SharedTags.SHARED_TAGS)
+            .where(SharedTags.SHARED_TAGS.TAG_ID.eq(tagId))
+            .and(SharedTags.SHARED_TAGS.GROUP_ID.eq(groupId))
+            .fetchOne()
+    )
+        .map(Objects::nonNull)
+        .onFailure()
+        .invoke(ex -> log.error("Error checking if tag exists tagid:{} groupId:{}", tagId, groupId, ex))
+        .onFailure()
+        .recoverWithItem(Boolean.FALSE);
   }
 
   public Uni<Boolean> addSharedTag(final Long tagId, final Long groupId) {
@@ -43,6 +60,21 @@ public class SharedTagsRepo {
         .map(res -> Boolean.TRUE)
         .onFailure()
         .invoke(ex -> log.error("Error deleting shared tagid:{}", tagId, ex))
+        .onFailure()
+        .recoverWithItem(Boolean.FALSE);
+  }
+
+  public Uni<Boolean> unshareTag(final Long tagId, final Long groupId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .deleteFrom(SharedTags.SHARED_TAGS)
+                .where(SharedTags.SHARED_TAGS.TAG_ID.eq(tagId))
+                .and(SharedTags.SHARED_TAGS.GROUP_ID.eq(groupId))
+                .execute())
+        .map(res -> Boolean.TRUE)
+        .onFailure()
+        .invoke(ex -> log.error("Error unshare tagid:{}", tagId, ex))
         .onFailure()
         .recoverWithItem(Boolean.FALSE);
   }

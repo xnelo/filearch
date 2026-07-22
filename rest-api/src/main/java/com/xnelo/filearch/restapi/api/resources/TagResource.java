@@ -71,6 +71,18 @@ public class TagResource {
 
   @POST
   @RolesAllowed("user")
+  @Path("/unshare")
+  public Uni<Response> unshare(final TagShareBulkContract tagsToUnshare) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return tagService
+        .unshareTagsBulk(userToken, tagsToUnshare)
+        .map(
+            serviceResponse ->
+                contractMapper.toApiResponse(serviceResponse, contractMapper::toTagShareResponse));
+  }
+
+  @POST
+  @RolesAllowed("user")
   public Uni<Response> createNewTag(final TagContract newTag) {
     UserToken userToken = userTokenHandler.getUserInfo();
     Log.debugf(

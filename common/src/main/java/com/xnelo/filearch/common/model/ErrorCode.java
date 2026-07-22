@@ -50,6 +50,7 @@ public enum ErrorCode {
   TAG_DOES_NOT_EXIST(404),
   TAG_USES_COULD_NOT_BE_DELETED(405),
   TAG_COULD_NOT_BE_DELETED(406),
+  TAG_SHARE_EXISTS(407),
   // END TAG Service Errors
 
   // GROUP Service Errors 500 - 599
