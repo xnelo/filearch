@@ -9,6 +9,7 @@ import com.xnelo.filearch.jooq.tables.FileTags;
 import com.xnelo.filearch.jooq.tables.FlywaySchemaHistory;
 import com.xnelo.filearch.jooq.tables.Folders;
 import com.xnelo.filearch.jooq.tables.GroupAuditLog;
+import com.xnelo.filearch.jooq.tables.GroupItemTags;
 import com.xnelo.filearch.jooq.tables.GroupItems;
 import com.xnelo.filearch.jooq.tables.GroupMemberPermissions;
 import com.xnelo.filearch.jooq.tables.GroupMembers;
@@ -55,6 +56,11 @@ public class Tables {
      * The table <code>FILEARCH.group_audit_log</code>.
      */
     public static final GroupAuditLog GROUP_AUDIT_LOG = GroupAuditLog.GROUP_AUDIT_LOG;
+
+    /**
+     * The table <code>FILEARCH.group_item_tags</code>.
+     */
+    public static final GroupItemTags GROUP_ITEM_TAGS = GroupItemTags.GROUP_ITEM_TAGS;
 
     /**
      * The table <code>FILEARCH.group_items</code>.
