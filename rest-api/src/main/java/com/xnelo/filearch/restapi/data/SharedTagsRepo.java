@@ -6,12 +6,11 @@ import io.agroal.api.AgroalDataSource;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
+import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
-
-import java.util.Objects;
 
 @Slf4j
 @RequestScoped
@@ -25,16 +24,17 @@ public class SharedTagsRepo {
   }
 
   public Uni<Boolean> tagShareExists(final Long tagId, final Long groupId) {
-    return Uni.createFrom().item(
-        context
-            .selectFrom(SharedTags.SHARED_TAGS)
-            .where(SharedTags.SHARED_TAGS.TAG_ID.eq(tagId))
-            .and(SharedTags.SHARED_TAGS.GROUP_ID.eq(groupId))
-            .fetchOne()
-    )
+    return Uni.createFrom()
+        .item(
+            context
+                .selectFrom(SharedTags.SHARED_TAGS)
+                .where(SharedTags.SHARED_TAGS.TAG_ID.eq(tagId))
+                .and(SharedTags.SHARED_TAGS.GROUP_ID.eq(groupId))
+                .fetchOne())
         .map(Objects::nonNull)
         .onFailure()
-        .invoke(ex -> log.error("Error checking if tag exists tagid:{} groupId:{}", tagId, groupId, ex))
+        .invoke(
+            ex -> log.error("Error checking if tag exists tagid:{} groupId:{}", tagId, groupId, ex))
         .onFailure()
         .recoverWithItem(Boolean.FALSE);
   }

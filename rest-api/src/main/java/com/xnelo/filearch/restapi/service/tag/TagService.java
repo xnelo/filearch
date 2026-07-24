@@ -546,31 +546,38 @@ public class TagService {
 
                         return sharedTagsRepo
                             .tagShareExists(tagToShare.getTagId(), tagToShare.getGroupId())
-                            .chain(tagShareExists -> {
-                              if (tagShareExists) {
-                                return Uni.createFrom().item(
-                                    new ServiceActionResponse<>(ResourceType.TAG, ActionType.SHARE_TAG, List.of(
-                                        ServiceError.builder()
-                                            .errorCode(ErrorCode.TAG_SHARE_EXISTS)
-                                            .errorMessage("Tag " + tagToShare.getTagId() + " already shared with group " + tagToShare.getGroupId())
-                                            .httpCode(400)
-                                            .build()
-                                    ))
-                                );
-                              }
+                            .chain(
+                                tagShareExists -> {
+                                  if (tagShareExists) {
+                                    return Uni.createFrom()
+                                        .item(
+                                            new ServiceActionResponse<>(
+                                                ResourceType.TAG,
+                                                ActionType.SHARE_TAG,
+                                                List.of(
+                                                    ServiceError.builder()
+                                                        .errorCode(ErrorCode.TAG_SHARE_EXISTS)
+                                                        .errorMessage(
+                                                            "Tag "
+                                                                + tagToShare.getTagId()
+                                                                + " already shared with group "
+                                                                + tagToShare.getGroupId())
+                                                        .httpCode(400)
+                                                        .build())));
+                                  }
 
-                              return sharedTagsRepo
-                                  .addSharedTag(tagToShare.getTagId(), tagToShare.getGroupId())
-                                  .map(
-                                      insertSuccess ->
-                                          new ServiceActionResponse<>(
-                                              ResourceType.TAG,
-                                              ActionType.SHARE_TAG,
-                                              new TagShareResult(
-                                                  tagToShare.getTagId(),
-                                                  tagToShare.getGroupId(),
-                                                  insertSuccess)));
-                            });
+                                  return sharedTagsRepo
+                                      .addSharedTag(tagToShare.getTagId(), tagToShare.getGroupId())
+                                      .map(
+                                          insertSuccess ->
+                                              new ServiceActionResponse<>(
+                                                  ResourceType.TAG,
+                                                  ActionType.SHARE_TAG,
+                                                  new TagShareResult(
+                                                      tagToShare.getTagId(),
+                                                      tagToShare.getGroupId(),
+                                                      insertSuccess)));
+                                });
                       });
             });
   }
