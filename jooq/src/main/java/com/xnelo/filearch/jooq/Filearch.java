@@ -14,6 +14,7 @@ import com.xnelo.filearch.jooq.tables.GroupMemberPermissions;
 import com.xnelo.filearch.jooq.tables.GroupMembers;
 import com.xnelo.filearch.jooq.tables.Groups;
 import com.xnelo.filearch.jooq.tables.PgpArmorHeaders;
+import com.xnelo.filearch.jooq.tables.SharedTags;
 import com.xnelo.filearch.jooq.tables.StoredFiles;
 import com.xnelo.filearch.jooq.tables.Tags;
 import com.xnelo.filearch.jooq.tables.Users;
@@ -130,6 +131,11 @@ public class Filearch extends SchemaImpl {
     }
 
     /**
+     * The table <code>FILEARCH.shared_tags</code>.
+     */
+    public final SharedTags SHARED_TAGS = SharedTags.SHARED_TAGS;
+
+    /**
      * The table <code>FILEARCH.stored_files</code>.
      */
     public final StoredFiles STORED_FILES = StoredFiles.STORED_FILES;
@@ -184,6 +190,7 @@ public class Filearch extends SchemaImpl {
             GroupMembers.GROUP_MEMBERS,
             Groups.GROUPS,
             PgpArmorHeaders.PGP_ARMOR_HEADERS,
+            SharedTags.SHARED_TAGS,
             StoredFiles.STORED_FILES,
             Tags.TAGS,
             Users.USERS

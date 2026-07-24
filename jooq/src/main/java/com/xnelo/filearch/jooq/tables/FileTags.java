@@ -61,6 +61,11 @@ public class FileTags extends TableImpl<FileTagsRecord> {
      */
     public final TableField<FileTagsRecord, Long> TAG_ID = createField(DSL.name("tag_id"), SQLDataType.BIGINT, this, "");
 
+    /**
+     * The column <code>FILEARCH.file_tags.group_id</code>.
+     */
+    public final TableField<FileTagsRecord, Long> GROUP_ID = createField(DSL.name("group_id"), SQLDataType.BIGINT, this, "");
+
     private FileTags(Name alias, Table<FileTagsRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);
     }

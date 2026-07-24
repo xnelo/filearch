@@ -71,7 +71,8 @@ public class TagRepo {
             .join(Tags.TAGS)
             .on(FileTags.FILE_TAGS.TAG_ID.eq(Tags.TAGS.ID))
             .where(Tags.TAGS.OWNER_USER_ID.eq(userId))
-            .and(FileTags.FILE_TAGS.FILE_ID.eq(fileId));
+            .and(FileTags.FILE_TAGS.FILE_ID.eq(fileId))
+            .and(FileTags.FILE_TAGS.GROUP_ID.isNull());
 
     SelectLimitPercentStep<?> finalQuery =
         RepoUtils.addPagination(selectStatement, Tags.TAGS.ID, paginationParameters);

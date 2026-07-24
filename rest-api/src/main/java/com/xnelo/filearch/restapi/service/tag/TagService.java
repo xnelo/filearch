@@ -1,4 +1,4 @@
-package com.xnelo.filearch.restapi.service;
+package com.xnelo.filearch.restapi.service.tag;
 
 import com.xnelo.filearch.common.model.*;
 import com.xnelo.filearch.common.service.PaginatedResponse;
@@ -7,9 +7,16 @@ import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.restapi.api.contracts.TagContract;
+import com.xnelo.filearch.restapi.api.contracts.TagShareBulkContract;
+import com.xnelo.filearch.restapi.api.contracts.TagShareContract;
 import com.xnelo.filearch.restapi.api.mappers.PaginationMapper;
 import com.xnelo.filearch.restapi.data.FileTagsRepo;
+import com.xnelo.filearch.restapi.data.GroupRepo;
+import com.xnelo.filearch.restapi.data.SharedTagsRepo;
 import com.xnelo.filearch.restapi.data.TagRepo;
+import com.xnelo.filearch.restapi.service.FileService;
+import com.xnelo.filearch.restapi.service.UserService;
+import com.xnelo.filearch.restapi.service.Utils;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
@@ -23,6 +30,8 @@ public class TagService {
   @Inject UserService userService;
   @Inject TagRepo tagRepo;
   @Inject FileTagsRepo fileTagsRepo;
+  @Inject GroupRepo groupRepo;
+  @Inject SharedTagsRepo sharedTagsRepo;
   final PaginationMapper paginationMapper = Mappers.getMapper(PaginationMapper.class);
   @Inject FileService fileService;
 
@@ -289,11 +298,11 @@ public class TagService {
 
               Tag tagData = tagServiceResponse.getActionResponses().getFirst().getData();
 
-              return fileTagsRepo
-                  .deleteAllTagUses(tagId)
+              return sharedTagsRepo
+                  .deleteSharedTag(tagId)
                   .chain(
-                      deleteTagUsesSuccess -> {
-                        if (!deleteTagUsesSuccess) {
+                      deleteSuccess -> {
+                        if (!deleteSuccess) {
                           return Uni.createFrom()
                               .item(
                                   new ServiceResponse<>(
@@ -302,38 +311,64 @@ public class TagService {
                                           ActionType.DELETE,
                                           List.of(
                                               ServiceError.builder()
-                                                  .errorCode(
-                                                      ErrorCode.TAG_USES_COULD_NOT_BE_DELETED)
+                                                  .errorCode(ErrorCode.DB_ERROR)
                                                   .errorMessage(
-                                                      "Error deleting tag uses from database '"
+                                                      "Error removing tag("
                                                           + tagId
-                                                          + "'")
+                                                          + ") from shared tag table.")
                                                   .httpCode(500)
                                                   .build()))));
                         }
 
-                        return tagRepo
-                            .deleteTag(userId, tagId)
-                            .map(
-                                deleteTagSuccess -> {
-                                  if (!deleteTagSuccess) {
-                                    return new ServiceResponse<>(
-                                        new ServiceActionResponse<>(
-                                            ResourceType.TAG,
-                                            ActionType.DELETE,
-                                            List.of(
-                                                ServiceError.builder()
-                                                    .errorCode(ErrorCode.TAG_COULD_NOT_BE_DELETED)
-                                                    .errorMessage(
-                                                        "Error deleting tag from database '"
-                                                            + tagId
-                                                            + "'")
-                                                    .httpCode(500)
-                                                    .build())));
+                        return fileTagsRepo
+                            .deleteAllTagUses(tagId)
+                            .chain(
+                                deleteTagUsesSuccess -> {
+                                  if (!deleteTagUsesSuccess) {
+                                    return Uni.createFrom()
+                                        .item(
+                                            new ServiceResponse<>(
+                                                new ServiceActionResponse<>(
+                                                    ResourceType.TAG,
+                                                    ActionType.DELETE,
+                                                    List.of(
+                                                        ServiceError.builder()
+                                                            .errorCode(
+                                                                ErrorCode
+                                                                    .TAG_USES_COULD_NOT_BE_DELETED)
+                                                            .errorMessage(
+                                                                "Error deleting tag uses from database '"
+                                                                    + tagId
+                                                                    + "'")
+                                                            .httpCode(500)
+                                                            .build()))));
                                   }
-                                  return new ServiceResponse<>(
-                                      new ServiceActionResponse<>(
-                                          ResourceType.TAG, ActionType.DELETE, tagData));
+
+                                  return tagRepo
+                                      .deleteTag(userId, tagId)
+                                      .map(
+                                          deleteTagSuccess -> {
+                                            if (!deleteTagSuccess) {
+                                              return new ServiceResponse<>(
+                                                  new ServiceActionResponse<>(
+                                                      ResourceType.TAG,
+                                                      ActionType.DELETE,
+                                                      List.of(
+                                                          ServiceError.builder()
+                                                              .errorCode(
+                                                                  ErrorCode
+                                                                      .TAG_COULD_NOT_BE_DELETED)
+                                                              .errorMessage(
+                                                                  "Error deleting tag from database '"
+                                                                      + tagId
+                                                                      + "'")
+                                                              .httpCode(500)
+                                                              .build())));
+                                            }
+                                            return new ServiceResponse<>(
+                                                new ServiceActionResponse<>(
+                                                    ResourceType.TAG, ActionType.DELETE, tagData));
+                                          });
                                 });
                       });
             });
@@ -441,5 +476,187 @@ public class TagService {
               ResourceType.TAG, actionResponse.getActionType(), actionResponse.getErrors()));
     }
     return Uni.createFrom().item(new ServiceResponse<>(actionResponses));
+  }
+
+  public Uni<ServiceResponse<TagShareResult>> shareTagsBulk(
+      final UserToken userInfo, final TagShareBulkContract tagsToShare) {
+    return userService.checkUserExist(
+        userInfo,
+        ResourceType.TAG,
+        ActionType.SHARE_TAG,
+        user -> {
+          ArrayList<Uni<ServiceActionResponse<TagShareResult>>> actions = new ArrayList<>();
+          tagsToShare
+              .getTagsToShare()
+              .forEach(tagShare -> actions.add(shareTagIndividual(user, tagShare)));
+          return Uni.combine()
+              .all()
+              .unis(actions)
+              .with(
+                  toCombine ->
+                      Utils.combineServiceActionResponses(toCombine, TagShareResult.class));
+        });
+  }
+
+  Uni<ServiceActionResponse<TagShareResult>> shareTagIndividual(
+      final User user, final TagShareContract tagToShare) {
+    return groupRepo
+        .userActiveMemberInGroup(user.getId(), tagToShare.getGroupId())
+        .chain(
+            isActiveMember -> {
+              if (!isActiveMember) {
+                return Uni.createFrom()
+                    .item(
+                        new ServiceActionResponse<>(
+                            ResourceType.TAG,
+                            ActionType.SHARE_TAG,
+                            List.of(
+                                ServiceError.builder()
+                                    .errorCode(ErrorCode.USER_NOT_ACTIVE)
+                                    .errorMessage(
+                                        "User "
+                                            + user.getId()
+                                            + " is not active member of "
+                                            + tagToShare.getGroupId()
+                                            + " group")
+                                    .httpCode(403)
+                                    .build())));
+              }
+
+              return tagRepo
+                  .getTagById(tagToShare.getTagId(), user.getId())
+                  .chain(
+                      tagData -> {
+                        if (tagData == null) {
+                          return Uni.createFrom()
+                              .item(
+                                  new ServiceActionResponse<>(
+                                      ResourceType.TAG,
+                                      ActionType.SHARE_TAG,
+                                      List.of(
+                                          ServiceError.builder()
+                                              .errorCode(ErrorCode.TAG_DOES_NOT_EXIST)
+                                              .errorMessage(
+                                                  "Tag("
+                                                      + tagToShare.getTagId()
+                                                      + ") doesn't exist")
+                                              .httpCode(404)
+                                              .build())));
+                        }
+
+                        return sharedTagsRepo
+                            .tagShareExists(tagToShare.getTagId(), tagToShare.getGroupId())
+                            .chain(
+                                tagShareExists -> {
+                                  if (tagShareExists) {
+                                    return Uni.createFrom()
+                                        .item(
+                                            new ServiceActionResponse<>(
+                                                ResourceType.TAG,
+                                                ActionType.SHARE_TAG,
+                                                List.of(
+                                                    ServiceError.builder()
+                                                        .errorCode(ErrorCode.TAG_SHARE_EXISTS)
+                                                        .errorMessage(
+                                                            "Tag "
+                                                                + tagToShare.getTagId()
+                                                                + " already shared with group "
+                                                                + tagToShare.getGroupId())
+                                                        .httpCode(400)
+                                                        .build())));
+                                  }
+
+                                  return sharedTagsRepo
+                                      .addSharedTag(tagToShare.getTagId(), tagToShare.getGroupId())
+                                      .map(
+                                          insertSuccess ->
+                                              new ServiceActionResponse<>(
+                                                  ResourceType.TAG,
+                                                  ActionType.SHARE_TAG,
+                                                  new TagShareResult(
+                                                      tagToShare.getTagId(),
+                                                      tagToShare.getGroupId(),
+                                                      insertSuccess)));
+                                });
+                      });
+            });
+  }
+
+  public Uni<ServiceResponse<TagShareResult>> unshareTagsBulk(
+      final UserToken userInfo, final TagShareBulkContract tagsToUnshare) {
+    return userService.checkUserExist(
+        userInfo,
+        ResourceType.TAG,
+        ActionType.SHARE_TAG,
+        user -> {
+          ArrayList<Uni<ServiceActionResponse<TagShareResult>>> actions = new ArrayList<>();
+          tagsToUnshare
+              .getTagsToShare()
+              .forEach(tagShare -> actions.add(unshareTagIndividual(user, tagShare)));
+          return Uni.combine()
+              .all()
+              .unis(actions)
+              .with(
+                  toCombine ->
+                      Utils.combineServiceActionResponses(toCombine, TagShareResult.class));
+        });
+  }
+
+  Uni<ServiceActionResponse<TagShareResult>> unshareTagIndividual(
+      final User user, final TagShareContract tagToUnshare) {
+    return tagRepo
+        .getTagById(tagToUnshare.getTagId(), user.getId())
+        .chain(
+            tagData -> {
+              if (tagData == null) {
+                return Uni.createFrom()
+                    .item(
+                        new ServiceActionResponse<>(
+                            ResourceType.TAG,
+                            ActionType.SHARE_TAG,
+                            List.of(
+                                ServiceError.builder()
+                                    .errorCode(ErrorCode.TAG_DOES_NOT_EXIST)
+                                    .errorMessage(
+                                        "Tag (" + tagToUnshare.getTagId() + ") doesn't exist")
+                                    .httpCode(404)
+                                    .build())));
+              }
+
+              return groupRepo
+                  .userActiveMemberInGroup(user.getId(), tagToUnshare.getGroupId())
+                  .chain(
+                      isActiveMember -> {
+                        if (!isActiveMember) {
+                          return Uni.createFrom()
+                              .item(
+                                  new ServiceActionResponse<>(
+                                      ResourceType.TAG,
+                                      ActionType.SHARE_TAG,
+                                      List.of(
+                                          ServiceError.builder()
+                                              .errorCode(ErrorCode.USER_NOT_ACTIVE)
+                                              .errorMessage(
+                                                  "User "
+                                                      + user.getId()
+                                                      + " is not active member of group "
+                                                      + tagToUnshare.getGroupId())
+                                              .httpCode(400)
+                                              .build())));
+                        }
+
+                        return sharedTagsRepo
+                            .unshareTag(tagToUnshare.getTagId(), tagToUnshare.getGroupId())
+                            .map(
+                                dbSuccess ->
+                                    new ServiceActionResponse<>(
+                                        ResourceType.TAG,
+                                        ActionType.SHARE_TAG,
+                                        new TagShareResult(
+                                            tagToUnshare.getTagId(),
+                                            tagToUnshare.getGroupId(),
+                                            dbSuccess)));
+                      });
+            });
   }
 }

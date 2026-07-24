@@ -20,6 +20,7 @@ import com.xnelo.filearch.restapi.data.GroupItemsRepo;
 import com.xnelo.filearch.restapi.data.SequenceRepo;
 import com.xnelo.filearch.restapi.data.StoredFilesRepo;
 import com.xnelo.filearch.restapi.service.folder.FolderService;
+import com.xnelo.filearch.restapi.service.tag.TagService;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
@@ -721,7 +722,7 @@ public class FileService {
     return Uni.combine().all().unis(fileDeleteUnis).with(FileService::combineFileActionUnis);
   }
 
-  <T> Uni<ServiceResponse<T>> checkFileExists(
+  public <T> Uni<ServiceResponse<T>> checkFileExists(
       final long fileId,
       final long userId,
       final ResourceType resourceType,
@@ -760,7 +761,6 @@ public class FileService {
         ResourceType.TAG,
         ActionType.ASSIGN,
         user ->
-            // TODO: Check TAG_ITEMS permissions.
             checkFileExists(
                 fileId,
                 user.getId(),
@@ -791,7 +791,6 @@ public class FileService {
         ResourceType.TAG,
         ActionType.UNASSIGN,
         user ->
-            // TODO: Check REMOVE_TAGS PERMISSIONS
             checkFileExists(
                 fileId,
                 user.getId(),

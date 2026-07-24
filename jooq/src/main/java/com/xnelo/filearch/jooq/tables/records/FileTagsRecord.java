@@ -47,6 +47,21 @@ public class FileTagsRecord extends TableRecordImpl<FileTagsRecord> {
         return (Long) get(1);
     }
 
+    /**
+     * Setter for <code>FILEARCH.file_tags.group_id</code>.
+     */
+    public FileTagsRecord setGroupId(Long value) {
+        set(2, value);
+        return this;
+    }
+
+    /**
+     * Getter for <code>FILEARCH.file_tags.group_id</code>.
+     */
+    public Long getGroupId() {
+        return (Long) get(2);
+    }
+
     // -------------------------------------------------------------------------
     // Constructors
     // -------------------------------------------------------------------------
@@ -61,11 +76,12 @@ public class FileTagsRecord extends TableRecordImpl<FileTagsRecord> {
     /**
      * Create a detached, initialised FileTagsRecord
      */
-    public FileTagsRecord(Long fileId, Long tagId) {
+    public FileTagsRecord(Long fileId, Long tagId, Long groupId) {
         super(FileTags.FILE_TAGS);
 
         setFileId(fileId);
         setTagId(tagId);
+        setGroupId(groupId);
         resetTouchedOnNotNull();
     }
 
@@ -78,6 +94,7 @@ public class FileTagsRecord extends TableRecordImpl<FileTagsRecord> {
         if (value != null) {
             setFileId(value.getFileId());
             setTagId(value.getTagId());
+            setGroupId(value.getGroupId());
             resetTouchedOnNotNull();
         }
     }

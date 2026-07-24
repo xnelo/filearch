@@ -92,4 +92,22 @@ public class Utils {
     }
     return new ServiceResponse<>(combinedResponses);
   }
+
+  public static <T> ServiceResponse<T> createServiceErrorResponse(
+      final ResourceType resourceType,
+      final ActionType actionType,
+      final ErrorCode errorCode,
+      final String errorMessage,
+      final int httpCode) {
+    return new ServiceResponse<>(
+        new ServiceActionResponse<>(
+            resourceType,
+            actionType,
+            List.of(
+                ServiceError.builder()
+                    .errorCode(errorCode)
+                    .errorMessage(errorMessage)
+                    .httpCode(httpCode)
+                    .build())));
+  }
 }

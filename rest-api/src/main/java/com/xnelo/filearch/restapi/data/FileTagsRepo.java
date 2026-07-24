@@ -1,12 +1,15 @@
 package com.xnelo.filearch.restapi.data;
 
 import com.xnelo.filearch.jooq.tables.FileTags;
+import com.xnelo.filearch.jooq.tables.records.FileTagsRecord;
 import io.agroal.api.AgroalDataSource;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.DSLContext;
+import org.jooq.DeleteConditionStep;
+import org.jooq.InsertSetMoreStep;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 
@@ -50,14 +53,22 @@ public class FileTagsRepo {
   }
 
   public Uni<Boolean> assignFileMapping(final long fileId, final long tagId) {
+    return assignFileMapping(fileId, tagId, null);
+  }
+
+  public Uni<Boolean> assignFileMapping(final long fileId, final long tagId, final Long groupId) {
+    InsertSetMoreStep<FileTagsRecord> insertStatement =
+        context
+            .insertInto(FileTags.FILE_TAGS)
+            .set(FileTags.FILE_TAGS.FILE_ID, fileId)
+            .set(FileTags.FILE_TAGS.TAG_ID, tagId);
+
+    if (groupId != null) {
+      insertStatement = insertStatement.set(FileTags.FILE_TAGS.GROUP_ID, groupId);
+    }
+
     return Uni.createFrom()
-        .item(
-            context
-                .insertInto(FileTags.FILE_TAGS)
-                .set(FileTags.FILE_TAGS.FILE_ID, fileId)
-                .set(FileTags.FILE_TAGS.TAG_ID, tagId)
-                .onConflictDoNothing()
-                .execute())
+        .item(insertStatement.onConflictDoNothing().execute())
         .map(res -> res == 1)
         .onFailure()
         .invoke(ex -> log.error("Error inserting file tag mapping", ex))
@@ -66,13 +77,24 @@ public class FileTagsRepo {
   }
 
   public Uni<Boolean> unassignFileMapping(final long fileId, final long tagId) {
+    return unassignFileMapping(fileId, tagId, null);
+  }
+
+  public Uni<Boolean> unassignFileMapping(final long fileId, final long tagId, final Long groupId) {
+    DeleteConditionStep<FileTagsRecord> deleteStatement =
+        context
+            .deleteFrom(FileTags.FILE_TAGS)
+            .where(FileTags.FILE_TAGS.FILE_ID.eq(fileId))
+            .and(FileTags.FILE_TAGS.TAG_ID.eq(tagId));
+
+    if (groupId == null) {
+      deleteStatement = deleteStatement.and(FileTags.FILE_TAGS.GROUP_ID.isNull());
+    } else {
+      deleteStatement = deleteStatement.and(FileTags.FILE_TAGS.GROUP_ID.eq(groupId));
+    }
+
     return Uni.createFrom()
-        .item(
-            context
-                .deleteFrom(FileTags.FILE_TAGS)
-                .where(FileTags.FILE_TAGS.FILE_ID.eq(fileId))
-                .and(FileTags.FILE_TAGS.TAG_ID.eq(tagId))
-                .execute())
+        .item(deleteStatement.execute())
         .map(res -> res == 1)
         .onFailure()
         .invoke(ex -> log.error("Error deleting a file tag mapping", ex))

@@ -14,6 +14,7 @@ import com.xnelo.filearch.jooq.tables.GroupMemberPermissions;
 import com.xnelo.filearch.jooq.tables.GroupMembers;
 import com.xnelo.filearch.jooq.tables.Groups;
 import com.xnelo.filearch.jooq.tables.PgpArmorHeaders;
+import com.xnelo.filearch.jooq.tables.SharedTags;
 import com.xnelo.filearch.jooq.tables.StoredFiles;
 import com.xnelo.filearch.jooq.tables.Tags;
 import com.xnelo.filearch.jooq.tables.Users;
@@ -113,6 +114,11 @@ public class Tables {
             __1
         );
     }
+
+    /**
+     * The table <code>FILEARCH.shared_tags</code>.
+     */
+    public static final SharedTags SHARED_TAGS = SharedTags.SHARED_TAGS;
 
     /**
      * The table <code>FILEARCH.stored_files</code>.

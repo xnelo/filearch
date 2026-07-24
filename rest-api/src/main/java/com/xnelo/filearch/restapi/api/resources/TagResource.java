@@ -7,8 +7,9 @@ import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.usertoken.UserTokenHandler;
 import com.xnelo.filearch.restapi.api.contracts.PaginationRequest;
 import com.xnelo.filearch.restapi.api.contracts.TagContract;
+import com.xnelo.filearch.restapi.api.contracts.TagShareBulkContract;
 import com.xnelo.filearch.restapi.api.mappers.ContractMapper;
-import com.xnelo.filearch.restapi.service.TagService;
+import com.xnelo.filearch.restapi.service.tag.TagService;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
@@ -54,6 +55,30 @@ public class TagResource {
             serviceResponseList ->
                 contractMapper.toApiResponse(
                     serviceResponseList, contractMapper::toTagContractList));
+  }
+
+  @POST
+  @RolesAllowed("user")
+  @Path("/share")
+  public Uni<Response> share(final TagShareBulkContract tagsToShare) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return tagService
+        .shareTagsBulk(userToken, tagsToShare)
+        .map(
+            serviceResponse ->
+                contractMapper.toApiResponse(serviceResponse, contractMapper::toTagShareResponse));
+  }
+
+  @POST
+  @RolesAllowed("user")
+  @Path("/unshare")
+  public Uni<Response> unshare(final TagShareBulkContract tagsToUnshare) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    return tagService
+        .unshareTagsBulk(userToken, tagsToUnshare)
+        .map(
+            serviceResponse ->
+                contractMapper.toApiResponse(serviceResponse, contractMapper::toTagShareResponse));
   }
 
   @POST

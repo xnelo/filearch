@@ -1,0 +1,5 @@
+DROP TABLE IF EXISTS group_item_tags;
+
+ALTER TABLE IF EXISTS file_tags
+ADD COLUMN group_id BIGINT DEFAULT NULL;
+
