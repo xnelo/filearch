@@ -9,7 +9,6 @@ import com.xnelo.filearch.jooq.tables.FileTags;
 import com.xnelo.filearch.jooq.tables.FlywaySchemaHistory;
 import com.xnelo.filearch.jooq.tables.Folders;
 import com.xnelo.filearch.jooq.tables.GroupAuditLog;
-import com.xnelo.filearch.jooq.tables.GroupItemTags;
 import com.xnelo.filearch.jooq.tables.GroupItems;
 import com.xnelo.filearch.jooq.tables.GroupMemberPermissions;
 import com.xnelo.filearch.jooq.tables.GroupMembers;
@@ -71,11 +70,6 @@ public class Filearch extends SchemaImpl {
      * The table <code>FILEARCH.group_audit_log</code>.
      */
     public final GroupAuditLog GROUP_AUDIT_LOG = GroupAuditLog.GROUP_AUDIT_LOG;
-
-    /**
-     * The table <code>FILEARCH.group_item_tags</code>.
-     */
-    public final GroupItemTags GROUP_ITEM_TAGS = GroupItemTags.GROUP_ITEM_TAGS;
 
     /**
      * The table <code>FILEARCH.group_items</code>.
@@ -191,7 +185,6 @@ public class Filearch extends SchemaImpl {
             FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY,
             Folders.FOLDERS,
             GroupAuditLog.GROUP_AUDIT_LOG,
-            GroupItemTags.GROUP_ITEM_TAGS,
             GroupItems.GROUP_ITEMS,
             GroupMemberPermissions.GROUP_MEMBER_PERMISSIONS,
             GroupMembers.GROUP_MEMBERS,

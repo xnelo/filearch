@@ -17,18 +17,22 @@ public class FileTags implements Serializable {
 
     private final Long fileId;
     private final Long tagId;
+    private final Long groupId;
 
     public FileTags(FileTags value) {
         this.fileId = value.fileId;
         this.tagId = value.tagId;
+        this.groupId = value.groupId;
     }
 
     public FileTags(
         Long fileId,
-        Long tagId
+        Long tagId,
+        Long groupId
     ) {
         this.fileId = fileId;
         this.tagId = tagId;
+        this.groupId = groupId;
     }
 
     /**
@@ -43,6 +47,13 @@ public class FileTags implements Serializable {
      */
     public Long getTagId() {
         return this.tagId;
+    }
+
+    /**
+     * Getter for <code>FILEARCH.file_tags.group_id</code>.
+     */
+    public Long getGroupId() {
+        return this.groupId;
     }
 
     @Override
@@ -66,6 +77,12 @@ public class FileTags implements Serializable {
         }
         else if (!this.tagId.equals(other.tagId))
             return false;
+        if (this.groupId == null) {
+            if (other.groupId != null)
+                return false;
+        }
+        else if (!this.groupId.equals(other.groupId))
+            return false;
         return true;
     }
 
@@ -75,6 +92,7 @@ public class FileTags implements Serializable {
         int result = 1;
         result = prime * result + ((this.fileId == null) ? 0 : this.fileId.hashCode());
         result = prime * result + ((this.tagId == null) ? 0 : this.tagId.hashCode());
+        result = prime * result + ((this.groupId == null) ? 0 : this.groupId.hashCode());
         return result;
     }
 
@@ -84,6 +102,7 @@ public class FileTags implements Serializable {
 
         sb.append(fileId);
         sb.append(", ").append(tagId);
+        sb.append(", ").append(groupId);
 
         sb.append(")");
         return sb.toString();
