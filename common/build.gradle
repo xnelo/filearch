@@ -1,6 +1,7 @@
 plugins {
     id 'io.quarkus'
     id("org.kordamp.gradle.jandex") version "2.1.0"
+    id 'jvm-test-suite'
 }
 
 dependencies {
@@ -31,4 +32,14 @@ compileJava {
 
 quarkusDependenciesBuild {
     dependsOn("jandex")
+}
+
+testing {
+    // intellij IDE shows an error around suites.
+    // This is correct verify through command line before changing.
+    suites {
+        test {
+            useJUnitJupiter() // Explicitly declares the framework on the suite
+        }
+    }
 }
