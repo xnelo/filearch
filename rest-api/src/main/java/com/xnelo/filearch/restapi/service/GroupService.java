@@ -16,6 +16,7 @@ import com.xnelo.filearch.common.service.PaginatedResponse;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
+import com.xnelo.filearch.common.service.context.ServiceRequestContext;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.restapi.api.contracts.GroupAddItemContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupAddUsersContract;
@@ -32,6 +33,7 @@ import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 import org.mapstruct.factory.Mappers;
 
@@ -954,5 +956,30 @@ public class GroupService {
                                           ActionType.GET,
                                           paginationMapper.toPaginatedResponse(data))));
                     }));
+  }
+
+  <T> Uni<ServiceResponse<T>> checkUserActiveMemberInGroup(
+      final ServiceRequestContext requestContext,
+      final Function<ServiceRequestContext, Uni<ServiceResponse<T>>> activeMemberAction) {
+    return groupRepo
+        .userActiveMemberInGroup(requestContext.getUser().getId(), requestContext.getGroupId())
+        .chain(
+            isActiveMember -> {
+              if (!isActiveMember) {
+                return Uni.createFrom()
+                    .item(
+                        Utils.createServiceErrorResponse(
+                            requestContext,
+                            ErrorCode.USER_NOT_ACTIVE,
+                            "User ("
+                                + requestContext.getUser().getId()
+                                + ") is not an active member of group ("
+                                + requestContext.getGroupId()
+                                + ").",
+                            403));
+              }
+
+              return activeMemberAction.apply(requestContext);
+            });
   }
 }

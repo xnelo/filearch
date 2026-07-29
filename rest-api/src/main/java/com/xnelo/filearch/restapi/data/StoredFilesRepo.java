@@ -117,6 +117,17 @@ public class StoredFilesRepo {
         .map(this::toFileModel);
   }
 
+  public Uni<File> getStoredFile(final long fileId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .select(allFields)
+                .from(StoredFiles.STORED_FILES)
+                .where(StoredFiles.STORED_FILES.ID.eq(fileId))
+                .fetchOne())
+        .map(this::toFileModel);
+  }
+
   public Uni<Boolean> deleteStoredFile(final long fileId, final long userId) {
     return Uni.createFrom()
         .item(

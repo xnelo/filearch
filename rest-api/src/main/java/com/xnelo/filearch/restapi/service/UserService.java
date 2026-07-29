@@ -7,6 +7,7 @@ import com.xnelo.filearch.common.model.User;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
+import com.xnelo.filearch.common.service.context.ServiceRequestContext;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.utils.ServiceResponseUtils;
 import com.xnelo.filearch.jooq.tables.Users;
@@ -245,6 +246,40 @@ public class UserService {
             });
   }
 
+  public <T> Uni<ServiceResponse<T>> checkUserExist(
+      final ServiceRequestContext requestContext,
+      final Function<ServiceRequestContext, Uni<ServiceResponse<T>>> userExistAction) {
+    return getUserFromUserToken(requestContext.getUserToken())
+        .chain(
+            userResponse -> {
+              User user = userResponse.getActionResponses().getFirst().getData();
+              if (user == null) {
+                return Uni.createFrom()
+                    .item(
+                        new ServiceResponse<>(
+                            new ServiceActionResponse<>(
+                                requestContext.getResourceType(),
+                                requestContext.getActionType(),
+                                List.of(
+                                    ServiceError.builder()
+                                        .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
+                                        .errorMessage(
+                                            "Cannot "
+                                                + requestContext.getActionType()
+                                                + " "
+                                                + requestContext.getResourceType()
+                                                + " because user does not exist.")
+                                        .httpCode(404)
+                                        .build()))));
+              }
+
+              requestContext.setUser(user);
+
+              return userExistAction.apply(requestContext);
+            });
+  }
+
+  @Deprecated
   public <T> Uni<ServiceResponse<T>> checkUserExist(
       final UserToken userInfo,
       final ResourceType resourceType,

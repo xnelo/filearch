@@ -7,6 +7,7 @@ import com.xnelo.filearch.common.model.GroupPermissionType;
 import com.xnelo.filearch.common.model.ResourceType;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceResponse;
+import com.xnelo.filearch.common.service.context.ServiceRequestContext;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.restapi.data.FileTagsRepo;
 import com.xnelo.filearch.restapi.data.FolderRepo;
@@ -18,6 +19,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import java.util.Objects;
+import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -211,5 +213,34 @@ public class GroupItemService {
                                                     success)));
                               });
                     }));
+  }
+
+  <T> Uni<ServiceResponse<T>> checkItemInGroup(
+      final ServiceRequestContext requestContext,
+      final long itemId,
+      final GroupItemType itemType,
+      final Function<ServiceRequestContext, Uni<ServiceResponse<T>>> itemInGroupAction) {
+    return groupItemsRepo
+        .isItemInGroup(itemId, itemType, requestContext.getGroupId())
+        .chain(
+            isItemInGroup -> {
+              if (!isItemInGroup) {
+                return Uni.createFrom()
+                    .item(
+                        Utils.createServiceErrorResponse(
+                            requestContext,
+                            ErrorCode.ITEM_NOT_IN_GROUP,
+                            "Item ("
+                                + itemId
+                                + " - "
+                                + itemType
+                                + ") is not in the group ("
+                                + requestContext.getGroupId()
+                                + ").",
+                            403));
+              }
+
+              return itemInGroupAction.apply(requestContext);
+            });
   }
 }

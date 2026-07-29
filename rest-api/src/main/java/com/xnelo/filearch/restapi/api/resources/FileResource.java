@@ -101,10 +101,11 @@ public class FileResource {
   @Path("{id}/download")
   @RolesAllowed("user")
   @Produces(MediaType.APPLICATION_OCTET_STREAM)
-  public Uni<Response> downloadFile(@PathParam("id") long fileId) {
+  public Uni<Response> downloadFile(
+      @PathParam("id") long fileId, @QueryParam("group_id") Long groupId) {
     UserToken userInfo = userhandler.getUserInfo();
     return fileService
-        .getFileForDownload(fileId, userInfo)
+        .getFileForDownload(fileId, userInfo, groupId)
         .map(FileResource::mapToDownloadResponse);
   }
 
@@ -112,10 +113,11 @@ public class FileResource {
   @Path("{id}/download_thumbnail")
   @RolesAllowed("user")
   @Produces(MediaType.APPLICATION_OCTET_STREAM)
-  public Uni<Response> downloadThumbnail(@PathParam("id") long fileId) {
+  public Uni<Response> downloadThumbnail(
+      @PathParam("id") long fileId, @QueryParam("group_id") Long groupId) {
     UserToken userInfo = userhandler.getUserInfo();
     return fileService
-        .getFileThumbnailForDownload(fileId, userInfo)
+        .getFileThumbnailForDownload(fileId, userInfo, groupId)
         .map(FileResource::mapToDownloadResponse);
   }
 

@@ -7,6 +7,7 @@ import com.xnelo.filearch.common.model.ResourceType;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
+import com.xnelo.filearch.common.service.context.ServiceRequestContext;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -93,6 +94,7 @@ public class Utils {
     return new ServiceResponse<>(combinedResponses);
   }
 
+  @Deprecated
   public static <T> ServiceResponse<T> createServiceErrorResponse(
       final ResourceType resourceType,
       final ActionType actionType,
@@ -103,6 +105,23 @@ public class Utils {
         new ServiceActionResponse<>(
             resourceType,
             actionType,
+            List.of(
+                ServiceError.builder()
+                    .errorCode(errorCode)
+                    .errorMessage(errorMessage)
+                    .httpCode(httpCode)
+                    .build())));
+  }
+
+  public static <T> ServiceResponse<T> createServiceErrorResponse(
+      final ServiceRequestContext serviceRequestContext,
+      final ErrorCode errorCode,
+      final String errorMessage,
+      final int httpCode) {
+    return new ServiceResponse<>(
+        new ServiceActionResponse<>(
+            serviceRequestContext.getResourceType(),
+            serviceRequestContext.getActionType(),
             List.of(
                 ServiceError.builder()
                     .errorCode(errorCode)

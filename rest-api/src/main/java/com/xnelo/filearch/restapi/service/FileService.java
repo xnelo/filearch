@@ -9,6 +9,8 @@ import com.xnelo.filearch.common.service.PaginatedResponse;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
+import com.xnelo.filearch.common.service.context.ServiceRequestContext;
+import com.xnelo.filearch.common.service.context.ServiceRequestContextImpl;
 import com.xnelo.filearch.common.service.storage.StorageService;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.utils.ServiceResponseUtils;
@@ -45,11 +47,16 @@ public class FileService {
   @Inject FilearchConfig config;
   @Inject TagService tagService;
   @Inject GroupItemsRepo groupItemsRepo;
+  @Inject GroupItemService groupItemService;
+  @Inject GroupService groupService;
   final PaginationMapper paginationMapper = Mappers.getMapper(PaginationMapper.class);
   final MessagingMapper messagingMapper = Mappers.getMapper(MessagingMapper.class);
 
   @Channel("file-proc-requests")
   Emitter<String> fileProcRequestEmitter;
+
+  public static final String GET_THUMBNAIL_KEY = "GET_THUMBNAIL__BOOLEAN";
+  public static final String FILE_ID_KEY = "FILE_ID__LONG";
 
   public Uni<ServiceResponse<PaginatedResponse<File>>> getAllFiles(
       final UserToken userInfo, final PaginationParameters paginationParameters) {
@@ -575,101 +582,140 @@ public class FileService {
   }
 
   public Uni<ServiceResponse<DownloadData>> getFileForDownload(
-      final long fileId, final UserToken userInfo) {
-    return internalGetFileForDownload(fileId, userInfo, false);
+      final long fileId, final UserToken userInfo, final Long groupId) {
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FILE)
+            .actionType(ActionType.DOWNLOAD)
+            .userToken(userInfo)
+            .groupId(groupId)
+            .addData(GET_THUMBNAIL_KEY, Boolean.FALSE)
+            .addData(FILE_ID_KEY, fileId)
+            .build();
+
+    return internalGetFileForDownload(requestContext);
   }
 
   public Uni<ServiceResponse<DownloadData>> getFileThumbnailForDownload(
-      final long fileId, final UserToken userInfo) {
-    return internalGetFileForDownload(fileId, userInfo, true);
+      final long fileId, final UserToken userInfo, final Long groupId) {
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FILE)
+            .actionType(ActionType.DOWNLOAD)
+            .userToken(userInfo)
+            .groupId(groupId)
+            .addData(GET_THUMBNAIL_KEY, Boolean.TRUE)
+            .addData(FILE_ID_KEY, fileId)
+            .build();
+
+    return internalGetFileForDownload(requestContext);
   }
 
   private Uni<ServiceResponse<DownloadData>> internalGetFileForDownload(
-      final long fileId, final UserToken userInfo, final boolean getThumbnail) {
+      final ServiceRequestContext requestContext) {
     return userService.checkUserExist(
-        userInfo,
-        ResourceType.FILE,
-        ActionType.DOWNLOAD,
-        user ->
-            storedFilesRepo
-                .getStoredFile(fileId, user.getId())
-                .chain(
-                    fileMetadata -> {
-                      if (fileMetadata == null) {
-                        return Uni.createFrom()
-                            .item(
-                                new ServiceResponse<>(
-                                    new ServiceActionResponse<>(
-                                        ResourceType.FILE,
-                                        ActionType.DOWNLOAD,
-                                        List.of(
-                                            ServiceError.builder()
-                                                .errorCode(ErrorCode.FILE_DOES_NOT_EXIST)
-                                                .errorMessage("File does not exist")
-                                                .httpCode(404)
-                                                .build()))));
-                      }
+        requestContext,
+        context -> {
+          final long fileId = requestContext.getLongData(FILE_ID_KEY);
+          if (requestContext.getGroupId() == null) {
+            // get a file ensuring that the requesting user owns it
+            return storedFilesRepo
+                .getStoredFile(fileId, requestContext.getUser().getId())
+                .chain(fileMetadata -> internalGetFileFromMetadata(context, fileMetadata));
+          } else {
+            // get a file in the context of being a member of the group
+            return groupService.checkUserActiveMemberInGroup(
+                requestContext,
+                context2 ->
+                    groupItemService.checkItemInGroup(
+                        context2,
+                        fileId,
+                        GroupItemType.FILE,
+                        context3 ->
+                            storedFilesRepo
+                                .getStoredFile(fileId)
+                                .chain(
+                                    fileMetadata ->
+                                        internalGetFileFromMetadata(context3, fileMetadata))));
+          }
+        });
+  }
 
-                      try {
-                        String storageKey = fileMetadata.getStorageKey();
-                        if (getThumbnail) {
-                          storageKey += ".thumb.jpg";
-                        }
+  private Uni<ServiceResponse<DownloadData>> internalGetFileFromMetadata(
+      final ServiceRequestContext context, final File fileMetadata) {
+    if (fileMetadata == null) {
+      return Uni.createFrom()
+          .item(
+              new ServiceResponse<>(
+                  new ServiceActionResponse<>(
+                      context.getResourceType(),
+                      context.getActionType(),
+                      List.of(
+                          ServiceError.builder()
+                              .errorCode(ErrorCode.FILE_DOES_NOT_EXIST)
+                              .errorMessage("File does not exist")
+                              .httpCode(404)
+                              .build()))));
+    }
 
-                        return storageService
-                            .getFileData(storageKey)
-                            .map(
-                                fileDataStream -> {
-                                  if (fileDataStream == null) {
-                                    return new ServiceResponse<>(
-                                        new ServiceActionResponse<>(
-                                            ResourceType.FILE,
-                                            ActionType.DOWNLOAD,
-                                            List.of(
-                                                ServiceError.builder()
-                                                    .errorCode(ErrorCode.IO_FILE_DOES_NOT_EXIST)
-                                                    .errorMessage(
-                                                        "The file you are requesting doesn't exist.")
-                                                    .httpCode(404)
-                                                    .build())));
-                                  }
+    try {
+      String storageKey = fileMetadata.getStorageKey();
+      final boolean getThumbnail = context.getBooleanData(GET_THUMBNAIL_KEY, false);
+      if (getThumbnail) {
+        storageKey += ".thumb.jpg";
+      }
 
-                                  String filename = fileMetadata.getOriginalFilename();
-                                  if (getThumbnail) {
-                                    int lio = filename.lastIndexOf('.');
-                                    if (lio != -1) {
-                                      filename = filename.substring(0, lio);
-                                    }
-                                    filename += ".thumb.jpg";
-                                  }
+      return storageService
+          .getFileData(storageKey)
+          .map(
+              fileDataStream -> {
+                if (fileDataStream == null) {
+                  return new ServiceResponse<>(
+                      new ServiceActionResponse<>(
+                          context.getResourceType(),
+                          context.getActionType(),
+                          List.of(
+                              ServiceError.builder()
+                                  .errorCode(ErrorCode.IO_FILE_DOES_NOT_EXIST)
+                                  .errorMessage("The file you are requesting doesn't exist.")
+                                  .httpCode(404)
+                                  .build())));
+                }
 
-                                  return new ServiceResponse<>(
-                                      new ServiceActionResponse<>(
-                                          ResourceType.FILE,
-                                          ActionType.DOWNLOAD,
-                                          new DownloadData(filename, fileDataStream)));
-                                });
-                      } catch (Exception e) {
-                        Log.errorf(
-                            e,
-                            "Exception encountered while opening file inputstream. fileId:%d fileStorageKey:%s",
-                            fileMetadata.getId(),
-                            fileMetadata.getStorageKey());
-                        return Uni.createFrom()
-                            .item(
-                                new ServiceResponse<>(
-                                    new ServiceActionResponse<>(
-                                        ResourceType.FILE,
-                                        ActionType.DOWNLOAD,
-                                        List.of(
-                                            ServiceError.builder()
-                                                .errorCode(ErrorCode.UNABLE_TO_OPEN_INPUT_STREAM)
-                                                .errorMessage(
-                                                    "Unable to open Input Stream for file.")
-                                                .httpCode(500)
-                                                .build()))));
-                      }
-                    }));
+                String filename = fileMetadata.getOriginalFilename();
+                if (getThumbnail) {
+                  int lio = filename.lastIndexOf('.');
+                  if (lio != -1) {
+                    filename = filename.substring(0, lio);
+                  }
+                  filename += ".thumb.jpg";
+                }
+
+                return new ServiceResponse<>(
+                    new ServiceActionResponse<>(
+                        context.getResourceType(),
+                        context.getActionType(),
+                        new DownloadData(filename, fileDataStream)));
+              });
+    } catch (Exception e) {
+      Log.errorf(
+          e,
+          "Exception encountered while opening file inputstream. fileId:%d fileStorageKey:%s",
+          fileMetadata.getId(),
+          fileMetadata.getStorageKey());
+      return Uni.createFrom()
+          .item(
+              new ServiceResponse<>(
+                  new ServiceActionResponse<>(
+                      context.getResourceType(),
+                      context.getActionType(),
+                      List.of(
+                          ServiceError.builder()
+                              .errorCode(ErrorCode.UNABLE_TO_OPEN_INPUT_STREAM)
+                              .errorMessage("Unable to open Input Stream for file.")
+                              .httpCode(500)
+                              .build()))));
+    }
   }
 
   public Uni<List<File>> getFilesInFoldersInternal(final List<Long> folderIds, final long userId) {
