@@ -59,70 +59,25 @@ public class FileService {
   public static final String FILE_ID_KEY = "FILE_ID__LONG";
 
   public Uni<ServiceResponse<PaginatedResponse<File>>> getAllFiles(
-      final UserToken userInfo, final PaginationParameters paginationParameters) {
-    if (paginationParameters.getAfter() != null && paginationParameters.getAfter() < 0) {
-      return Uni.createFrom()
-          .item(
-              new ServiceResponse<>(
-                  new ServiceActionResponse<>(
-                      ResourceType.FILE,
-                      ActionType.GET,
-                      List.of(
-                          ServiceError.builder()
-                              .errorCode(ErrorCode.INVALID_AFTER_VALUE)
-                              .errorMessage("After value must be greater than 0.")
-                              .httpCode(400)
-                              .build()))));
+      final ServiceRequestContext requestContext, final PaginationParameters paginationParameters) {
+    ServiceResponse<PaginatedResponse<File>> res =
+        Utils.validatePaginationParameters(requestContext, paginationParameters);
+    if (res != null) {
+      return Uni.createFrom().item(res);
     }
 
-    if (paginationParameters.getLimit() != null && paginationParameters.getLimit() <= 0) {
-      return Uni.createFrom()
-          .item(
-              new ServiceResponse<>(
-                  new ServiceActionResponse<>(
-                      ResourceType.FILE,
-                      ActionType.GET,
-                      List.of(
-                          ServiceError.builder()
-                              .errorCode(ErrorCode.INVALID_RESPONSE_LIMIT)
-                              .errorMessage(
-                                  "A return limit of '"
-                                      + paginationParameters.getLimit()
-                                      + "' is invalid. Must be greater than 0")
-                              .httpCode(400)
-                              .build()))));
-    }
-
-    return userService
-        .getUserFromUserToken(userInfo)
-        .chain(
-            userResponse -> {
-              User user = userResponse.getActionResponses().getFirst().getData();
-              if (user == null) {
-                return Uni.createFrom()
-                    .item(
+    return userService.checkUserExist(
+        requestContext,
+        context1 ->
+            storedFilesRepo
+                .getAll(context1.getUser().getId(), paginationParameters)
+                .map(
+                    paginatedFiles ->
                         new ServiceResponse<>(
                             new ServiceActionResponse<>(
-                                ResourceType.FILE,
-                                ActionType.GET,
-                                List.of(
-                                    ServiceError.builder()
-                                        .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
-                                        .errorMessage("User does not exist.")
-                                        .httpCode(404)
-                                        .build()))));
-              }
-
-              return storedFilesRepo
-                  .getAll(user.getId(), paginationParameters)
-                  .map(
-                      paginatedFiles ->
-                          new ServiceResponse<>(
-                              new ServiceActionResponse<>(
-                                  ResourceType.FILE,
-                                  ActionType.GET,
-                                  paginationMapper.toPaginatedResponse(paginatedFiles))));
-            });
+                                requestContext.getResourceType(),
+                                requestContext.getActionType(),
+                                paginationMapper.toPaginatedResponse(paginatedFiles)))));
   }
 
   public Uni<ServiceResponse<List<Long>>> getAllFileIdsInFolder(
@@ -227,64 +182,29 @@ public class FileService {
   }
 
   public Uni<ServiceResponse<File>> uploadFiles(
-      final FileUploadContract toUpload, final UserToken uploadingUser) {
-    return userService
-        .getUserFromUserToken(uploadingUser)
-        .chain(
-            userResponse -> {
-              User user = userResponse.getActionResponses().getFirst().getData();
-              if (user == null) {
-                return Uni.createFrom()
-                    .item(
-                        new ServiceResponse<>(
-                            new ServiceActionResponse<>(
-                                File.FILE_RESOURCE_TYPE,
-                                ActionType.UPLOAD,
-                                List.of(
-                                    ServiceError.builder()
-                                        .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
-                                        .errorMessage(
-                                            "Cannot upload file because user does not exist.")
-                                        .httpCode(404)
-                                        .build()))));
-              }
-
-              if (toUpload.folderId != null) {
-                return folderService
-                    .getFolderById(toUpload.folderId, user.getId())
-                    .chain(
-                        folderServiceResponse -> {
-                          Folder folder =
-                              folderServiceResponse.getActionResponses().getFirst().getData();
-                          if (folder == null) {
-                            return Uni.createFrom()
-                                .item(
-                                    new ServiceResponse<>(
-                                        new ServiceActionResponse<>(
-                                            ResourceType.FILE,
-                                            ActionType.UPLOAD,
-                                            List.of(
-                                                ServiceError.builder()
-                                                    .errorCode(ErrorCode.FOLDER_DOES_NOT_EXIST)
-                                                    .errorMessage(
-                                                        "Desired upload folder does not exist.")
-                                                    .httpCode(404)
-                                                    .build()))));
-                          }
-                          return uploadAllFiles(toUpload.files, user, folder.getId());
-                        });
-              } else {
-                return uploadAllFiles(toUpload.files, user, user.getRootFolderId());
-              }
-            });
+      final ServiceRequestContext requestContext, final FileUploadContract toUpload) {
+    return userService.checkUserExist(
+        requestContext,
+        context -> {
+          if (toUpload.folderId != null) {
+            return folderService.checkFolderExist(
+                context,
+                toUpload.folderId,
+                context2 -> uploadAllFiles(context2, toUpload.folderId, toUpload.files));
+          } else {
+            return uploadAllFiles(context, context.getUser().getRootFolderId(), toUpload.files);
+          }
+        });
   }
 
   Uni<ServiceResponse<File>> uploadAllFiles(
-      final List<FileUpload> files, final User user, final long folderId) {
+      final ServiceRequestContext requestContext,
+      final long folderId,
+      final List<FileUpload> files) {
     ArrayList<Uni<ServiceActionResponse<File>>> uploadResults = new ArrayList<>();
 
     for (final FileUpload fileToUpload : files) {
-      uploadResults.add(uploadIndividualFile(user, folderId, fileToUpload));
+      uploadResults.add(uploadIndividualFile(requestContext, folderId, fileToUpload));
     }
     return Uni.combine().all().unis(uploadResults).with(FileService::combineFileActionUnis);
   }
@@ -309,8 +229,10 @@ public class FileService {
   }
 
   Uni<ServiceActionResponse<File>> uploadIndividualFile(
-      final User user, final Long folderId, final FileUpload fileToUpload) {
-    return createStorageKey(user)
+      final ServiceRequestContext requestContext,
+      final Long folderId,
+      final FileUpload fileToUpload) {
+    return createStorageKey(requestContext.getUser())
         .chain(
             uploadKey ->
                 storageService
@@ -320,22 +242,15 @@ public class FileService {
                           if (errorCode != ErrorCode.OK) {
                             return Uni.createFrom()
                                 .item(
-                                    new ServiceActionResponse<>(
-                                        ResourceType.FILE,
-                                        ActionType.UPLOAD,
-                                        List.of(
-                                            ServiceError.builder()
-                                                .httpCode(400)
-                                                .errorMessage(
-                                                    "Unable to store file '"
-                                                        + fileToUpload.fileName()
-                                                        + "'")
-                                                .errorCode(errorCode)
-                                                .build())));
+                                    Utils.createServiceActionErrorResponse(
+                                        requestContext,
+                                        errorCode,
+                                        "Unable to store file '" + fileToUpload.fileName() + "'",
+                                        400));
                           } else {
                             return storedFilesRepo
                                 .createStoredFile(
-                                    user.getId(),
+                                    requestContext.getUser().getId(),
                                     folderId,
                                     storageService.getStorageType(),
                                     uploadKey,

@@ -5,6 +5,7 @@ import com.xnelo.filearch.common.service.PaginatedResponse;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
+import com.xnelo.filearch.common.service.context.ServiceRequestContext;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.utils.Lists;
 import com.xnelo.filearch.restapi.api.contracts.FolderContract;
@@ -13,6 +14,7 @@ import com.xnelo.filearch.restapi.config.FilearchConfig;
 import com.xnelo.filearch.restapi.data.FolderRepo;
 import com.xnelo.filearch.restapi.service.FileService;
 import com.xnelo.filearch.restapi.service.UserService;
+import com.xnelo.filearch.restapi.service.Utils;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
@@ -202,6 +204,29 @@ public class FolderService {
             });
   }
 
+  public <T> Uni<ServiceResponse<T>> checkFolderExist(
+      final ServiceRequestContext context,
+      final long folderId,
+      final Function<ServiceRequestContext, Uni<ServiceResponse<T>>> folderExistAction) {
+    return folderRepo
+        .getFolderById(folderId, context.getUser().getId())
+        .chain(
+            folderInfo -> {
+              if (folderInfo == null) {
+                return Uni.createFrom()
+                    .item(
+                        Utils.createServiceErrorResponse(
+                            context,
+                            ErrorCode.FOLDER_DOES_NOT_EXIST,
+                            "Folder (" + folderId + ") does not exist.",
+                            404));
+              }
+
+              return folderExistAction.apply(context);
+            });
+  }
+
+  @Deprecated
   public <T> Uni<ServiceResponse<T>> checkFolderExist(
       final long folderId,
       final long userId,

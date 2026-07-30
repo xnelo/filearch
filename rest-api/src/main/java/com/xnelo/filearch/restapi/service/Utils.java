@@ -15,6 +15,25 @@ public class Utils {
   private Utils() {}
 
   public static <T> ServiceResponse<T> validatePaginationParameters(
+      final ServiceRequestContext context, final PaginationParameters paginationParameters) {
+    if (paginationParameters.getAfter() != null && paginationParameters.getAfter() < 0) {
+      return createServiceErrorResponse(
+          context, ErrorCode.INVALID_AFTER_VALUE, "After value must be greater than 0.", 400);
+    } else if (paginationParameters.getLimit() != null && paginationParameters.getLimit() <= 0) {
+      return createServiceErrorResponse(
+          context,
+          ErrorCode.INVALID_RESPONSE_LIMIT,
+          "A return limit of '"
+              + paginationParameters.getLimit()
+              + "' is invalid. Must be greater than 0",
+          400);
+    } else {
+      return null;
+    }
+  }
+
+  @Deprecated
+  public static <T> ServiceResponse<T> validatePaginationParameters(
       final PaginationParameters paginationParameters,
       final ResourceType resourceType,
       final ActionType actionType) {
@@ -119,14 +138,22 @@ public class Utils {
       final String errorMessage,
       final int httpCode) {
     return new ServiceResponse<>(
-        new ServiceActionResponse<>(
-            serviceRequestContext.getResourceType(),
-            serviceRequestContext.getActionType(),
-            List.of(
-                ServiceError.builder()
-                    .errorCode(errorCode)
-                    .errorMessage(errorMessage)
-                    .httpCode(httpCode)
-                    .build())));
+        createServiceActionErrorResponse(serviceRequestContext, errorCode, errorMessage, httpCode));
+  }
+
+  public static <T> ServiceActionResponse<T> createServiceActionErrorResponse(
+      final ServiceRequestContext serviceRequestContext,
+      final ErrorCode errorCode,
+      final String errorMessage,
+      final int httpCode) {
+    return new ServiceActionResponse<>(
+        serviceRequestContext.getResourceType(),
+        serviceRequestContext.getActionType(),
+        List.of(
+            ServiceError.builder()
+                .errorCode(errorCode)
+                .errorMessage(errorMessage)
+                .httpCode(httpCode)
+                .build()));
   }
 }

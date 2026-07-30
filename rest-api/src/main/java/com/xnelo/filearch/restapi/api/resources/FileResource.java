@@ -1,11 +1,15 @@
 package com.xnelo.filearch.restapi.api.resources;
 
+import com.xnelo.filearch.common.model.ActionType;
 import com.xnelo.filearch.common.model.DownloadData;
 import com.xnelo.filearch.common.model.PaginationParameters;
+import com.xnelo.filearch.common.model.ResourceType;
 import com.xnelo.filearch.common.model.SearchParameters;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
+import com.xnelo.filearch.common.service.context.ServiceRequestContext;
+import com.xnelo.filearch.common.service.context.ServiceRequestContextImpl;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.usertoken.UserTokenHandler;
 import com.xnelo.filearch.restapi.api.contracts.AssignTagContract;
@@ -31,7 +35,7 @@ import org.mapstruct.factory.Mappers;
 @RequestScoped
 @Path("file")
 public class FileResource {
-  @Inject UserTokenHandler userhandler;
+  @Inject UserTokenHandler userTokenHandler;
   @Inject FileService fileService;
   @Inject TagService tagService;
   private final ContractMapper contractMapper = Mappers.getMapper(ContractMapper.class);
@@ -39,10 +43,19 @@ public class FileResource {
   @GET
   @RolesAllowed("user")
   public Uni<Response> getAll(@BeanParam PaginationRequest pr) {
-    UserToken userToken = userhandler.getUserInfo();
+    UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FILE)
+            .actionType(ActionType.GET)
+            .userToken(userToken)
+            .build();
+
     PaginationParameters paginationParameters = contractMapper.toPaginationParameters(pr);
+
     return fileService
-        .getAllFiles(userToken, paginationParameters)
+        .getAllFiles(requestContext, paginationParameters)
         .map(
             paginatedServiceResponse ->
                 contractMapper.toApiResponse(
@@ -56,6 +69,8 @@ public class FileResource {
   @RolesAllowed("user")
   @Consumes(MediaType.MULTIPART_FORM_DATA)
   public Uni<Response> uploadFile(FileUploadContract upload) {
+    UserToken userInfo = userTokenHandler.getUserInfo();
+
     Log.debugf("Upload Location: folder_id=%d", upload.folderId);
     Log.debug("FILES >>>>>>>>>>>>>>>>");
     for (FileUpload file : upload.files) {
@@ -65,9 +80,17 @@ public class FileResource {
       Log.debug("---------");
     }
     Log.debug("<<<<<<<<<<<<<<<<<<<<<<");
-    Log.debugf("Uploaded by: %s", userhandler.getUserInfo().getId());
+    Log.debugf("Uploaded by: %s", userInfo.getId());
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FILE)
+            .actionType(ActionType.UPLOAD)
+            .userToken(userInfo)
+            .build();
+
     return fileService
-        .uploadFiles(upload, userhandler.getUserInfo())
+        .uploadFiles(requestContext, upload)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toFileContract));
@@ -77,7 +100,7 @@ public class FileResource {
   @Path("{id}")
   @RolesAllowed("user")
   public Uni<Response> getFileMetadata(@PathParam("id") long fileId) {
-    UserToken userInfo = userhandler.getUserInfo();
+    UserToken userInfo = userTokenHandler.getUserInfo();
     return fileService
         .getFileMetadata(fileId, userInfo)
         .map(
@@ -89,7 +112,7 @@ public class FileResource {
   @Path("{id}")
   @RolesAllowed("user")
   public Uni<Response> deleteFile(@PathParam("id") long fileId) {
-    UserToken userInfo = userhandler.getUserInfo();
+    UserToken userInfo = userTokenHandler.getUserInfo();
     return fileService
         .deleteFile(fileId, userInfo)
         .map(
@@ -103,7 +126,7 @@ public class FileResource {
   @Produces(MediaType.APPLICATION_OCTET_STREAM)
   public Uni<Response> downloadFile(
       @PathParam("id") long fileId, @QueryParam("group_id") Long groupId) {
-    UserToken userInfo = userhandler.getUserInfo();
+    UserToken userInfo = userTokenHandler.getUserInfo();
     return fileService
         .getFileForDownload(fileId, userInfo, groupId)
         .map(FileResource::mapToDownloadResponse);
@@ -115,7 +138,7 @@ public class FileResource {
   @Produces(MediaType.APPLICATION_OCTET_STREAM)
   public Uni<Response> downloadThumbnail(
       @PathParam("id") long fileId, @QueryParam("group_id") Long groupId) {
-    UserToken userInfo = userhandler.getUserInfo();
+    UserToken userInfo = userTokenHandler.getUserInfo();
     return fileService
         .getFileThumbnailForDownload(fileId, userInfo, groupId)
         .map(FileResource::mapToDownloadResponse);
@@ -152,7 +175,7 @@ public class FileResource {
   @RolesAllowed("user")
   @Path("bulk/delete")
   public Uni<Response> bulkDeleteFiles(final FileBulkDeleteContract toDelete) {
-    UserToken userToken = userhandler.getUserInfo();
+    UserToken userToken = userTokenHandler.getUserInfo();
     return fileService
         .bulkDeleteFiles(toDelete.fileIdsToDelete(), userToken)
         .map(
@@ -164,7 +187,7 @@ public class FileResource {
   @RolesAllowed("user")
   @Path("{id}/assign_tag")
   public Uni<Response> assignTag(@PathParam("id") long fileId, final AssignTagContract assignTag) {
-    UserToken userToken = userhandler.getUserInfo();
+    UserToken userToken = userTokenHandler.getUserInfo();
     return fileService
         .assignTag(userToken, fileId, assignTag.tagId())
         .map(
@@ -178,7 +201,7 @@ public class FileResource {
   @Path("{id}/unassign_tag")
   public Uni<Response> unassignTag(
       @PathParam("id") final long fileId, final AssignTagContract unassignTag) {
-    UserToken userToken = userhandler.getUserInfo();
+    UserToken userToken = userTokenHandler.getUserInfo();
     return fileService
         .unassignTag(userToken, fileId, unassignTag.tagId())
         .map(
@@ -192,7 +215,7 @@ public class FileResource {
   @Path("{id}/tags")
   public Uni<Response> getFileTags(
       @PathParam("id") long fileId, @BeanParam PaginationRequest paginationRequest) {
-    UserToken userToken = userhandler.getUserInfo();
+    UserToken userToken = userTokenHandler.getUserInfo();
     PaginationParameters paginationParameters =
         contractMapper.toPaginationParameters(paginationRequest);
     return tagService
@@ -210,7 +233,7 @@ public class FileResource {
   @RolesAllowed("user")
   @Path("search")
   public Uni<Response> searchFiles(@BeanParam SearchRequest searchRequest) {
-    UserToken userToken = userhandler.getUserInfo();
+    UserToken userToken = userTokenHandler.getUserInfo();
     SearchParameters searchParameters = contractMapper.toSearchParameters(searchRequest);
     return fileService
         .searchFiles(userToken, searchParameters)
