@@ -75,6 +75,24 @@ public class ServiceRequestContextImpl implements ServiceRequestContext {
   }
 
   @Override
+  public <T> T getDataAs(final String key, final Class<T> classType) {
+    if (classType == null) {
+      throw new IllegalArgumentException("classType cannot be null");
+    }
+
+    Object rawData = this.data.get(key);
+
+    if (rawData == null) {
+      return null;
+    } else if (classType.isInstance(rawData)) {
+      return classType.cast(rawData);
+    } else {
+      // TODO: Create a custom exception
+      throw new RuntimeException("Data is not instance of '" + classType.getCanonicalName() + "'.");
+    }
+  }
+
+  @Override
   public boolean getBooleanData(String key, boolean defaultValue) {
     Object value = this.data.get(key);
     if (value == null) {

@@ -38,8 +38,9 @@ public class FolderService {
     return folderRepo.createRootFolder(userId);
   }
 
-  public Uni<ServiceResponse<Folder>> deleteRootFolder(final long folderId, final long userId) {
-    return deleteIfFolderExists(folderId, userId, false);
+  public Uni<ServiceResponse<Folder>> deleteRootFolder(
+      final ServiceRequestContext requestContext, final long folderId) {
+    return deleteIfFolderExists(requestContext, folderId, false);
   }
 
   public Uni<ServiceResponse<PaginatedResponse<Folder>>> getAllFolders(
@@ -531,24 +532,17 @@ public class FolderService {
             });
   }
 
-  public Uni<ServiceResponse<Folder>> deleteFolder(final long folderId, final UserToken userInfo) {
-    return userService
-        .getUserFromUserToken(userInfo)
-        .chain(
-            userServiceResponse -> {
-              if (userServiceResponse.hasError()) {
-                return updateErrorAndPassThrough(userServiceResponse);
-              }
-
-              User user = userServiceResponse.getActionResponses().getFirst().getData();
-
-              return deleteIfFolderExists(folderId, user.getId(), true);
-            });
+  public Uni<ServiceResponse<Folder>> deleteFolder(
+      final ServiceRequestContext requestContext, final long folderId) {
+    return userService.checkUserExist(
+        requestContext, context -> deleteIfFolderExists(context, folderId, true));
   }
 
   private Uni<ServiceResponse<Folder>> deleteIfFolderExists(
-      final long folderId, final long userId, final boolean preventRootDelete) {
-    return getFolderById(folderId, userId)
+      final ServiceRequestContext requestContext,
+      final long folderId,
+      final boolean preventRootDelete) {
+    return getFolderById(folderId, requestContext.getUser().getId())
         .chain(
             folderServiceResponse -> {
               if (folderServiceResponse.hasError()) {
@@ -572,8 +566,8 @@ public class FolderService {
                                         .build()))));
               }
 
-              return getIdsToDelete(folderId, userId)
-                  .chain(toDelete -> deleteFolderInternal(toDelete, userId))
+              return getIdsToDelete(folderId, requestContext.getUser().getId())
+                  .chain(toDelete -> deleteFolderInternal(requestContext, toDelete))
                   .map(
                       deleteError -> {
                         if (deleteError == null) {
@@ -590,7 +584,7 @@ public class FolderService {
   }
 
   private Uni<Boolean> deleteFilesInternal(
-      final FoldersAndFilesToDelete toDelete, final long userId) {
+      final ServiceRequestContext requestContext, final FoldersAndFilesToDelete toDelete) {
     List<Long> allFilesToDelete = toDelete.getFileIdsToDelete();
     if (allFilesToDelete.isEmpty()) {
       return Uni.createFrom().item(Boolean.TRUE);
@@ -603,7 +597,8 @@ public class FolderService {
         new ArrayList<>(filesToDeletePartitioned.size());
 
     filesToDeletePartitioned.forEach(
-        toDeleteList -> fileDeleteUnis.add(fileService.bulkDeleteFiles(toDeleteList, userId)));
+        toDeleteList ->
+            fileDeleteUnis.add(fileService.bulkDeleteFiles(requestContext, toDeleteList, false)));
 
     return Uni.combine()
         .all()
@@ -622,9 +617,9 @@ public class FolderService {
   }
 
   private Uni<ServiceError> deleteFolderInternal(
-      final FoldersAndFilesToDelete toDelete, final long userId) {
+      final ServiceRequestContext requestContext, final FoldersAndFilesToDelete toDelete) {
 
-    Uni<Boolean> fileDeleteResult = deleteFilesInternal(toDelete, userId);
+    Uni<Boolean> fileDeleteResult = deleteFilesInternal(requestContext, toDelete);
 
     return fileDeleteResult.chain(
         allDeleted -> {
@@ -639,7 +634,7 @@ public class FolderService {
           }
 
           return folderRepo
-              .deleteFolders(toDelete.getFolderIdsToDelete(), userId)
+              .deleteFolders(toDelete.getFolderIdsToDelete(), requestContext.getUser().getId())
               .map(
                   folderDeleteSuccess -> {
                     if (!folderDeleteSuccess) {

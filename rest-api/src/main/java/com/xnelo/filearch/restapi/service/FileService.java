@@ -13,7 +13,6 @@ import com.xnelo.filearch.common.service.context.ServiceRequestContext;
 import com.xnelo.filearch.common.service.context.ServiceRequestContextImpl;
 import com.xnelo.filearch.common.service.storage.StorageService;
 import com.xnelo.filearch.common.usertoken.UserToken;
-import com.xnelo.filearch.common.utils.ServiceResponseUtils;
 import com.xnelo.filearch.restapi.api.contracts.FileUploadContract;
 import com.xnelo.filearch.restapi.api.mappers.PaginationMapper;
 import com.xnelo.filearch.restapi.config.FilearchConfig;
@@ -41,6 +40,7 @@ public class FileService {
   @Inject SequenceRepo sequenceRepo;
   @Inject StorageService storageService;
   @Inject StoredFilesRepo storedFilesRepo;
+  @Inject FileService fileService;
   @Inject ArtifactRepo artifactRepo;
   @Inject FolderService folderService;
   @Inject FileTagsRepo fileTagsRepo;
@@ -57,6 +57,7 @@ public class FileService {
 
   public static final String GET_THUMBNAIL_KEY = "GET_THUMBNAIL__BOOLEAN";
   public static final String FILE_ID_KEY = "FILE_ID__LONG";
+  public static final String FILE_METADATA_KEY = "FILE_METADATA__FILE";
 
   public Uni<ServiceResponse<PaginatedResponse<File>>> getAllFiles(
       final ServiceRequestContext requestContext, final PaginationParameters paginationParameters) {
@@ -276,224 +277,152 @@ public class FileService {
         .map(fileUploadNumber -> user.getId() + "/" + fileUploadNumber);
   }
 
-  public Uni<ServiceResponse<File>> getFileMetadata(final long fileId, final UserToken userInfo) {
-    return userService
-        .getUserFromUserToken(userInfo)
-        .chain(
-            userResponse -> {
-              User user = userResponse.getActionResponses().getFirst().getData();
-              if (user == null) {
-                return Uni.createFrom()
-                    .item(
-                        new ServiceResponse<>(
-                            new ServiceActionResponse<>(
-                                ResourceType.FILE,
-                                ActionType.GET,
-                                List.of(
-                                    ServiceError.builder()
-                                        .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
-                                        .errorMessage(
-                                            "Cannot retrieve file because user does not exist.")
-                                        .httpCode(404)
-                                        .build()))));
-              }
-
-              return storedFilesRepo
-                  .getStoredFile(fileId, user.getId())
-                  .chain(
-                      file -> {
-                        if (file == null) {
-                          return Uni.createFrom()
-                              .item(
-                                  new ServiceResponse<>(
-                                      new ServiceActionResponse<>(
-                                          ResourceType.FILE,
-                                          ActionType.GET,
-                                          List.of(
-                                              ServiceError.builder()
-                                                  .errorCode(ErrorCode.FILE_DOES_NOT_EXIST)
-                                                  .errorMessage("File was not found.")
-                                                  .httpCode(404)
-                                                  .build()))));
-                        }
-
+  public Uni<ServiceResponse<File>> getFileMetadata(
+      final ServiceRequestContext requestContext, final long fileId) {
+    return userService.checkUserExist(
+        requestContext,
+        context ->
+            storedFilesRepo
+                .getStoredFile(fileId, context.getUser().getId())
+                .chain(
+                    file -> {
+                      if (file == null) {
                         return Uni.createFrom()
                             .item(
                                 new ServiceResponse<>(
                                     new ServiceActionResponse<>(
-                                        ResourceType.FILE, ActionType.GET, file)));
-                      });
-            });
+                                        context.getResourceType(),
+                                        context.getActionType(),
+                                        List.of(
+                                            ServiceError.builder()
+                                                .errorCode(ErrorCode.FILE_DOES_NOT_EXIST)
+                                                .errorMessage("File was not found.")
+                                                .httpCode(404)
+                                                .build()))));
+                      }
+
+                      return Uni.createFrom()
+                          .item(
+                              new ServiceResponse<>(
+                                  new ServiceActionResponse<>(
+                                      ResourceType.FILE, ActionType.GET, file)));
+                    }));
   }
 
   @SuppressWarnings("unchecked")
-  public Uni<ServiceResponse<File>> deleteFile(final long fileId, final UserToken userInfo) {
-    return userService
-        .getUserFromUserToken(userInfo)
-        .chain(
-            userResponse -> {
-              if (userResponse.hasError()) {
-                return Uni.createFrom()
-                    .item(
-                        ServiceResponseUtils.updateErrorAndPassThrough(
-                            userResponse, ResourceType.FILE));
-              }
-              User user = userResponse.getActionResponses().getFirst().getData();
-              return deleteIndividualFile(fileId, user.getId()).map(ServiceResponse::new);
-            });
+  public Uni<ServiceResponse<File>> deleteFile(
+      final ServiceRequestContext requestContext, final long fileId) {
+    return userService.checkUserExist(
+        requestContext, context -> deleteIndividualFile(context, fileId).map(ServiceResponse::new));
   }
 
   private Uni<ServiceActionResponse<File>> deleteIndividualFile(
-      final long fileId, final long userId) {
-    return storedFilesRepo
-        .getStoredFile(fileId, userId)
-        .chain(
-            file -> {
-              if (file == null) {
-                return Uni.createFrom()
-                    .item(
-                        new ServiceActionResponse<>(
-                            ResourceType.FILE,
-                            ActionType.DELETE,
-                            List.of(
-                                ServiceError.builder()
-                                    .errorCode(ErrorCode.FILE_DOES_NOT_EXIST)
-                                    .errorMessage("File does not exist. fileId=" + fileId)
-                                    .httpCode(404)
-                                    .build())));
-              }
+      final ServiceRequestContext requestContext, final long fileId) {
+    return fileService.checkFileExistsActionResponse(
+        requestContext,
+        fileId,
+        context ->
+            fileTagsRepo
+                .deleteAllFileMappings(fileId)
+                .chain(
+                    deleteMappingsSuccess -> {
+                      if (!deleteMappingsSuccess) {
+                        return Uni.createFrom()
+                            .item(
+                                Utils.createServiceActionErrorResponse(
+                                    context,
+                                    ErrorCode.FILE_TAG_MAPPING_UNABLE_TO_DELETE,
+                                    "Unable to delete Tile Tag Mapping '" + fileId + "'.",
+                                    500));
+                      }
 
-              return fileTagsRepo
-                  .deleteAllFileMappings(file.getId())
-                  .chain(
-                      deleteMappingsSuccess -> {
-                        if (!deleteMappingsSuccess) {
-                          return Uni.createFrom()
-                              .item(
-                                  new ServiceActionResponse<>(
-                                      ResourceType.FILE,
-                                      ActionType.DELETE,
-                                      List.of(
-                                          ServiceError.builder()
-                                              .errorCode(
-                                                  ErrorCode.FILE_TAG_MAPPING_UNABLE_TO_DELETE)
-                                              .errorMessage(
-                                                  "Unable to delete File Tag Mapping '"
-                                                      + file.getId()
-                                                      + "'")
-                                              .httpCode(500)
-                                              .build())));
-                        }
+                      return groupItemsRepo
+                          .removeItemFromAllGroups(fileId, GroupItemType.FILE)
+                          .chain(
+                              deleteGroupItemsSuccess -> {
+                                if (!deleteGroupItemsSuccess) {
+                                  return Uni.createFrom()
+                                      .item(
+                                          Utils.createServiceActionErrorResponse(
+                                              context,
+                                              ErrorCode.UNABLE_TO_REMOVE_ITEM_FROM_GROUP,
+                                              "Error while deleting item from all Groups",
+                                              500));
+                                }
 
-                        return groupItemsRepo
-                            .removeItemFromAllGroups(file.getId(), GroupItemType.FILE)
-                            .chain(
-                                deleteGroupItemsSuccess -> {
-                                  if (!deleteGroupItemsSuccess) {
-                                    return Uni.createFrom()
-                                        .item(
-                                            new ServiceActionResponse<>(
-                                                ResourceType.FILE,
-                                                ActionType.DELETE,
-                                                List.of(
-                                                    ServiceError.builder()
-                                                        .errorCode(
-                                                            ErrorCode
-                                                                .UNABLE_TO_REMOVE_ITEM_FROM_GROUP)
-                                                        .errorMessage(
-                                                            "Error while deleting item from all Groups")
-                                                        .httpCode(500)
-                                                        .build())));
-                                  }
+                                return artifactRepo
+                                    .getArtifactsByFileId(fileId, context.getUser().getId())
+                                    .chain(
+                                        artifacts -> {
+                                          File fileData =
+                                              context.getDataAs(FILE_METADATA_KEY, File.class);
 
-                                  return artifactRepo
-                                      .getArtifactsByFileId(file.getId(), userId)
-                                      .chain(
-                                          artifacts -> {
-                                            List<String> keysToDelete = new ArrayList<>();
-                                            keysToDelete.add(file.getStorageKey());
-                                            if (artifacts != null && !artifacts.isEmpty()) {
-                                              artifacts.forEach(
-                                                  artifact ->
-                                                      keysToDelete.add(artifact.getStorageKey()));
-                                            }
+                                          List<String> keysToDelete = new ArrayList<>();
+                                          keysToDelete.add(fileData.getStorageKey());
+                                          if (artifacts != null && !artifacts.isEmpty()) {
+                                            artifacts.forEach(
+                                                artifact ->
+                                                    keysToDelete.add(artifact.getStorageKey()));
+                                          }
 
-                                            return storageService
-                                                .bulkDelete(keysToDelete)
-                                                .chain(
-                                                    storageDeleteResult -> {
-                                                      if (storageDeleteResult != ErrorCode.OK) {
-                                                        return Uni.createFrom()
-                                                            .item(
-                                                                new ServiceActionResponse<>(
-                                                                    ResourceType.FILE,
-                                                                    ActionType.DELETE,
-                                                                    List.of(
-                                                                        ServiceError.builder()
-                                                                            .errorCode(
-                                                                                storageDeleteResult)
-                                                                            .errorMessage(
-                                                                                "Error deleting file.")
-                                                                            .httpCode(500)
-                                                                            .build())));
-                                                      }
+                                          return storageService
+                                              .bulkDelete(keysToDelete)
+                                              .chain(
+                                                  storageDeleteResult -> {
+                                                    if (storageDeleteResult != ErrorCode.OK) {
+                                                      return Uni.createFrom()
+                                                          .item(
+                                                              Utils
+                                                                  .createServiceActionErrorResponse(
+                                                                      context,
+                                                                      storageDeleteResult,
+                                                                      "Error deleting file.",
+                                                                      500));
+                                                    }
 
-                                                      return artifactRepo
-                                                          .deleteArtifactsByFileId(
-                                                              file.getId(), userId)
-                                                          .chain(
-                                                              deleteSuccess -> {
-                                                                if (!deleteSuccess) {
-                                                                  return Uni.createFrom()
-                                                                      .item(
-                                                                          new ServiceActionResponse<>(
-                                                                              ResourceType.FILE,
-                                                                              ActionType.DELETE,
-                                                                              List.of(
-                                                                                  ServiceError
-                                                                                      .builder()
-                                                                                      .errorCode(
-                                                                                          ErrorCode
-                                                                                              .UNABLE_TO_DELETE_ARTIFACTS)
-                                                                                      .errorMessage(
-                                                                                          "Error deleting artifact records from DB.")
-                                                                                      .httpCode(500)
-                                                                                      .build())));
-                                                                }
+                                                    return artifactRepo
+                                                        .deleteArtifactsByFileId(
+                                                            fileId, context.getUser().getId())
+                                                        .chain(
+                                                            deleteSuccess -> {
+                                                              if (!deleteSuccess) {
+                                                                return Uni.createFrom()
+                                                                    .item(
+                                                                        Utils
+                                                                            .createServiceActionErrorResponse(
+                                                                                context,
+                                                                                ErrorCode
+                                                                                    .UNABLE_TO_DELETE_ARTIFACTS,
+                                                                                "Error deleting artifact records from DB.",
+                                                                                500));
+                                                              }
 
-                                                                return storedFilesRepo
-                                                                    .deleteStoredFile(
-                                                                        fileId, userId)
-                                                                    .map(
-                                                                        deleteSuccessful -> {
-                                                                          if (!deleteSuccessful) {
-                                                                            return new ServiceActionResponse<>(
-                                                                                ResourceType.FILE,
-                                                                                ActionType.DELETE,
-                                                                                List.of(
-                                                                                    ServiceError
-                                                                                        .builder()
-                                                                                        .errorCode(
-                                                                                            ErrorCode
-                                                                                                .UNABLE_TO_DELETE_FILE)
-                                                                                        .errorMessage(
-                                                                                            "Unable to delete file")
-                                                                                        .httpCode(
-                                                                                            400)
-                                                                                        .build()));
-                                                                          }
+                                                              return storedFilesRepo
+                                                                  .deleteStoredFile(
+                                                                      fileId,
+                                                                      context.getUser().getId())
+                                                                  .map(
+                                                                      deleteSuccessful -> {
+                                                                        if (!deleteSuccessful) {
+                                                                          return Utils
+                                                                              .createServiceActionErrorResponse(
+                                                                                  context,
+                                                                                  ErrorCode
+                                                                                      .UNABLE_TO_DELETE_FILE,
+                                                                                  "Unable to delete file",
+                                                                                  400);
+                                                                        }
 
-                                                                          return new ServiceActionResponse<>(
-                                                                              ResourceType.FILE,
-                                                                              ActionType.DELETE,
-                                                                              file);
-                                                                        });
-                                                              });
-                                                    });
-                                          });
-                                });
-                      });
-            });
+                                                                        return new ServiceActionResponse<>(
+                                                                            ResourceType.FILE,
+                                                                            ActionType.DELETE,
+                                                                            fileData);
+                                                                      });
+                                                            });
+                                                  });
+                                        });
+                              });
+                    }));
   }
 
   public Uni<ServiceResponse<DownloadData>> getFileForDownload(
@@ -638,24 +567,9 @@ public class FileService {
   }
 
   public Uni<ServiceResponse<File>> bulkDeleteFiles(
-      final List<Long> filesIdsToDelete, final UserToken userInfo) {
-    return userService
-        .getUserFromUserToken(userInfo)
-        .chain(
-            userResponse -> {
-              if (userResponse.hasError()) {
-                return Uni.createFrom()
-                    .item(
-                        ServiceResponseUtils.updateErrorAndPassThrough(
-                            userResponse, ResourceType.FILE));
-              }
-              User user = userResponse.getActionResponses().getFirst().getData();
-              return bulkDeleteFiles(filesIdsToDelete, user.getId());
-            });
-  }
-
-  public Uni<ServiceResponse<File>> bulkDeleteFiles(
-      final List<Long> filesIdsToDelete, final long userId) {
+      final ServiceRequestContext requestContext,
+      final List<Long> filesIdsToDelete,
+      final boolean userCheckNeeded) {
     if (filesIdsToDelete.size() > config.bulkActions().maxDelete()) {
       return Uni.createFrom()
           .item(
@@ -676,13 +590,67 @@ public class FileService {
                               .build()))));
     }
 
+    if (userCheckNeeded) {
+      return userService.checkUserExist(
+          requestContext, context -> bulkDeleteFilesLoop(context, filesIdsToDelete));
+    } else {
+      return bulkDeleteFilesLoop(requestContext, filesIdsToDelete);
+    }
+  }
+
+  private Uni<ServiceResponse<File>> bulkDeleteFilesLoop(
+      final ServiceRequestContext requestContext, List<Long> filesIdsToDelete) {
     ArrayList<Uni<ServiceActionResponse<File>>> fileDeleteUnis =
         new ArrayList<>(filesIdsToDelete.size());
     filesIdsToDelete.forEach(
-        fileIdToDelete -> fileDeleteUnis.add(deleteIndividualFile(fileIdToDelete, userId)));
+        fileIdToDelete -> fileDeleteUnis.add(deleteIndividualFile(requestContext, fileIdToDelete)));
     return Uni.combine().all().unis(fileDeleteUnis).with(FileService::combineFileActionUnis);
   }
 
+  public <T> Uni<ServiceActionResponse<T>> checkFileExistsActionResponse(
+      final ServiceRequestContext requestContext,
+      final long fileId,
+      final Function<ServiceRequestContext, Uni<ServiceActionResponse<T>>> fileExistAction) {
+    if (requestContext.getUser() == null) {
+      Log.error(
+          "User was not provided in the requestContext. Please retrieve and set the user in the request context before using this method.");
+      return Uni.createFrom()
+          .item(
+              Utils.createServiceActionErrorResponse(
+                  requestContext,
+                  ErrorCode.USER_NOT_PROVIDED_IN_REQUEST_OBJECT,
+                  "User was null in the request object. Please contact support.",
+                  500));
+    }
+
+    return storedFilesRepo
+        .getStoredFile(fileId, requestContext.getUser().getId())
+        .chain(
+            file -> {
+              if (file == null) {
+                return Uni.createFrom()
+                    .item(
+                        new ServiceActionResponse<>(
+                            requestContext.getResourceType(),
+                            requestContext.getActionType(),
+                            List.of(
+                                ServiceError.builder()
+                                    .errorCode(ErrorCode.FILE_DOES_NOT_EXIST)
+                                    .errorMessage(
+                                        "Operation could not complete because file '"
+                                            + fileId
+                                            + "' does not exist.")
+                                    .httpCode(404)
+                                    .build())));
+              }
+
+              requestContext.setData(FILE_METADATA_KEY, file);
+
+              return fileExistAction.apply(requestContext);
+            });
+  }
+
+  @Deprecated
   public <T> Uni<ServiceResponse<T>> checkFileExists(
       final long fileId,
       final long userId,

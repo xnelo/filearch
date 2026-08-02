@@ -20,6 +20,8 @@ public interface ServiceRequestContext {
 
   void setData(String key, Object value);
 
+  <T> T getDataAs(final String key, final Class<T> classType);
+
   boolean getBooleanData(String key, boolean defaultValue);
 
   long getLongData(String Key);

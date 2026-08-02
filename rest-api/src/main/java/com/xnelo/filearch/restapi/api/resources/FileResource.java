@@ -101,8 +101,16 @@ public class FileResource {
   @RolesAllowed("user")
   public Uni<Response> getFileMetadata(@PathParam("id") long fileId) {
     UserToken userInfo = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .userToken(userInfo)
+            .resourceType(ResourceType.FILE)
+            .actionType(ActionType.GET)
+            .build();
+
     return fileService
-        .getFileMetadata(fileId, userInfo)
+        .getFileMetadata(requestContext, fileId)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toFileContract));
@@ -113,8 +121,16 @@ public class FileResource {
   @RolesAllowed("user")
   public Uni<Response> deleteFile(@PathParam("id") long fileId) {
     UserToken userInfo = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .userToken(userInfo)
+            .resourceType(ResourceType.FILE)
+            .actionType(ActionType.DELETE)
+            .build();
+
     return fileService
-        .deleteFile(fileId, userInfo)
+        .deleteFile(requestContext, fileId)
         .map(
             fileServiceResponse ->
                 contractMapper.toApiResponse(fileServiceResponse, contractMapper::toFileContract));
@@ -176,8 +192,16 @@ public class FileResource {
   @Path("bulk/delete")
   public Uni<Response> bulkDeleteFiles(final FileBulkDeleteContract toDelete) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .userToken(userToken)
+            .actionType(ActionType.DELETE)
+            .resourceType(ResourceType.FILE)
+            .build();
+
     return fileService
-        .bulkDeleteFiles(toDelete.fileIdsToDelete(), userToken)
+        .bulkDeleteFiles(requestContext, toDelete.fileIdsToDelete(), true)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toFileContract));

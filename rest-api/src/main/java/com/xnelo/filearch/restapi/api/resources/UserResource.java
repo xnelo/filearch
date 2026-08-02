@@ -2,6 +2,10 @@ package com.xnelo.filearch.restapi.api.resources;
 
 import static com.xnelo.filearch.common.json.JsonUtil.toJsonString;
 
+import com.xnelo.filearch.common.model.ActionType;
+import com.xnelo.filearch.common.model.ResourceType;
+import com.xnelo.filearch.common.service.context.ServiceRequestContext;
+import com.xnelo.filearch.common.service.context.ServiceRequestContextImpl;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.usertoken.UserTokenHandler;
 import com.xnelo.filearch.restapi.api.contracts.UserContract;
@@ -66,8 +70,16 @@ public class UserResource {
   public Uni<Response> deleteUser() {
     UserToken userToken = userTokenHandler.getUserInfo();
     Log.infof("Deleting user: token=%s", toJsonString(userToken));
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .userToken(userToken)
+            .resourceType(ResourceType.USER)
+            .actionType(ActionType.DELETE)
+            .build();
+
     return userService
-        .deleteUser(userToken)
+        .deleteUser(requestContext)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toUserContract));

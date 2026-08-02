@@ -2,7 +2,11 @@ package com.xnelo.filearch.restapi.api.resources;
 
 import static com.xnelo.filearch.common.json.JsonUtil.toJsonString;
 
+import com.xnelo.filearch.common.model.ActionType;
 import com.xnelo.filearch.common.model.PaginationParameters;
+import com.xnelo.filearch.common.model.ResourceType;
+import com.xnelo.filearch.common.service.context.ServiceRequestContext;
+import com.xnelo.filearch.common.service.context.ServiceRequestContextImpl;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.usertoken.UserTokenHandler;
 import com.xnelo.filearch.restapi.api.contracts.FolderContract;
@@ -86,8 +90,16 @@ public class FolderResource {
   @Path("{id}")
   public Uni<Response> deleteFolder(@PathParam("id") long folderId) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FOLDER)
+            .actionType(ActionType.DELETE)
+            .userToken(userToken)
+            .build();
+
     return folderService
-        .deleteFolder(folderId, userToken)
+        .deleteFolder(requestContext, folderId)
         .map(
             folderServiceDeleted ->
                 contractMapper.toApiResponse(
