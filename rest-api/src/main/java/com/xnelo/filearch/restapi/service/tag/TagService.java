@@ -5,6 +5,7 @@ import com.xnelo.filearch.common.service.PaginatedResponse;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
+import com.xnelo.filearch.common.service.context.ServiceRequestContext;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.restapi.api.contracts.TagContract;
 import com.xnelo.filearch.restapi.api.contracts.TagShareBulkContract;
@@ -27,6 +28,8 @@ import org.mapstruct.factory.Mappers;
 
 @RequestScoped
 public class TagService {
+  public static final String TAG_DATA_KEY = "TAG_DATA__TAG";
+
   @Inject UserService userService;
   @Inject TagRepo tagRepo;
   @Inject FileTagsRepo fileTagsRepo;
@@ -375,6 +378,30 @@ public class TagService {
   }
 
   public <T> Uni<ServiceResponse<T>> checkIfTagExists(
+      final ServiceRequestContext requestContext,
+      final long tagId,
+      final Function<ServiceRequestContext, Uni<ServiceResponse<T>>> tagExistAction) {
+    return tagRepo
+        .getTagById(tagId, requestContext.getUser().getId())
+        .chain(
+            tag -> {
+              if (tag == null) {
+                return Uni.createFrom()
+                    .item(
+                        Utils.createServiceErrorResponse(
+                            requestContext,
+                            ErrorCode.TAG_DOES_NOT_EXIST,
+                            "Tag (" + tagId + ") does not exist.",
+                            404));
+              }
+
+              requestContext.setData(TAG_DATA_KEY, tag);
+              return tagExistAction.apply(requestContext);
+            });
+  }
+
+  @Deprecated
+  public <T> Uni<ServiceResponse<T>> checkIfTagExists(
       final long userId,
       final long tagId,
       final ResourceType resourceType,
@@ -409,22 +436,18 @@ public class TagService {
   }
 
   public Uni<ServiceResponse<PaginatedResponse<Tag>>> getTagsAssignedToFile(
-      final UserToken userToken,
+      final ServiceRequestContext requestContext,
       final Long fileId,
       final PaginationParameters paginationParameters) {
     return userService.checkUserExist(
-        userToken,
-        ResourceType.TAG,
-        ActionType.GET,
-        user ->
+        requestContext,
+        context2 ->
             fileService.checkFileExists(
+                context2,
                 fileId,
-                user.getId(),
-                ResourceType.TAG,
-                ActionType.GET,
-                file ->
+                context3 ->
                     tagRepo
-                        .getAllTagsForFile(user.getId(), fileId, paginationParameters)
+                        .getAllTagsForFile(context3.getUser().getId(), fileId, paginationParameters)
                         .map(
                             paginatedTags ->
                                 new ServiceResponse<>(

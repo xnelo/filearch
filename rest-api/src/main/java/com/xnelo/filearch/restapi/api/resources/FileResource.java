@@ -143,9 +143,18 @@ public class FileResource {
   public Uni<Response> downloadFile(
       @PathParam("id") long fileId, @QueryParam("group_id") Long groupId) {
     UserToken userInfo = userTokenHandler.getUserInfo();
-    return fileService
-        .getFileForDownload(fileId, userInfo, groupId)
-        .map(FileResource::mapToDownloadResponse);
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FILE)
+            .actionType(ActionType.DOWNLOAD)
+            .userToken(userInfo)
+            .groupId(groupId)
+            .addData(FileService.FILE_ID_KEY, fileId)
+            .addData(FileService.GET_THUMBNAIL_KEY, Boolean.FALSE)
+            .build();
+
+    return fileService.getFileForDownload(requestContext).map(FileResource::mapToDownloadResponse);
   }
 
   @GET
@@ -155,9 +164,18 @@ public class FileResource {
   public Uni<Response> downloadThumbnail(
       @PathParam("id") long fileId, @QueryParam("group_id") Long groupId) {
     UserToken userInfo = userTokenHandler.getUserInfo();
-    return fileService
-        .getFileThumbnailForDownload(fileId, userInfo, groupId)
-        .map(FileResource::mapToDownloadResponse);
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FILE)
+            .actionType(ActionType.DOWNLOAD)
+            .userToken(userInfo)
+            .groupId(groupId)
+            .addData(FileService.GET_THUMBNAIL_KEY, Boolean.TRUE)
+            .addData(FileService.FILE_ID_KEY, fileId)
+            .build();
+
+    return fileService.getFileForDownload(requestContext).map(FileResource::mapToDownloadResponse);
   }
 
   private static Response mapToDownloadResponse(
@@ -212,8 +230,16 @@ public class FileResource {
   @Path("{id}/assign_tag")
   public Uni<Response> assignTag(@PathParam("id") long fileId, final AssignTagContract assignTag) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.TAG)
+            .actionType(ActionType.ASSIGN)
+            .userToken(userToken)
+            .build();
+
     return fileService
-        .assignTag(userToken, fileId, assignTag.tagId())
+        .assignTag(requestContext, fileId, assignTag.tagId())
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(
@@ -226,8 +252,16 @@ public class FileResource {
   public Uni<Response> unassignTag(
       @PathParam("id") final long fileId, final AssignTagContract unassignTag) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.TAG)
+            .actionType(ActionType.UNASSIGN)
+            .userToken(userToken)
+            .build();
+
     return fileService
-        .unassignTag(userToken, fileId, unassignTag.tagId())
+        .unassignTag(requestContext, fileId, unassignTag.tagId())
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(
@@ -242,8 +276,16 @@ public class FileResource {
     UserToken userToken = userTokenHandler.getUserInfo();
     PaginationParameters paginationParameters =
         contractMapper.toPaginationParameters(paginationRequest);
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.TAG)
+            .actionType(ActionType.GET)
+            .userToken(userToken)
+            .build();
+
     return tagService
-        .getTagsAssignedToFile(userToken, fileId, paginationParameters)
+        .getTagsAssignedToFile(requestContext, fileId, paginationParameters)
         .map(
             paginatedServiceResponse ->
                 contractMapper.toApiResponse(
@@ -259,8 +301,16 @@ public class FileResource {
   public Uni<Response> searchFiles(@BeanParam SearchRequest searchRequest) {
     UserToken userToken = userTokenHandler.getUserInfo();
     SearchParameters searchParameters = contractMapper.toSearchParameters(searchRequest);
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FILE)
+            .actionType(ActionType.SEARCH)
+            .userToken(userToken)
+            .build();
+
     return fileService
-        .searchFiles(userToken, searchParameters)
+        .searchFiles(requestContext, searchParameters)
         .map(
             paginatedServiceResponse ->
                 contractMapper.toApiResponse(

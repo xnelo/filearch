@@ -14,6 +14,17 @@ import java.util.List;
 public class Utils {
   private Utils() {}
 
+  /**
+   * If a ServiceResponse item is returned then there was a validation issue and processing should
+   * stop. If Null is returned then there is no validation error and processing may continue.
+   *
+   * @param context The context of the request.
+   * @param paginationParameters The parameters to validate.
+   * @return Null if no errors found. A ServiceResponse object if errors are found.
+   * @param <T> The type of data the service response is supposed to return.
+   */
+  // TODO: change this method to throw exceptions. Create a new exception type that eventually
+  // returns a ServiceResponse object.
   public static <T> ServiceResponse<T> validatePaginationParameters(
       final ServiceRequestContext context, final PaginationParameters paginationParameters) {
     if (paginationParameters.getAfter() != null && paginationParameters.getAfter() < 0) {

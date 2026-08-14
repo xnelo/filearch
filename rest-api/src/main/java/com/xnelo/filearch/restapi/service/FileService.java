@@ -10,7 +10,6 @@ import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.service.context.ServiceRequestContext;
-import com.xnelo.filearch.common.service.context.ServiceRequestContextImpl;
 import com.xnelo.filearch.common.service.storage.StorageService;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.restapi.api.contracts.FileUploadContract;
@@ -426,36 +425,6 @@ public class FileService {
   }
 
   public Uni<ServiceResponse<DownloadData>> getFileForDownload(
-      final long fileId, final UserToken userInfo, final Long groupId) {
-    ServiceRequestContext requestContext =
-        ServiceRequestContextImpl.builder()
-            .resourceType(ResourceType.FILE)
-            .actionType(ActionType.DOWNLOAD)
-            .userToken(userInfo)
-            .groupId(groupId)
-            .addData(GET_THUMBNAIL_KEY, Boolean.FALSE)
-            .addData(FILE_ID_KEY, fileId)
-            .build();
-
-    return internalGetFileForDownload(requestContext);
-  }
-
-  public Uni<ServiceResponse<DownloadData>> getFileThumbnailForDownload(
-      final long fileId, final UserToken userInfo, final Long groupId) {
-    ServiceRequestContext requestContext =
-        ServiceRequestContextImpl.builder()
-            .resourceType(ResourceType.FILE)
-            .actionType(ActionType.DOWNLOAD)
-            .userToken(userInfo)
-            .groupId(groupId)
-            .addData(GET_THUMBNAIL_KEY, Boolean.TRUE)
-            .addData(FILE_ID_KEY, fileId)
-            .build();
-
-    return internalGetFileForDownload(requestContext);
-  }
-
-  private Uni<ServiceResponse<DownloadData>> internalGetFileForDownload(
       final ServiceRequestContext requestContext) {
     return userService.checkUserExist(
         requestContext,
@@ -611,12 +580,38 @@ public class FileService {
       final ServiceRequestContext requestContext,
       final long fileId,
       final Function<ServiceRequestContext, Uni<ServiceActionResponse<T>>> fileExistAction) {
+    return internalCheckFileExists(
+        requestContext, fileId, fileExistAction, Utils::createServiceActionErrorResponse);
+  }
+
+  public <T> Uni<ServiceResponse<T>> checkFileExists(
+      final ServiceRequestContext requestContext,
+      final long fileId,
+      final Function<ServiceRequestContext, Uni<ServiceResponse<T>>> fileExistAction) {
+    return internalCheckFileExists(
+        requestContext, fileId, fileExistAction, Utils::createServiceErrorResponse);
+  }
+
+  @FunctionalInterface
+  private interface CreateErrorResponseFunction<Z> {
+    Z apply(
+        ServiceRequestContext requestContext,
+        ErrorCode errorCode,
+        String errorMessage,
+        Integer httpCode);
+  }
+
+  private <Z> Uni<Z> internalCheckFileExists(
+      final ServiceRequestContext requestContext,
+      final long fileId,
+      final Function<ServiceRequestContext, Uni<Z>> fileExistAction,
+      final CreateErrorResponseFunction<Z> createErrorResponseFunc) {
     if (requestContext.getUser() == null) {
       Log.error(
           "User was not provided in the requestContext. Please retrieve and set the user in the request context before using this method.");
       return Uni.createFrom()
           .item(
-              Utils.createServiceActionErrorResponse(
+              createErrorResponseFunc.apply(
                   requestContext,
                   ErrorCode.USER_NOT_PROVIDED_IN_REQUEST_OBJECT,
                   "User was null in the request object. Please contact support.",
@@ -630,18 +625,13 @@ public class FileService {
               if (file == null) {
                 return Uni.createFrom()
                     .item(
-                        new ServiceActionResponse<>(
-                            requestContext.getResourceType(),
-                            requestContext.getActionType(),
-                            List.of(
-                                ServiceError.builder()
-                                    .errorCode(ErrorCode.FILE_DOES_NOT_EXIST)
-                                    .errorMessage(
-                                        "Operation could not complete because file '"
-                                            + fileId
-                                            + "' does not exist.")
-                                    .httpCode(404)
-                                    .build())));
+                        createErrorResponseFunc.apply(
+                            requestContext,
+                            ErrorCode.FILE_DOES_NOT_EXIST,
+                            "Operation could not complete because file '"
+                                + fileId
+                                + "' does not exist.",
+                            404));
               }
 
               requestContext.setData(FILE_METADATA_KEY, file);
@@ -684,130 +674,83 @@ public class FileService {
   }
 
   public Uni<ServiceResponse<Boolean>> assignTag(
-      final UserToken userToken, final long fileId, final long tagId) {
+      final ServiceRequestContext requestContext, final long fileId, final long tagId) {
     return userService.checkUserExist(
-        userToken,
-        ResourceType.TAG,
-        ActionType.ASSIGN,
-        user ->
+        requestContext,
+        context ->
             checkFileExists(
+                requestContext,
                 fileId,
-                user.getId(),
-                ResourceType.TAG,
-                ActionType.ASSIGN,
-                file ->
+                context2 ->
                     tagService.checkIfTagExists(
-                        user.getId(),
+                        context2,
                         tagId,
-                        ResourceType.TAG,
-                        ActionType.ASSIGN,
-                        tag ->
+                        context3 ->
                             fileTagsRepo
                                 .assignFileMapping(fileId, tagId)
                                 .map(
-                                    assignFileMappingSuccess ->
+                                    res ->
                                         new ServiceResponse<>(
                                             new ServiceActionResponse<>(
-                                                ResourceType.TAG,
-                                                ActionType.ASSIGN,
-                                                assignFileMappingSuccess))))));
+                                                context3.getResourceType(),
+                                                context3.getActionType(),
+                                                res))))));
   }
 
   public Uni<ServiceResponse<Boolean>> unassignTag(
-      final UserToken userToken, final long fileId, final long tagId) {
+      final ServiceRequestContext requestContext, final long fileId, final long tagId) {
     return userService.checkUserExist(
-        userToken,
-        ResourceType.TAG,
-        ActionType.UNASSIGN,
-        user ->
+        requestContext,
+        context2 ->
             checkFileExists(
+                context2,
                 fileId,
-                user.getId(),
-                ResourceType.TAG,
-                ActionType.UNASSIGN,
-                file ->
+                context3 ->
                     tagService.checkIfTagExists(
-                        user.getId(),
+                        context3,
                         tagId,
-                        ResourceType.TAG,
-                        ActionType.UNASSIGN,
-                        tag ->
+                        context4 ->
                             fileTagsRepo
                                 .unassignFileMapping(fileId, tagId)
                                 .map(
-                                    unassignFileTagSuccess ->
+                                    res ->
                                         new ServiceResponse<>(
                                             new ServiceActionResponse<>(
-                                                ResourceType.TAG,
-                                                ActionType.UNASSIGN,
-                                                unassignFileTagSuccess))))));
+                                                context4.getResourceType(),
+                                                context4.getActionType(),
+                                                res))))));
   }
 
   public Uni<ServiceResponse<PaginatedResponse<File>>> searchFiles(
-      final UserToken userToken, final SearchParameters searchParameters) {
+      final ServiceRequestContext requestContext, final SearchParameters searchParameters) {
 
     if (searchParameters.getSearchTerm() == null
         || searchParameters.getSearchTerm().trim().isEmpty()) {
       return Uni.createFrom()
           .item(
-              new ServiceResponse<>(
-                  new ServiceActionResponse<>(
-                      ResourceType.FILE,
-                      ActionType.SEARCH,
-                      List.of(
-                          ServiceError.builder()
-                              .errorCode(ErrorCode.INVALID_SEARCH_TEXT)
-                              .errorMessage("Search text cannot be empty")
-                              .httpCode(400)
-                              .build()))));
+              Utils.createServiceErrorResponse(
+                  requestContext,
+                  ErrorCode.INVALID_SEARCH_TEXT,
+                  "Search text cannot be empty",
+                  400));
     }
-
-    if (searchParameters.getAfter() != null && searchParameters.getAfter() < 0) {
-      return Uni.createFrom()
-          .item(
-              new ServiceResponse<>(
-                  new ServiceActionResponse<>(
-                      ResourceType.FILE,
-                      ActionType.SEARCH,
-                      List.of(
-                          ServiceError.builder()
-                              .errorCode(ErrorCode.INVALID_AFTER_VALUE)
-                              .errorMessage("After value must be greater than 0.")
-                              .httpCode(400)
-                              .build()))));
-    }
-
-    if (searchParameters.getLimit() != null && searchParameters.getLimit() <= 0) {
-      return Uni.createFrom()
-          .item(
-              new ServiceResponse<>(
-                  new ServiceActionResponse<>(
-                      ResourceType.FILE,
-                      ActionType.SEARCH,
-                      List.of(
-                          ServiceError.builder()
-                              .errorCode(ErrorCode.INVALID_RESPONSE_LIMIT)
-                              .errorMessage(
-                                  "A return limit of '"
-                                      + searchParameters.getLimit()
-                                      + "' is invalid. Must be greater than 0")
-                              .httpCode(400)
-                              .build()))));
+    ServiceResponse<PaginatedResponse<File>> validationResponse =
+        Utils.validatePaginationParameters(requestContext, searchParameters);
+    if (validationResponse != null) {
+      return Uni.createFrom().item(validationResponse);
     }
 
     return userService.checkUserExist(
-        userToken,
-        ResourceType.FILE,
-        ActionType.SEARCH,
-        user ->
+        requestContext,
+        context2 ->
             storedFilesRepo
-                .searchFiles(user.getId(), searchParameters)
+                .searchFiles(requestContext.getUser().getId(), searchParameters)
                 .map(
                     paginatedFileData ->
                         new ServiceResponse<>(
                             new ServiceActionResponse<>(
-                                ResourceType.FILE,
-                                ActionType.SEARCH,
+                                context2.getResourceType(),
+                                context2.getActionType(),
                                 paginationMapper.toPaginatedResponse(paginatedFileData)))));
   }
 }
