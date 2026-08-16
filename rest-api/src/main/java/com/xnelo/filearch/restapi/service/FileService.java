@@ -60,11 +60,7 @@ public class FileService {
 
   public Uni<ServiceResponse<PaginatedResponse<File>>> getAllFiles(
       final ServiceRequestContext requestContext, final PaginationParameters paginationParameters) {
-    ServiceResponse<PaginatedResponse<File>> res =
-        Utils.validatePaginationParameters(requestContext, paginationParameters);
-    if (res != null) {
-      return Uni.createFrom().item(res);
-    }
+    Utils.validatePaginationParameters(requestContext, paginationParameters);
 
     return userService.checkUserExist(
         requestContext,
@@ -734,11 +730,7 @@ public class FileService {
                   "Search text cannot be empty",
                   400));
     }
-    ServiceResponse<PaginatedResponse<File>> validationResponse =
-        Utils.validatePaginationParameters(requestContext, searchParameters);
-    if (validationResponse != null) {
-      return Uni.createFrom().item(validationResponse);
-    }
+    Utils.validatePaginationParameters(requestContext, searchParameters);
 
     return userService.checkUserExist(
         requestContext,

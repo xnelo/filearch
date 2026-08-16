@@ -33,10 +33,18 @@ public class FolderResource {
   @RolesAllowed("user")
   public Uni<Response> getAll(@BeanParam PaginationRequest paginationRequest) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FOLDER)
+            .actionType(ActionType.GET)
+            .userToken(userToken)
+            .build();
+
     PaginationParameters paginationParameters =
         contractMapper.toPaginationParameters(paginationRequest);
     return folderService
-        .getAllFolders(userToken, paginationParameters)
+        .getAllFolders(requestContext, paginationParameters)
         .map(
             paginatedServiceResponse ->
                 contractMapper.toApiResponse(
@@ -52,8 +60,16 @@ public class FolderResource {
     UserToken userToken = userTokenHandler.getUserInfo();
     Log.debugf(
         "Creating new Folder: input=%s token=%s", toJsonString(newFolder), toJsonString(userToken));
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FOLDER)
+            .actionType(ActionType.CREATE)
+            .userToken(userToken)
+            .build();
+
     return folderService
-        .createNewFolder(newFolder, userToken)
+        .createNewFolder(requestContext, newFolder)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toFolderContract));
@@ -64,8 +80,16 @@ public class FolderResource {
   @Path("{id}")
   public Uni<Response> getFolder(@PathParam("id") long folderId) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FOLDER)
+            .actionType(ActionType.GET)
+            .userToken(userToken)
+            .build();
+
     return folderService
-        .getFolderById(folderId, userToken)
+        .getFolderById(requestContext, folderId)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toFolderContract));
@@ -77,8 +101,16 @@ public class FolderResource {
   public Uni<Response> updateFolder(
       @PathParam("id") long folderId, final FolderContract folderData) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FOLDER)
+            .actionType(ActionType.GET)
+            .userToken(userToken)
+            .build();
+
     return folderService
-        .updateFolder(folderId, userToken, folderData)
+        .updateFolder(requestContext, folderId, folderData)
         .map(
             folderServiceResponse ->
                 contractMapper.toApiResponse(

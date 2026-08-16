@@ -1,5 +1,6 @@
 package com.xnelo.filearch.restapi.service;
 
+import com.xnelo.filearch.common.exception.ServiceResponseException;
 import com.xnelo.filearch.common.model.ActionType;
 import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.PaginationParameters;
@@ -20,26 +21,20 @@ public class Utils {
    *
    * @param context The context of the request.
    * @param paginationParameters The parameters to validate.
-   * @return Null if no errors found. A ServiceResponse object if errors are found.
-   * @param <T> The type of data the service response is supposed to return.
    */
-  // TODO: change this method to throw exceptions. Create a new exception type that eventually
-  // returns a ServiceResponse object.
-  public static <T> ServiceResponse<T> validatePaginationParameters(
+  public static void validatePaginationParameters(
       final ServiceRequestContext context, final PaginationParameters paginationParameters) {
     if (paginationParameters.getAfter() != null && paginationParameters.getAfter() < 0) {
-      return createServiceErrorResponse(
+      throw new ServiceResponseException(
           context, ErrorCode.INVALID_AFTER_VALUE, "After value must be greater than 0.", 400);
     } else if (paginationParameters.getLimit() != null && paginationParameters.getLimit() <= 0) {
-      return createServiceErrorResponse(
+      throw new ServiceResponseException(
           context,
           ErrorCode.INVALID_RESPONSE_LIMIT,
           "A return limit of '"
               + paginationParameters.getLimit()
               + "' is invalid. Must be greater than 0",
           400);
-    } else {
-      return null;
     }
   }
 

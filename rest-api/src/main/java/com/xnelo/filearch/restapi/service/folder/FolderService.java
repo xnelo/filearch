@@ -44,70 +44,21 @@ public class FolderService {
   }
 
   public Uni<ServiceResponse<PaginatedResponse<Folder>>> getAllFolders(
-      final UserToken userInfo, final PaginationParameters paginationParameters) {
-    if (paginationParameters.getAfter() != null && paginationParameters.getAfter() < 0) {
-      return Uni.createFrom()
-          .item(
-              new ServiceResponse<>(
-                  new ServiceActionResponse<>(
-                      ResourceType.FOLDER,
-                      ActionType.GET,
-                      List.of(
-                          ServiceError.builder()
-                              .errorCode(ErrorCode.INVALID_AFTER_VALUE)
-                              .errorMessage("After value must be greater than 0.")
-                              .httpCode(400)
-                              .build()))));
-    }
+      final ServiceRequestContext requestContext, final PaginationParameters paginationParameters) {
+    Utils.validatePaginationParameters(requestContext, paginationParameters);
 
-    if (paginationParameters.getLimit() != null && paginationParameters.getLimit() <= 0) {
-      return Uni.createFrom()
-          .item(
-              new ServiceResponse<>(
-                  new ServiceActionResponse<>(
-                      ResourceType.FILE,
-                      ActionType.GET,
-                      List.of(
-                          ServiceError.builder()
-                              .errorCode(ErrorCode.INVALID_RESPONSE_LIMIT)
-                              .errorMessage(
-                                  "A return limit of '"
-                                      + paginationParameters.getLimit()
-                                      + "' is invalid. Must be greater than 0")
-                              .httpCode(400)
-                              .build()))));
-    }
-
-    return userService
-        .getUserFromUserToken(userInfo)
-        .chain(
-            userResponse -> {
-              User user = userResponse.getActionResponses().getFirst().getData();
-              if (user == null) {
-                return Uni.createFrom()
-                    .item(
+    return userService.checkUserExist(
+        requestContext,
+        context2 ->
+            folderRepo
+                .getAll(context2.getUser().getId(), paginationParameters)
+                .map(
+                    paginatedFolders ->
                         new ServiceResponse<>(
                             new ServiceActionResponse<>(
-                                ResourceType.FOLDER,
-                                ActionType.GET,
-                                List.of(
-                                    ServiceError.builder()
-                                        .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
-                                        .errorMessage("User does not exist.")
-                                        .httpCode(404)
-                                        .build()))));
-              }
-
-              return folderRepo
-                  .getAll(user.getId(), paginationParameters)
-                  .map(
-                      paginatedFolders ->
-                          new ServiceResponse<>(
-                              new ServiceActionResponse<>(
-                                  ResourceType.FOLDER,
-                                  ActionType.GET,
-                                  paginationMapper.toPaginatedResponse(paginatedFolders))));
-            });
+                                context2.getResourceType(),
+                                context2.getActionType(),
+                                paginationMapper.toPaginatedResponse(paginatedFolders)))));
   }
 
   public Uni<ServiceResponse<PaginatedResponse<File>>> getAllFilesInFolder(
@@ -182,6 +133,7 @@ public class FolderService {
     return fileService.getAllFileIdsInFolder(userInfo, folderId);
   }
 
+  @Deprecated
   public Uni<ServiceResponse<Folder>> getFolderById(final long folderId, final long userId) {
     return folderRepo
         .getFolderById(folderId, userId)
@@ -263,129 +215,104 @@ public class FolderService {
   }
 
   public Uni<ServiceResponse<Folder>> createNewFolder(
-      final FolderContract newFolder, final UserToken userToken) {
+      final ServiceRequestContext requestContext, final FolderContract newFolder) {
     return userService.checkUserExist(
-        userToken,
-        ResourceType.FOLDER,
-        ActionType.CREATE,
-        user ->
+        requestContext,
+        context2 ->
             checkFolderExist(
+                requestContext,
                 newFolder.getParentId(),
-                user.getId(),
-                ResourceType.FOLDER,
-                ActionType.CREATE,
-                parentFolder ->
+                context3 ->
                     folderRepo
                         .nameExistInFolder(
-                            newFolder.getFolderName(), newFolder.getParentId(), user.getId())
+                            newFolder.getFolderName(),
+                            newFolder.getParentId(),
+                            context3.getUser().getId())
                         .chain(
                             nameExists -> {
                               if (nameExists) {
                                 return Uni.createFrom()
                                     .item(
-                                        new ServiceResponse<>(
-                                            new ServiceActionResponse<>(
-                                                ResourceType.FOLDER,
-                                                ActionType.CREATE,
-                                                List.of(
-                                                    ServiceError.builder()
-                                                        .httpCode(400)
-                                                        .errorCode(
-                                                            ErrorCode
-                                                                .FOLDER_WITH_NAME_ALREADY_EXISTS)
-                                                        .errorMessage(
-                                                            "A folder with the name '"
-                                                                + newFolder.getFolderName()
-                                                                + "' already exists.")
-                                                        .build()))));
+                                        Utils.createServiceErrorResponse(
+                                            requestContext,
+                                            ErrorCode.FOLDER_WITH_NAME_ALREADY_EXISTS,
+                                            "A folder with the name '"
+                                                + newFolder.getFolderName()
+                                                + "' already exists.",
+                                            400));
                               }
 
                               return folderRepo
                                   .createFolder(
-                                      user.getId(),
+                                      context3.getUser().getId(),
                                       newFolder.getParentId(),
                                       newFolder.getFolderName())
                                   .map(
                                       newlyCreatedFolder ->
                                           new ServiceResponse<>(
                                               new ServiceActionResponse<>(
-                                                  ResourceType.FOLDER,
-                                                  ActionType.CREATE,
+                                                  context3.getResourceType(),
+                                                  context3.getActionType(),
                                                   newlyCreatedFolder)));
                             })));
   }
 
-  public Uni<ServiceResponse<Folder>> getFolderById(final long folderId, final UserToken userInfo) {
+  public Uni<ServiceResponse<Folder>> getFolderById(
+      final ServiceRequestContext requestContext, final long folderId) {
     return userService.checkUserExist(
-        userInfo,
-        ResourceType.FOLDER,
-        ActionType.GET,
-        user -> getFolderById(folderId, user.getId()));
+        requestContext, context2 -> getFolderById(folderId, requestContext.getUser().getId()));
   }
 
   @SuppressWarnings("unchecked")
   public Uni<ServiceResponse<Folder>> updateFolder(
-      final long folderId, final UserToken userInfo, final FolderContract folderData) {
+      final ServiceRequestContext requestContext,
+      final long folderId,
+      final FolderContract folderData) {
     if (folderData.getId() != null) {
       return Uni.createFrom()
           .item(
-              new ServiceResponse<>(
-                  new ServiceActionResponse<>(
-                      ResourceType.FOLDER,
-                      ActionType.UPDATE,
-                      List.of(
-                          ServiceError.builder()
-                              .errorCode(ErrorCode.FOLDER_ID_CANNOT_BE_UPDATED)
-                              .errorMessage("Folder id cannot be updated.")
-                              .httpCode(400)
-                              .build()))));
+              Utils.createServiceErrorResponse(
+                  requestContext,
+                  ErrorCode.FOLDER_ID_CANNOT_BE_UPDATED,
+                  "Folder id cannot be updated.",
+                  400));
     } else if (folderData.getOwnerId() != null) {
       return Uni.createFrom()
           .item(
-              new ServiceResponse<>(
-                  new ServiceActionResponse<>(
-                      ResourceType.FOLDER,
-                      ActionType.UPDATE,
-                      List.of(
-                          ServiceError.builder()
-                              .errorCode(ErrorCode.FOLDER_OWNER_CANNOT_BE_UPDATED)
-                              .errorMessage("Folder Owner cannot be updated.")
-                              .httpCode(400)
-                              .build()))));
+              Utils.createServiceErrorResponse(
+                  requestContext,
+                  ErrorCode.FOLDER_OWNER_CANNOT_BE_UPDATED,
+                  "Folder Owner cannot be updated.",
+                  400));
     }
 
     return userService
-        .getUserFromUserToken(userInfo)
-        .chain(
-            userResponse -> {
-              if (userResponse.hasError()) {
-                return updateErrorAndPassThrough(userResponse);
-              }
-              User user = userResponse.getActionResponses().getFirst().getData();
-              return getFolderById(folderId, user.getId())
+        .checkUserExist(
+            requestContext,
+            context2 -> {
+              return folderRepo
+                  .getFolderById(folderId, context2.getUser().getId())
                   .chain(
-                      folderResponse -> {
-                        if (folderResponse.hasError()) {
-                          return updateErrorAndPassThrough(folderResponse);
+                      folderMetadata -> {
+                        if (folderMetadata == null) {
+                          return Uni.createFrom()
+                              .item(
+                                  Utils.createServiceErrorResponse(
+                                      context2,
+                                      ErrorCode.FOLDER_DOES_NOT_EXIST,
+                                      "Folder does not exist.",
+                                      404));
                         }
-                        Folder folderMetadata =
-                            folderResponse.getActionResponses().getFirst().getData();
 
                         // Check if this is the root folder
                         if (folderMetadata.isRootFolder()) {
                           return Uni.createFrom()
                               .item(
-                                  new ServiceResponse<>(
-                                      new ServiceActionResponse<>(
-                                          ResourceType.FOLDER,
-                                          ActionType.UPDATE,
-                                          List.of(
-                                              ServiceError.builder()
-                                                  .errorCode(
-                                                      ErrorCode.ROOT_FOLDER_CANNOT_BE_UPDATED)
-                                                  .errorMessage("Root Folder cannot be updated.")
-                                                  .httpCode(400)
-                                                  .build()))));
+                                  Utils.createServiceErrorResponse(
+                                      context2,
+                                      ErrorCode.ROOT_FOLDER_CANNOT_BE_UPDATED,
+                                      "Root Folder cannot be updated.",
+                                      400));
                         }
 
                         ArrayList<Uni<Map<String, Object>>> checkUnis = new ArrayList<>();
@@ -394,7 +321,7 @@ public class FolderService {
                           checkUnis.add(
                               updateFolderLocation(
                                   folderMetadata.getFolderName(),
-                                  user.getId(),
+                                  context2.getUser().getId(),
                                   folderData.getParentId()));
                           destFolderId = folderData.getParentId();
                         }
@@ -402,7 +329,9 @@ public class FolderService {
                         if (folderData.getFolderName() != null) {
                           checkUnis.add(
                               updateFolderName(
-                                  destFolderId, user.getId(), folderData.getFolderName()));
+                                  destFolderId,
+                                  context2.getUser().getId(),
+                                  folderData.getFolderName()));
                         }
 
                         Uni<Map<String, Object>> folderUpdates =
@@ -413,30 +342,27 @@ public class FolderService {
                               if (folderUpdateMap.isEmpty()) {
                                 return Uni.createFrom()
                                     .item(
-                                        new ServiceResponse<>(
-                                            new ServiceActionResponse<>(
-                                                ResourceType.FOLDER,
-                                                ActionType.UPDATE,
-                                                List.of(
-                                                    ServiceError.builder()
-                                                        .errorCode(ErrorCode.NO_FIELDS_TO_UPDATE)
-                                                        .errorMessage("No Fields to update.")
-                                                        .httpCode(400)
-                                                        .build()))));
+                                        Utils.createServiceErrorResponse(
+                                            context2,
+                                            ErrorCode.NO_FIELDS_TO_UPDATE,
+                                            "No Fields to update.",
+                                            400));
                               }
 
                               return folderRepo
-                                  .updateFolder(folderId, user.getId(), folderUpdateMap)
+                                  .updateFolder(
+                                      folderId, context2.getUser().getId(), folderUpdateMap)
                                   .map(
                                       updatedFolder ->
                                           new ServiceResponse<>(
                                               new ServiceActionResponse<>(
-                                                  ResourceType.FOLDER,
-                                                  ActionType.UPDATE,
+                                                  context2.getResourceType(),
+                                                  context2.getActionType(),
                                                   updatedFolder)));
                             });
                       });
             })
+        // TODO: Update to not need the onFailure here.
         .onFailure(FolderServiceException.class)
         .recoverWithItem(
             ex -> {
