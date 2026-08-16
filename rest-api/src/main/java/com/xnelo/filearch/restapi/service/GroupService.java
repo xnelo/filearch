@@ -1,6 +1,5 @@
 package com.xnelo.filearch.restapi.service;
 
-import com.xnelo.filearch.common.model.ActionType;
 import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.Group;
 import com.xnelo.filearch.common.model.GroupFile;
@@ -10,14 +9,12 @@ import com.xnelo.filearch.common.model.GroupMember;
 import com.xnelo.filearch.common.model.GroupMembershipStatus;
 import com.xnelo.filearch.common.model.GroupPermissionType;
 import com.xnelo.filearch.common.model.PaginationParameters;
-import com.xnelo.filearch.common.model.ResourceType;
 import com.xnelo.filearch.common.model.User;
 import com.xnelo.filearch.common.service.PaginatedResponse;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.service.context.ServiceRequestContext;
-import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.restapi.api.contracts.GroupAddItemContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupAddUsersContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupCreateContract;
@@ -40,6 +37,8 @@ import org.mapstruct.factory.Mappers;
 @Slf4j
 @RequestScoped
 public class GroupService {
+  public static final String GROUP_EXIST_KEY = "GROUP_EXIST_KEY__GROUP";
+
   @Inject UserService userService;
   @Inject GroupRepo groupRepo;
   @Inject GroupItemService groupItemService;
@@ -49,285 +48,194 @@ public class GroupService {
   final PaginationMapper paginationMapper = Mappers.getMapper(PaginationMapper.class);
 
   public Uni<ServiceResponse<PaginatedResponse<Group>>> getAllGroups(
-      final UserToken userInfo, final PaginationParameters paginationParameters) {
-    ServiceResponse<PaginatedResponse<Group>> response;
-    response =
-        Utils.validatePaginationParameters(
-            paginationParameters, ResourceType.GROUP, ActionType.GET);
-    if (response != null) {
-      return Uni.createFrom().item(response);
-    }
+      final ServiceRequestContext requestContext, final PaginationParameters paginationParameters) {
+    Utils.validatePaginationParameters(requestContext, paginationParameters);
 
     return userService.checkUserExist(
-        userInfo,
-        ResourceType.GROUP,
-        ActionType.GET,
-        user ->
+        requestContext,
+        context2 ->
             groupRepo
-                .getAll(user.getId(), paginationParameters)
+                .getAll(context2.getUser().getId(), paginationParameters)
                 .map(
                     paginatedGroups ->
                         new ServiceResponse<>(
                             new ServiceActionResponse<>(
-                                ResourceType.GROUP,
-                                ActionType.GET,
+                                context2.getResourceType(),
+                                context2.getActionType(),
                                 paginationMapper.toPaginatedResponse(paginatedGroups)))));
   }
 
   public Uni<ServiceResponse<PaginatedResponse<Group>>> getGroupsIn(
-      final UserToken userInfo,
+      final ServiceRequestContext requestContext,
       final GroupMembershipStatus membershipStatus,
       final PaginationParameters paginationParameters) {
-    ServiceResponse<PaginatedResponse<Group>> response;
-    response =
-        Utils.validatePaginationParameters(
-            paginationParameters, ResourceType.GROUP, ActionType.GET);
-    if (response != null) {
-      return Uni.createFrom().item(response);
-    }
+    Utils.validatePaginationParameters(requestContext, paginationParameters);
 
     return userService.checkUserExist(
-        userInfo,
-        ResourceType.GROUP,
-        ActionType.GET,
-        user ->
+        requestContext,
+        context2 ->
             groupRepo
-                .getGroupsIn(user.getId(), membershipStatus, paginationParameters)
+                .getGroupsIn(context2.getUser().getId(), membershipStatus, paginationParameters)
                 .map(
                     paginatedGroups ->
                         new ServiceResponse<>(
                             new ServiceActionResponse<>(
-                                ResourceType.GROUP,
-                                ActionType.GET,
+                                context2.getResourceType(),
+                                context2.getActionType(),
                                 paginationMapper.toPaginatedResponse(paginatedGroups)))));
   }
 
   public Uni<ServiceResponse<Group>> createNewGroup(
-      final GroupCreateContract newGroup, final UserToken userToken) {
+      final ServiceRequestContext requestContext, final GroupCreateContract newGroup) {
     return userService.checkUserExist(
-        userToken,
-        ResourceType.GROUP,
-        ActionType.CREATE,
-        user ->
+        requestContext,
+        context2 ->
             groupRepo
-                .groupNameExists(user.getId(), newGroup.getGroupName())
+                .groupNameExists(context2.getUser().getId(), newGroup.getGroupName())
                 .chain(
                     groupExists -> {
                       if (groupExists) {
                         return Uni.createFrom()
                             .item(
-                                new ServiceResponse<>(
-                                    new ServiceActionResponse<>(
-                                        ResourceType.GROUP,
-                                        ActionType.CREATE,
-                                        List.of(
-                                            ServiceError.builder()
-                                                .httpCode(400)
-                                                .errorCode(ErrorCode.GROUP_WITH_NAME_ALREADY_EXISTS)
-                                                .errorMessage(
-                                                    "A group with the name "
-                                                        + newGroup.getGroupName()
-                                                        + " already exists.")
-                                                .build()))));
+                                Utils.createServiceErrorResponse(
+                                    requestContext,
+                                    ErrorCode.GROUP_WITH_NAME_ALREADY_EXISTS,
+                                    "A group with the name "
+                                        + newGroup.getGroupName()
+                                        + " already exists.",
+                                    400));
                       }
 
-                      return createGroupAndAddUser(user.getId(), newGroup.getGroupName());
+                      return createGroupAndAddUser(context2, newGroup.getGroupName());
                     }));
   }
 
-  Uni<ServiceResponse<Group>> createGroupAndAddUser(final long userId, final String groupName) {
+  Uni<ServiceResponse<Group>> createGroupAndAddUser(
+      final ServiceRequestContext requestContext, final String groupName) {
     return groupRepo
-        .createGroup(userId, groupName)
+        .createGroup(requestContext.getUser().getId(), groupName)
         .chain(
             createResponse -> {
               if (createResponse == null) {
                 return Uni.createFrom()
                     .item(
-                        new ServiceResponse<>(
-                            new ServiceActionResponse<>(
-                                ResourceType.GROUP,
-                                ActionType.CREATE,
-                                List.of(
-                                    ServiceError.builder()
-                                        .errorMessage("Error creating group.")
-                                        .errorCode(ErrorCode.UNABLE_TO_CREATE_GROUP)
-                                        .httpCode(500)
-                                        .build()))));
+                        Utils.createServiceErrorResponse(
+                            requestContext,
+                            ErrorCode.UNABLE_TO_CREATE_GROUP,
+                            "Error creating group.",
+                            500));
               }
 
               return groupRepo
-                  .addUserToGroup(userId, createResponse.getId(), true)
+                  .addUserToGroup(requestContext.getUser().getId(), createResponse.getId(), true)
                   .map(
                       memberAdded -> {
                         if (!memberAdded) {
-                          return new ServiceResponse<>(
-                              new ServiceActionResponse<>(
-                                  ResourceType.GROUP,
-                                  ActionType.CREATE,
-                                  List.of(
-                                      ServiceError.builder()
-                                          .errorMessage("Error adding user as member to group.")
-                                          .errorCode(ErrorCode.UNABLE_TO_CREATE_GROUP)
-                                          .httpCode(500)
-                                          .build())));
+                          return Utils.createServiceErrorResponse(
+                              requestContext,
+                              ErrorCode.UNABLE_TO_CREATE_GROUP,
+                              "Error adding user as member to group.",
+                              500);
                         }
 
                         return new ServiceResponse<>(
                             new ServiceActionResponse<>(
-                                ResourceType.GROUP, ActionType.CREATE, createResponse));
+                                requestContext.getResourceType(),
+                                requestContext.getActionType(),
+                                createResponse));
                       });
             });
   }
 
-  public Uni<ServiceResponse<Group>> getGroupById(final long userId, final long groupId) {
-    return groupRepo
-        .getGroupById(userId, groupId)
-        .map(
-            group -> {
-              if (group == null) {
-                return new ServiceResponse<>(
-                    new ServiceActionResponse<>(
-                        ResourceType.GROUP,
-                        ActionType.GET,
-                        List.of(
-                            ServiceError.builder()
-                                .errorCode(ErrorCode.GROUP_DOES_NOT_EXIST)
-                                .errorMessage("Group does not exist.")
-                                .httpCode(404)
-                                .build())));
-              }
-
-              return new ServiceResponse<>(
-                  new ServiceActionResponse<>(ResourceType.GROUP, ActionType.GET, group));
-            });
-  }
-
-  public Uni<ServiceResponse<Group>> deleteGroup(final UserToken userInfo, final long groupId) {
+  public Uni<ServiceResponse<Group>> deleteGroup(
+      final ServiceRequestContext requestContext, final long groupId) {
     return userService.checkUserExist(
-        userInfo,
-        ResourceType.GROUP,
-        ActionType.DELETE,
-        user ->
-            getGroupById(user.getId(), groupId)
-                .chain(
-                    groupServiceResponse -> {
-                      if (groupServiceResponse.hasError()) {
-                        return Uni.createFrom()
-                            .item(
-                                Utils.updateErrorAndPassThrough(
-                                    groupServiceResponse, ResourceType.GROUP, ActionType.DELETE));
-                      }
-                      return groupRepo
-                          .deleteGroup(user.getId(), groupId)
-                          .chain(
-                              deleteGroupResult -> {
-                                if (deleteGroupResult == false) {
-                                  return Uni.createFrom()
-                                      .item(
-                                          new ServiceResponse<>(
-                                              new ServiceActionResponse<>(
-                                                  ResourceType.GROUP,
-                                                  ActionType.DELETE,
-                                                  List.of(
-                                                      ServiceError.builder()
-                                                          .errorCode(
-                                                              ErrorCode.UNABLE_TO_DELETE_GROUP)
-                                                          .errorMessage(
-                                                              "Error occurred while deleting group.")
-                                                          .httpCode(500)
-                                                          .build()))));
-                                }
+        requestContext,
+        context2 ->
+            checkGroupExists(
+                context2,
+                groupId,
+                context3 ->
+                    groupRepo
+                        .deleteGroup(context3.getUser().getId(), groupId)
+                        .chain(
+                            deleteGroupResult -> {
+                              if (deleteGroupResult == false) {
+                                return Uni.createFrom()
+                                    .item(
+                                        Utils.createServiceErrorResponse(
+                                            context3,
+                                            ErrorCode.UNABLE_TO_DELETE_GROUP,
+                                            "Error occurred while deleting group.",
+                                            500));
+                              }
 
-                                return groupRepo
-                                    .deleteAllUsersFromGroup(groupId)
-                                    .chain(
-                                        deleteGroupUsersResult -> {
-                                          if (deleteGroupUsersResult == false) {
-                                            return Uni.createFrom()
-                                                .item(
-                                                    new ServiceResponse<>(
-                                                        new ServiceActionResponse<>(
-                                                            ResourceType.GROUP,
-                                                            ActionType.DELETE,
-                                                            List.of(
-                                                                ServiceError.builder()
-                                                                    .errorCode(
-                                                                        ErrorCode
-                                                                            .UNABLE_TO_DELETE_GROUP)
-                                                                    .errorMessage(
-                                                                        "Error occured while deleting group users.")
-                                                                    .httpCode(500)
-                                                                    .build()))));
-                                          }
+                              return groupRepo
+                                  .deleteAllUsersFromGroup(groupId)
+                                  .chain(
+                                      deleteGroupUsersResult -> {
+                                        if (deleteGroupUsersResult == false) {
+                                          return Uni.createFrom()
+                                              .item(
+                                                  Utils.createServiceErrorResponse(
+                                                      context3,
+                                                      ErrorCode.UNABLE_TO_DELETE_GROUP,
+                                                      "Error occured while deleting group users.",
+                                                      500));
+                                        }
 
-                                          return groupRepo
-                                              .deleteAllItemsFromGroup(groupId)
-                                              .chain(
-                                                  res -> {
-                                                    if (res == false) {
-                                                      return Uni.createFrom()
-                                                          .item(
-                                                              new ServiceResponse<>(
-                                                                  new ServiceActionResponse<>(
-                                                                      ResourceType.GROUP,
-                                                                      ActionType.DELETE,
-                                                                      List.of(
-                                                                          ServiceError.builder()
-                                                                              .errorCode(
-                                                                                  ErrorCode
-                                                                                      .UNABLE_TO_DELETE_GROUP)
-                                                                              .errorMessage(
-                                                                                  "Error occurred while deleting group items.")
-                                                                              .httpCode(500)
-                                                                              .build()))));
-                                                    }
+                                        return groupRepo
+                                            .deleteAllItemsFromGroup(groupId)
+                                            .chain(
+                                                res -> {
+                                                  if (res == false) {
+                                                    return Uni.createFrom()
+                                                        .item(
+                                                            Utils.createServiceErrorResponse(
+                                                                context3,
+                                                                ErrorCode.UNABLE_TO_DELETE_GROUP,
+                                                                "Error occurred while deleting group items.",
+                                                                500));
+                                                  }
 
-                                                    return groupMemberPermissionsRepo
-                                                        .deleteAllGroupPermissions(groupId)
-                                                        .map(
-                                                            permissionDeleteSuccess -> {
-                                                              if (!permissionDeleteSuccess) {
-                                                                return new ServiceResponse<>(
-                                                                    new ServiceActionResponse<>(
-                                                                        ResourceType.GROUP,
-                                                                        ActionType.DELETE,
-                                                                        List.of(
-                                                                            ServiceError.builder()
-                                                                                .errorCode(
-                                                                                    ErrorCode
-                                                                                        .UNABLE_TO_DELETE_GROUP_USER_PERMISSIONS)
-                                                                                .errorMessage(
-                                                                                    "Error while deleting group user permissions.")
-                                                                                .httpCode(500)
-                                                                                .build())));
-                                                              }
+                                                  return groupMemberPermissionsRepo
+                                                      .deleteAllGroupPermissions(groupId)
+                                                      .map(
+                                                          permissionDeleteSuccess -> {
+                                                            if (!permissionDeleteSuccess) {
+                                                              return Utils
+                                                                  .createServiceErrorResponse(
+                                                                      context3,
+                                                                      ErrorCode
+                                                                          .UNABLE_TO_DELETE_GROUP_USER_PERMISSIONS,
+                                                                      "Error while deleting group user permissions.",
+                                                                      500);
+                                                            }
 
-                                                              return new ServiceResponse<>(
-                                                                  new ServiceActionResponse<>(
-                                                                      ResourceType.GROUP,
-                                                                      ActionType.DELETE,
-                                                                      groupServiceResponse
-                                                                          .getActionResponses()
-                                                                          .getFirst()
-                                                                          .getData()));
-                                                            });
-                                                  });
-                                        });
-                              });
-                    }));
+                                                            Group groupInfo =
+                                                                context3.getDataAs(
+                                                                    GROUP_EXIST_KEY, Group.class);
+
+                                                            return new ServiceResponse<>(
+                                                                new ServiceActionResponse<>(
+                                                                    context3.getResourceType(),
+                                                                    context3.getActionType(),
+                                                                    groupInfo));
+                                                          });
+                                                });
+                                      });
+                            })));
   }
 
   public Uni<ServiceResponse<String>> addUsersToGroup(
-      final UserToken userInfo, final long groupId, final GroupAddUsersContract usersToAdd) {
+      final ServiceRequestContext requestContext,
+      final long groupId,
+      final GroupAddUsersContract usersToAdd) {
     return userService.checkUserExist(
-        userInfo,
-        ResourceType.GROUP,
-        ActionType.ADD_USER_TO_GROUP,
-        user ->
+        requestContext,
+        context2 ->
             groupPermissionsService.userHasPermissionError(
-                ResourceType.GROUP,
-                ActionType.ADD_USER_TO_GROUP,
-                user.getId(),
+                context2,
                 groupId,
                 GroupPermissionType.ADD_MEMBERS,
                 () -> {
@@ -339,7 +247,7 @@ public class GroupService {
                       .forEach(
                           individualUser ->
                               individualUserAdds.add(
-                                  addSingleUserToGroup(groupId, individualUser)));
+                                  addSingleUserToGroup(context2, groupId, individualUser)));
                   return Uni.combine()
                       .all()
                       .unis(individualUserAdds)
@@ -350,7 +258,7 @@ public class GroupService {
   }
 
   Uni<ServiceActionResponse<String>> addSingleUserToGroup(
-      final long groupId, final String username) {
+      final ServiceRequestContext requestContext, final long groupId, final String username) {
     return userService
         .getUserByUsername(username)
         .chain(
@@ -359,8 +267,8 @@ public class GroupService {
                 return Uni.createFrom()
                     .item(
                         new ServiceActionResponse<>(
-                            ResourceType.GROUP,
-                            ActionType.ADD_USER_TO_GROUP,
+                            requestContext.getResourceType(),
+                            requestContext.getActionType(),
                             userResponse.getActionResponses().getFirst().getErrors()));
               }
 
@@ -373,20 +281,15 @@ public class GroupService {
                         if (userInGroup != null && userInGroup) {
                           return Uni.createFrom()
                               .item(
-                                  new ServiceActionResponse<>(
-                                      ResourceType.GROUP,
-                                      ActionType.ADD_USER_TO_GROUP,
-                                      List.of(
-                                          ServiceError.builder()
-                                              .errorCode(ErrorCode.UNABLE_TO_ADD_USER_TO_GROUP)
-                                              .errorMessage(
-                                                  "User ("
-                                                      + username
-                                                      + ") is already part of group ("
-                                                      + groupId
-                                                      + ")")
-                                              .httpCode(400)
-                                              .build())));
+                                  Utils.createServiceActionErrorResponse(
+                                      requestContext,
+                                      ErrorCode.UNABLE_TO_ADD_USER_TO_GROUP,
+                                      "User ("
+                                          + username
+                                          + ") is already part of group ("
+                                          + groupId
+                                          + ")",
+                                      400));
                         }
 
                         return groupRepo
@@ -395,11 +298,13 @@ public class GroupService {
                                 successfullyAdded -> {
                                   if (successfullyAdded) {
                                     return new ServiceActionResponse<>(
-                                        ResourceType.GROUP, ActionType.ADD_USER_TO_GROUP, username);
+                                        requestContext.getResourceType(),
+                                        requestContext.getActionType(),
+                                        username);
                                   } else {
                                     return new ServiceActionResponse<>(
-                                        ResourceType.GROUP,
-                                        ActionType.ADD_USER_TO_GROUP,
+                                        requestContext.getResourceType(),
+                                        requestContext.getActionType(),
                                         List.of(
                                             ServiceError.builder()
                                                 .errorCode(ErrorCode.UNABLE_TO_ADD_USER_TO_GROUP)
@@ -414,32 +319,25 @@ public class GroupService {
   }
 
   public Uni<ServiceResponse<Boolean>> acceptGroupInvitation(
-      final UserToken userInfo, final long groupId) {
+      final ServiceRequestContext requestContext, final long groupId) {
     return userService.checkUserExist(
-        userInfo,
-        ResourceType.GROUP,
-        ActionType.ACCEPT_GROUP_INVITE,
-        user ->
+        requestContext,
+        context2 ->
             groupRepo
-                .acceptGroupInvite(user.getId(), groupId)
+                .acceptGroupInvite(context2.getUser().getId(), groupId)
                 .map(
                     acceptSuccess -> {
                       if (!acceptSuccess) {
-                        return new ServiceResponse<>(
-                            new ServiceActionResponse<>(
-                                ResourceType.GROUP,
-                                ActionType.ACCEPT_GROUP_INVITE,
-                                List.of(
-                                    ServiceError.builder()
-                                        .errorCode(ErrorCode.UNABLE_TO_ACCEPT_GROUP_INVITE)
-                                        .errorMessage("User is has not been invited to group.")
-                                        .httpCode(400)
-                                        .build())));
+                        return Utils.createServiceErrorResponse(
+                            context2,
+                            ErrorCode.UNABLE_TO_ACCEPT_GROUP_INVITE,
+                            "User is has not been invited to group.",
+                            400);
                       } else {
                         return new ServiceResponse<>(
                             new ServiceActionResponse<>(
-                                ResourceType.GROUP,
-                                ActionType.ACCEPT_GROUP_INVITE,
+                                context2.getResourceType(),
+                                context2.getActionType(),
                                 true // This will always be true since we have an error message for
                                 // false
                                 ));
@@ -448,16 +346,14 @@ public class GroupService {
   }
 
   public Uni<ServiceResponse<String>> removeUsersFromGroup(
-      final UserToken userInfo, final long groupId, final GroupRemoveUsersContract usersToRemove) {
+      final ServiceRequestContext requestContext,
+      final long groupId,
+      final GroupRemoveUsersContract usersToRemove) {
     return userService.checkUserExist(
-        userInfo,
-        ResourceType.GROUP,
-        ActionType.REMOVE_USER_FROM_GROUP,
-        user ->
+        requestContext,
+        context2 ->
             groupPermissionsService.userHasPermissionError(
-                ResourceType.GROUP,
-                ActionType.REMOVE_USER_FROM_GROUP,
-                user.getId(),
+                requestContext,
                 groupId,
                 GroupPermissionType.REMOVE_MEMBERS,
                 () ->
@@ -469,16 +365,11 @@ public class GroupService {
                               if (groupOwnerId == null) {
                                 return Uni.createFrom()
                                     .item(
-                                        new ServiceResponse<>(
-                                            new ServiceActionResponse<>(
-                                                ResourceType.GROUP,
-                                                ActionType.REMOVE_USER_FROM_GROUP,
-                                                List.of(
-                                                    ServiceError.builder()
-                                                        .errorCode(ErrorCode.GROUP_DOES_NOT_EXIST)
-                                                        .errorMessage("Group does not exist")
-                                                        .httpCode(404)
-                                                        .build()))));
+                                        Utils.createServiceErrorResponse(
+                                            context2,
+                                            ErrorCode.GROUP_DOES_NOT_EXIST,
+                                            "Group does not exist",
+                                            404));
                               }
                               ArrayList<Uni<ServiceActionResponse<String>>>
                                   individualRemoveUserUnis = new ArrayList<>();
@@ -488,7 +379,7 @@ public class GroupService {
                                       username ->
                                           individualRemoveUserUnis.add(
                                               removeIndividualUser(
-                                                  groupId, groupOwnerId, username)));
+                                                  context2, groupId, groupOwnerId, username)));
                               return Uni.combine()
                                   .all()
                                   .unis(individualRemoveUserUnis)
@@ -500,7 +391,10 @@ public class GroupService {
   }
 
   Uni<ServiceActionResponse<String>> removeIndividualUser(
-      final long groupId, final long groupOwnerId, final String username) {
+      final ServiceRequestContext requestContext,
+      final long groupId,
+      final long groupOwnerId,
+      final String username) {
     return userService
         .getUserByUsername(username)
         .chain(
@@ -509,8 +403,8 @@ public class GroupService {
                 return Uni.createFrom()
                     .item(
                         new ServiceActionResponse<>(
-                            ResourceType.GROUP,
-                            ActionType.REMOVE_USER_FROM_GROUP,
+                            requestContext.getResourceType(),
+                            requestContext.getActionType(),
                             userServiceResponse.getActionResponses().getFirst().getErrors()));
               }
 
@@ -520,8 +414,8 @@ public class GroupService {
                 return Uni.createFrom()
                     .item(
                         new ServiceActionResponse<>(
-                            ResourceType.GROUP,
-                            ActionType.REMOVE_USER_FROM_GROUP,
+                            requestContext.getResourceType(),
+                            requestContext.getActionType(),
                             List.of(
                                 ServiceError.builder()
                                     .errorCode(ErrorCode.UNABLE_TO_REMOVE_USER_FROM_GROUP)
@@ -538,8 +432,8 @@ public class GroupService {
                           return Uni.createFrom()
                               .item(
                                   new ServiceActionResponse<>(
-                                      ResourceType.GROUP,
-                                      ActionType.REMOVE_USER_FROM_GROUP,
+                                      requestContext.getResourceType(),
+                                      requestContext.getActionType(),
                                       List.of(
                                           ServiceError.builder()
                                               .errorCode(ErrorCode.UNABLE_TO_REMOVE_USER_FROM_GROUP)
@@ -559,8 +453,8 @@ public class GroupService {
                                   deletePermissionsSuccess -> {
                                     if (!deletePermissionsSuccess) {
                                       return new ServiceActionResponse<>(
-                                          ResourceType.GROUP,
-                                          ActionType.REMOVE_USER_FROM_GROUP,
+                                          requestContext.getResourceType(),
+                                          requestContext.getActionType(),
                                           List.of(
                                               ServiceError.builder()
                                                   .errorCode(
@@ -573,8 +467,8 @@ public class GroupService {
                                     }
 
                                     return new ServiceActionResponse<>(
-                                        ResourceType.GROUP,
-                                        ActionType.REMOVE_USER_FROM_GROUP,
+                                        requestContext.getResourceType(),
+                                        requestContext.getActionType(),
                                         username);
                                   });
                         }
@@ -583,59 +477,53 @@ public class GroupService {
   }
 
   public Uni<ServiceResponse<GroupItem>> addItemsToGroup(
-      final UserToken userInfo, final long groupId, final GroupAddItemContract itemsToAdd) {
+      final ServiceRequestContext requestContext,
+      final long groupId,
+      final GroupAddItemContract itemsToAdd) {
     // Step 1: Check user exists
     return userService.checkUserExist(
-        userInfo,
-        ResourceType.GROUP,
-        ActionType.ADD_ITEM_TO_GROUP,
-        user ->
+        requestContext,
+        context2 ->
             // Step 2: check user is member of group and accepted
             groupRepo
-                .userActiveMemberInGroup(user.getId(), groupId)
+                .userActiveMemberInGroup(context2.getUser().getId(), groupId)
                 .chain(
                     isActiveMember -> {
                       if (!isActiveMember) {
                         return Uni.createFrom()
                             .item(
-                                new ServiceResponse<>(
-                                    new ServiceActionResponse<>(
-                                        ResourceType.GROUP,
-                                        ActionType.ADD_ITEM_TO_GROUP,
-                                        List.of(
-                                            ServiceError.builder()
-                                                .errorCode(ErrorCode.USER_NOT_ACTIVE)
-                                                .errorMessage(
-                                                    "User ("
-                                                        + userInfo.getId()
-                                                        + ") is not active in group ("
-                                                        + groupId
-                                                        + "). Check that the group exists and user is active member. ")
-                                                .httpCode(400)
-                                                .build()))));
+                                Utils.createServiceErrorResponse(
+                                    context2,
+                                    ErrorCode.USER_NOT_ACTIVE,
+                                    "User ("
+                                        + context2.getUser().getId()
+                                        + ") is not active in group ("
+                                        + groupId
+                                        + "). Check that the group exists and user is active member. ",
+                                    400));
                       }
 
                       // step 3: Check user has permission to add
                       // step 4: iterate over each item and add them individually
                       return groupPermissionsService.userHasPermissionError(
-                          ResourceType.GROUP,
-                          ActionType.ADD_ITEM_TO_GROUP,
-                          user.getId(),
+                          requestContext,
                           groupId,
                           GroupPermissionType.ADD_ITEMS,
-                          () -> addEachItemIndividually(itemsToAdd, groupId, user.getId()));
+                          () -> addEachItemIndividually(context2, itemsToAdd, groupId));
                     }));
   }
 
   Uni<ServiceResponse<GroupItem>> addEachItemIndividually(
-      final GroupAddItemContract itemsToAdd, final long groupId, final long userId) {
+      final ServiceRequestContext requestContext,
+      final GroupAddItemContract itemsToAdd,
+      final long groupId) {
     ArrayList<Uni<ServiceActionResponse<GroupItem>>> individualItemAdd = new ArrayList<>();
 
     itemsToAdd
         .itemsToAdd()
         .forEach(
             itemContract ->
-                individualItemAdd.add(individualAddItem(itemContract, groupId, userId)));
+                individualItemAdd.add(individualAddItem(requestContext, itemContract, groupId)));
 
     return Uni.combine()
         .all()
@@ -644,48 +532,42 @@ public class GroupService {
   }
 
   Uni<ServiceActionResponse<GroupItem>> individualAddItem(
-      final GroupItemContract itemToAdd, final long groupId, final long userId) {
+      final ServiceRequestContext requestContext,
+      final GroupItemContract itemToAdd,
+      final long groupId) {
     // Step 1: Check that the item id is not null and < 0
     if (itemToAdd.itemId() < 0) {
       return Uni.createFrom()
           .item(
-              new ServiceActionResponse<>(
-                  ResourceType.GROUP,
-                  ActionType.ADD_ITEM_TO_GROUP,
-                  List.of(
-                      ServiceError.builder()
-                          .errorCode(ErrorCode.INVALID_INPUT_VALUE)
-                          .errorMessage("Item id must be 0 or greater.")
-                          .httpCode(400)
-                          .build())));
+              Utils.createServiceActionErrorResponse(
+                  requestContext,
+                  ErrorCode.INVALID_INPUT_VALUE,
+                  "Item id must be 0 or greater.",
+                  400));
     }
 
     // Step 2: Check that the item type is not null and not UNKNOWN
     if (itemToAdd.itemType() == null || itemToAdd.itemType().equals(GroupItemType.UNKNOWN)) {
       return Uni.createFrom()
           .item(
-              new ServiceActionResponse<>(
-                  ResourceType.GROUP,
-                  ActionType.ADD_ITEM_TO_GROUP,
-                  List.of(
-                      ServiceError.builder()
-                          .errorCode(ErrorCode.INVALID_INPUT_VALUE)
-                          .errorMessage("Item type must be present and NOT UNKNOWN.")
-                          .httpCode(400)
-                          .build())));
+              Utils.createServiceActionErrorResponse(
+                  requestContext,
+                  ErrorCode.INVALID_INPUT_VALUE,
+                  "Item type must be present and NOT UNKNOWN.",
+                  400));
     }
 
     // Step 3: Check item exists
     return groupItemService
-        .itemExists(itemToAdd.itemType(), itemToAdd.itemId(), userId)
+        .checkItemExists(requestContext, itemToAdd.itemType(), itemToAdd.itemId())
         .chain(
             itemExist -> {
               if (!itemExist) {
                 return Uni.createFrom()
                     .item(
                         new ServiceActionResponse<>(
-                            ResourceType.GROUP,
-                            ActionType.ADD_ITEM_TO_GROUP,
+                            requestContext.getResourceType(),
+                            requestContext.getActionType(),
                             List.of(
                                 ServiceError.builder()
                                     .errorCode(ErrorCode.UNABLE_TO_ADD_ITEM_TO_GROUP)
@@ -707,8 +589,8 @@ public class GroupService {
                           return Uni.createFrom()
                               .item(
                                   new ServiceActionResponse<>(
-                                      ResourceType.GROUP,
-                                      ActionType.ADD_ITEM_TO_GROUP,
+                                      requestContext.getResourceType(),
+                                      requestContext.getActionType(),
                                       List.of(
                                           ServiceError.builder()
                                               .errorCode(ErrorCode.ITEM_ALREADY_IN_GROUP)
@@ -724,8 +606,8 @@ public class GroupService {
                                 newGroupItem -> {
                                   if (newGroupItem == null) {
                                     return new ServiceActionResponse<>(
-                                        ResourceType.GROUP,
-                                        ActionType.ADD_ITEM_TO_GROUP,
+                                        requestContext.getResourceType(),
+                                        requestContext.getActionType(),
                                         List.of(
                                             ServiceError.builder()
                                                 .errorCode(ErrorCode.UNABLE_TO_ADD_ITEM_TO_GROUP)
@@ -736,8 +618,8 @@ public class GroupService {
                                   }
 
                                   return new ServiceActionResponse<>(
-                                      ResourceType.GROUP,
-                                      ActionType.ADD_ITEM_TO_GROUP,
+                                      requestContext.getResourceType(),
+                                      requestContext.getActionType(),
                                       newGroupItem);
                                 });
                       });
@@ -745,57 +627,53 @@ public class GroupService {
   }
 
   public Uni<ServiceResponse<GroupItem>> removeItemsFromGroup(
-      final UserToken userInfo, final long groupId, final GroupRemoveItemContract itemsToRemove) {
+      final ServiceRequestContext requestContext,
+      final long groupId,
+      final GroupRemoveItemContract itemsToRemove) {
     // Step 1: Check user exists
     return userService.checkUserExist(
-        userInfo,
-        ResourceType.GROUP,
-        ActionType.REMOVE_ITEM_FROM_GROUP,
-        user ->
+        requestContext,
+        context2 ->
             groupRepo
-                .userActiveMemberInGroup(user.getId(), groupId)
+                .userActiveMemberInGroup(context2.getUser().getId(), groupId)
                 .chain(
                     isActiveMember -> {
                       if (!isActiveMember) {
                         return Uni.createFrom()
                             .item(
-                                new ServiceResponse<>(
-                                    new ServiceActionResponse<>(
-                                        ResourceType.GROUP,
-                                        ActionType.REMOVE_ITEM_FROM_GROUP,
-                                        List.of(
-                                            ServiceError.builder()
-                                                .errorCode(ErrorCode.USER_NOT_ACTIVE)
-                                                .errorMessage(
-                                                    "User ("
-                                                        + userInfo.getId()
-                                                        + ") is not active in group ("
-                                                        + groupId
-                                                        + "). Check that the group exists and user is active member. ")
-                                                .httpCode(400)
-                                                .build()))));
+                                Utils.createServiceErrorResponse(
+                                    context2,
+                                    ErrorCode.USER_NOT_ACTIVE,
+                                    "User ("
+                                        + context2.getUser().getId()
+                                        + ") is not active in group ("
+                                        + groupId
+                                        + "). Check that the group exists and user is active member. ",
+                                    400));
                       }
 
                       // step 3: Check user has permission to add
                       // step 4: iterate over each item and add them individually
                       return groupPermissionsService.userHasPermissionError(
-                          ResourceType.GROUP,
-                          ActionType.REMOVE_ITEM_FROM_GROUP,
-                          user.getId(),
+                          requestContext,
                           groupId,
                           GroupPermissionType.REMOVE_ITEMS,
-                          () -> removeEachItemIndividually(itemsToRemove, groupId));
+                          () -> removeEachItemIndividually(context2, itemsToRemove, groupId));
                     }));
   }
 
   Uni<ServiceResponse<GroupItem>> removeEachItemIndividually(
-      final GroupRemoveItemContract itemsToRemove, final long groupId) {
+      final ServiceRequestContext requestContext,
+      final GroupRemoveItemContract itemsToRemove,
+      final long groupId) {
     ArrayList<Uni<ServiceActionResponse<GroupItem>>> individualItemRemove = new ArrayList<>();
 
     itemsToRemove
         .itemsToRemove()
         .forEach(
-            itemContract -> individualItemRemove.add(individualRemoveItem(itemContract, groupId)));
+            itemContract ->
+                individualItemRemove.add(
+                    individualRemoveItem(requestContext, itemContract, groupId)));
 
     return Uni.combine()
         .all()
@@ -804,14 +682,16 @@ public class GroupService {
   }
 
   Uni<ServiceActionResponse<GroupItem>> individualRemoveItem(
-      final GroupItemContract itemToRemove, final long groupId) {
+      final ServiceRequestContext requestContext,
+      final GroupItemContract itemToRemove,
+      final long groupId) {
     // Step 1: Check that the item id is not null and < 0
     if (itemToRemove.itemId() < 0) {
       return Uni.createFrom()
           .item(
               new ServiceActionResponse<>(
-                  ResourceType.GROUP,
-                  ActionType.REMOVE_ITEM_FROM_GROUP,
+                  requestContext.getResourceType(),
+                  requestContext.getActionType(),
                   List.of(
                       ServiceError.builder()
                           .errorCode(ErrorCode.INVALID_INPUT_VALUE)
@@ -825,8 +705,8 @@ public class GroupService {
       return Uni.createFrom()
           .item(
               new ServiceActionResponse<>(
-                  ResourceType.GROUP,
-                  ActionType.REMOVE_ITEM_FROM_GROUP,
+                  requestContext.getResourceType(),
+                  requestContext.getActionType(),
                   List.of(
                       ServiceError.builder()
                           .errorCode(ErrorCode.INVALID_INPUT_VALUE)
@@ -841,8 +721,8 @@ public class GroupService {
             returnedGroupItem -> {
               if (returnedGroupItem == null) {
                 return new ServiceActionResponse<>(
-                    ResourceType.GROUP,
-                    ActionType.REMOVE_ITEM_FROM_GROUP,
+                    requestContext.getResourceType(),
+                    requestContext.getActionType(),
                     List.of(
                         ServiceError.builder()
                             .errorCode(ErrorCode.UNABLE_TO_REMOVE_ITEM_FROM_GROUP)
@@ -859,21 +739,21 @@ public class GroupService {
               }
 
               return new ServiceActionResponse<>(
-                  ResourceType.GROUP, ActionType.REMOVE_ITEM_FROM_GROUP, returnedGroupItem);
+                  requestContext.getResourceType(),
+                  requestContext.getActionType(),
+                  returnedGroupItem);
             });
   }
 
   public Uni<ServiceResponse<List<GroupMember>>> getUsersInGroup(
-      final UserToken userInfo, final long groupId) {
+      final ServiceRequestContext requestContext, final long groupId) {
     // Step 1: Check user exists
     return userService.checkUserExist(
-        userInfo,
-        ResourceType.GROUP,
-        ActionType.GET_USERS_IN_GROUP,
+        requestContext,
         // Step 2: Check user active member of group
-        user ->
+        context2 ->
             groupRepo
-                .userActiveMemberInGroup(user.getId(), groupId)
+                .userActiveMemberInGroup(context2.getUser().getId(), groupId)
                 .chain(
                     isActiveMember -> {
                       if (!isActiveMember) {
@@ -881,8 +761,8 @@ public class GroupService {
                             .item(
                                 new ServiceResponse<>(
                                     new ServiceActionResponse<>(
-                                        ResourceType.GROUP,
-                                        ActionType.GET_USERS_IN_GROUP,
+                                        context2.getResourceType(),
+                                        context2.getActionType(),
                                         List.of(
                                             ServiceError.builder()
                                                 .errorCode(ErrorCode.USER_NOT_ACTIVE)
@@ -899,31 +779,23 @@ public class GroupService {
                               groupMembersList ->
                                   new ServiceResponse<>(
                                       new ServiceActionResponse<>(
-                                          ResourceType.GROUP,
-                                          ActionType.GET_USERS_IN_GROUP,
+                                          context2.getResourceType(),
+                                          context2.getActionType(),
                                           groupMembersList)));
                     }));
   }
 
   public Uni<ServiceResponse<PaginatedResponse<GroupFile>>> getFilesInGroup(
-      final UserToken userInfo,
+      final ServiceRequestContext requestContext,
       final long groupId,
       final PaginationParameters paginationParameters) {
-    ServiceResponse<PaginatedResponse<GroupFile>> response;
-    response =
-        Utils.validatePaginationParameters(
-            paginationParameters, ResourceType.GROUP, ActionType.GET);
-    if (response != null) {
-      return Uni.createFrom().item(response);
-    }
+    Utils.validatePaginationParameters(requestContext, paginationParameters);
 
     return userService.checkUserExist(
-        userInfo,
-        ResourceType.GROUP,
-        ActionType.GET,
-        user ->
+        requestContext,
+        context2 ->
             groupRepo
-                .userActiveMemberInGroup(user.getId(), groupId)
+                .userActiveMemberInGroup(context2.getUser().getId(), groupId)
                 .chain(
                     isActiveMember -> {
                       if (!isActiveMember) {
@@ -931,14 +803,14 @@ public class GroupService {
                             .item(
                                 new ServiceResponse<>(
                                     new ServiceActionResponse<>(
-                                        ResourceType.GROUP,
-                                        ActionType.GET,
+                                        context2.getResourceType(),
+                                        context2.getActionType(),
                                         List.of(
                                             ServiceError.builder()
                                                 .errorCode(ErrorCode.USER_NOT_ACTIVE)
                                                 .errorMessage(
                                                     "User ("
-                                                        + user.getId()
+                                                        + context2.getUser().getId()
                                                         + ") is not an active member of this group ("
                                                         + groupId
                                                         + ").")
@@ -952,8 +824,8 @@ public class GroupService {
                               data ->
                                   new ServiceResponse<>(
                                       new ServiceActionResponse<>(
-                                          ResourceType.GROUP,
-                                          ActionType.GET,
+                                          context2.getResourceType(),
+                                          context2.getActionType(),
                                           paginationMapper.toPaginatedResponse(data))));
                     }));
   }
@@ -980,6 +852,30 @@ public class GroupService {
               }
 
               return activeMemberAction.apply(requestContext);
+            });
+  }
+
+  <T> Uni<ServiceResponse<T>> checkGroupExists(
+      final ServiceRequestContext requestContext,
+      final long groupId,
+      final Function<ServiceRequestContext, Uni<ServiceResponse<T>>> groupExistAction) {
+    return groupRepo
+        .getGroupById(requestContext.getUser().getId(), groupId)
+        .chain(
+            group -> {
+              if (group == null) {
+                return Uni.createFrom()
+                    .item(
+                        Utils.createServiceErrorResponse(
+                            requestContext,
+                            ErrorCode.GROUP_DOES_NOT_EXIST,
+                            "Group (" + groupId + ") does not exist.",
+                            404));
+              }
+
+              requestContext.setData(GROUP_EXIST_KEY, group);
+
+              return groupExistAction.apply(requestContext);
             });
   }
 }

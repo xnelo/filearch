@@ -1,14 +1,12 @@
 package com.xnelo.filearch.restapi.service;
 
-import com.xnelo.filearch.common.model.ActionType;
+import com.xnelo.filearch.common.exception.ServiceResponseException;
 import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.GroupItemType;
 import com.xnelo.filearch.common.model.GroupPermissionType;
-import com.xnelo.filearch.common.model.ResourceType;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.service.context.ServiceRequestContext;
-import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.restapi.data.FileTagsRepo;
 import com.xnelo.filearch.restapi.data.FolderRepo;
 import com.xnelo.filearch.restapi.data.GroupItemsRepo;
@@ -34,6 +32,33 @@ public class GroupItemService {
   @Inject FileTagsRepo fileTagsRepo;
   @Inject GroupPermissionsService groupPermissionsService;
 
+  public Uni<Boolean> checkItemExists(
+      final ServiceRequestContext requestContext, final GroupItemType itemType, final long itemId) {
+    if (itemType == null) {
+      log.warn("Invalid input: item type is null.");
+      throw new ServiceResponseException(
+          requestContext,
+          ErrorCode.INVALID_INPUT_VALUE,
+          "Item type cannot be null",
+          400); // "Item ([" + itemType + "] " + itemId + ") does not exist.", 404);
+    } else if (itemId < 0) {
+      log.warn("Invalid input: itemId is negative.");
+      throw new ServiceResponseException(
+          requestContext, ErrorCode.INVALID_INPUT_VALUE, "Item ID cannot be negative", 400);
+    }
+
+    return switch (itemType) {
+      case FILE -> fileItemExists(itemId, requestContext.getUser().getId());
+      case FOLDER -> folderItemExists(itemId, requestContext.getUser().getId());
+      case UNKNOWN -> {
+        log.warn("Invalid input: itemType is unknown.");
+        throw new ServiceResponseException(
+            requestContext, ErrorCode.INVALID_INPUT_VALUE, "Item type cannot be UNKNOWN", 400);
+      }
+    };
+  }
+
+  @Deprecated
   public Uni<Boolean> itemExists(
       final GroupItemType itemType, final long itemId, final long userId) {
     if (itemType == null) {
@@ -75,128 +100,114 @@ public class GroupItemService {
   }
 
   public Uni<ServiceResponse<Boolean>> assignTagToGroupFile(
-      final UserToken userInfo, final long groupId, final long fileId, final long tagId) {
+      final ServiceRequestContext requestContext,
+      final long groupId,
+      final long fileId,
+      final long tagId) {
     return userService.checkUserExist(
-        userInfo,
-        ResourceType.TAG,
-        ActionType.ASSIGN,
-        user ->
+        requestContext,
+        context2 ->
             groupRepo
-                .userActiveMemberInGroup(user.getId(), groupId)
+                .userActiveMemberInGroup(context2.getUser().getId(), groupId)
                 .chain(
                     isActiveMember -> {
                       if (!isActiveMember) {
                         return Uni.createFrom()
                             .item(
                                 Utils.createServiceErrorResponse(
-                                    ResourceType.TAG,
-                                    ActionType.ASSIGN,
+                                    context2,
                                     ErrorCode.USER_NOT_ACTIVE,
                                     "User is not an active member of group(" + groupId + ").",
                                     400));
                       }
 
-                      return groupPermissionsService
-                          .userHasPermission(user.getId(), groupId, GroupPermissionType.TAG_ITEMS)
-                          .chain(
-                              hasPermission -> {
-                                if (!hasPermission) {
-                                  return Uni.createFrom()
-                                      .item(
-                                          Utils.createServiceErrorResponse(
-                                              ResourceType.TAG,
-                                              ActionType.ASSIGN,
-                                              ErrorCode.PERMISSION_NOT_GRANTED,
-                                              "User does not have permission to add tags.",
-                                              403));
-                                }
+                      return groupPermissionsService.userHasPermissionError(
+                          context2,
+                          groupId,
+                          GroupPermissionType.TAG_ITEMS,
+                          () ->
+                              groupItemsRepo
+                                  .isItemInGroup(fileId, GroupItemType.FILE, groupId)
+                                  .chain(
+                                      itemInGroup -> {
+                                        if (!itemInGroup) {
+                                          return Uni.createFrom()
+                                              .item(
+                                                  Utils.createServiceErrorResponse(
+                                                      context2,
+                                                      ErrorCode.ITEM_NOT_IN_GROUP,
+                                                      "File("
+                                                          + fileId
+                                                          + ") not in group("
+                                                          + groupId
+                                                          + ").",
+                                                      404));
+                                        }
 
-                                return groupItemsRepo
-                                    .isItemInGroup(fileId, GroupItemType.FILE, groupId)
-                                    .chain(
-                                        itemInGroup -> {
-                                          if (!itemInGroup) {
-                                            return Uni.createFrom()
-                                                .item(
-                                                    Utils.createServiceErrorResponse(
-                                                        ResourceType.TAG,
-                                                        ActionType.ASSIGN,
-                                                        ErrorCode.ITEM_NOT_IN_GROUP,
-                                                        "File("
-                                                            + fileId
-                                                            + ") not in group("
-                                                            + groupId
-                                                            + ").",
-                                                        404));
-                                          }
+                                        return sharedTagsRepo
+                                            .tagShareExists(tagId, groupId)
+                                            .chain(
+                                                tagShareExists -> {
+                                                  if (!tagShareExists) {
+                                                    return Uni.createFrom()
+                                                        .item(
+                                                            Utils.createServiceErrorResponse(
+                                                                context2,
+                                                                ErrorCode.TAG_SHARE_DOES_NOT_EXIST,
+                                                                "Tag("
+                                                                    + tagId
+                                                                    + ") is not shared with group("
+                                                                    + groupId
+                                                                    + ").",
+                                                                400));
+                                                  }
 
-                                          return sharedTagsRepo
-                                              .tagShareExists(tagId, groupId)
-                                              .chain(
-                                                  tagShareExists -> {
-                                                    if (!tagShareExists) {
-                                                      return Uni.createFrom()
-                                                          .item(
-                                                              Utils.createServiceErrorResponse(
-                                                                  ResourceType.TAG,
-                                                                  ActionType.ASSIGN,
-                                                                  ErrorCode
-                                                                      .TAG_SHARE_DOES_NOT_EXIST,
-                                                                  "Tag("
-                                                                      + tagId
-                                                                      + ") is not shared with group("
-                                                                      + groupId
-                                                                      + ").",
-                                                                  400));
-                                                    }
-
-                                                    return fileTagsRepo
-                                                        .assignFileMapping(fileId, tagId, groupId)
-                                                        .map(
-                                                            success ->
-                                                                new ServiceResponse<>(
-                                                                    new ServiceActionResponse<>(
-                                                                        ResourceType.TAG,
-                                                                        ActionType.ASSIGN,
-                                                                        success)));
-                                                  });
-                                        });
-                              });
+                                                  return fileTagsRepo
+                                                      .assignFileMapping(fileId, tagId, groupId)
+                                                      .map(
+                                                          success ->
+                                                              new ServiceResponse<>(
+                                                                  new ServiceActionResponse<>(
+                                                                      context2.getResourceType(),
+                                                                      context2.getActionType(),
+                                                                      success)));
+                                                });
+                                      }));
                     }));
   }
 
   public Uni<ServiceResponse<Boolean>> unassignTagFromGroupFile(
-      final UserToken userInfo, final long groupId, final long fileId, final long tagId) {
+      final ServiceRequestContext requestContext,
+      final long groupId,
+      final long fileId,
+      final long tagId) {
     return userService.checkUserExist(
-        userInfo,
-        ResourceType.TAG,
-        ActionType.UNASSIGN,
-        user ->
+        requestContext,
+        context2 ->
             groupRepo
-                .userActiveMemberInGroup(user.getId(), groupId)
+                .userActiveMemberInGroup(context2.getUser().getId(), groupId)
                 .chain(
                     isActiveMember -> {
                       if (!isActiveMember) {
                         return Uni.createFrom()
                             .item(
                                 Utils.createServiceErrorResponse(
-                                    ResourceType.TAG,
-                                    ActionType.UNASSIGN,
+                                    context2,
                                     ErrorCode.USER_NOT_ACTIVE,
                                     "User is not an active member of group(" + groupId + ").",
                                     400));
                       }
 
                       return groupPermissionsService
-                          .userHasPermission(user.getId(), groupId, GroupPermissionType.REMOVE_TAGS)
+                          .userHasPermission(
+                              context2.getUser().getId(), groupId, GroupPermissionType.REMOVE_TAGS)
                           .chain(
                               hasPermission -> {
                                 if (!hasPermission) {
                                   return Uni.createFrom()
                                       .item(
                                           Utils.createServiceErrorResponse(
-                                              ResourceType.TAG,
-                                              ActionType.UNASSIGN,
+                                              context2,
                                               ErrorCode.PERMISSION_NOT_GRANTED,
                                               "User does not have permission to remove tags.",
                                               403));
@@ -208,8 +219,8 @@ public class GroupItemService {
                                         success ->
                                             new ServiceResponse<>(
                                                 new ServiceActionResponse<>(
-                                                    ResourceType.TAG,
-                                                    ActionType.UNASSIGN,
+                                                    context2.getResourceType(),
+                                                    context2.getActionType(),
                                                     success)));
                               });
                     }));
