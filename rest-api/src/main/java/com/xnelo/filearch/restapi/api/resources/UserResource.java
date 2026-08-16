@@ -32,8 +32,14 @@ public class UserResource {
   @RolesAllowed("user")
   @Path("{id}")
   public Uni<Response> getUser(@PathParam("id") int userId) {
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.USER)
+            .actionType(ActionType.GET)
+            .build();
+
     return userService
-        .getUserById(userId)
+        .getUserById(requestContext, userId)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toUserContract));
@@ -45,8 +51,16 @@ public class UserResource {
     UserToken userToken = userTokenHandler.getUserInfo();
     Log.infof(
         "Create User: input=%s token=%s", toJsonString(userContract), toJsonString(userToken));
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.USER)
+            .actionType(ActionType.CREATE)
+            .userToken(userToken)
+            .build();
+
     return userService
-        .createUser(userContract, userToken)
+        .createUser(requestContext, userContract)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toUserContract));
@@ -58,8 +72,16 @@ public class UserResource {
     UserToken userToken = userTokenHandler.getUserInfo();
     Log.infof(
         "Updating user: input=%s token=%s", toJsonString(userContract), toJsonString(userToken));
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.USER)
+            .actionType(ActionType.UPDATE)
+            .userToken(userToken)
+            .build();
+
     return userService
-        .updateUser(userContract, userToken)
+        .updateUser(requestContext, userContract)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toUserContract));
@@ -89,8 +111,16 @@ public class UserResource {
   @RolesAllowed("user")
   public Uni<Response> getUserByExternalId() {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .userToken(userToken)
+            .resourceType(ResourceType.USER)
+            .actionType(ActionType.GET)
+            .build();
+
     return userService
-        .getUserFromUserToken(userToken)
+        .getUserFromUserToken(requestContext)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toUserContract));
