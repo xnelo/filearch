@@ -11,7 +11,6 @@ import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.service.context.ServiceRequestContext;
 import com.xnelo.filearch.common.service.storage.StorageService;
-import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.restapi.api.contracts.FileUploadContract;
 import com.xnelo.filearch.restapi.api.mappers.PaginationMapper;
 import com.xnelo.filearch.restapi.config.FilearchConfig;
@@ -77,104 +76,37 @@ public class FileService {
   }
 
   public Uni<ServiceResponse<List<Long>>> getAllFileIdsInFolder(
-      final UserToken userToken, final Long folderId) {
-    return userService
-        .getUserFromUserToken(userToken)
-        .chain(
-            userResponse -> {
-              User user = userResponse.getActionResponses().getFirst().getData();
-              if (user == null) {
-                return Uni.createFrom()
-                    .item(
+      final ServiceRequestContext requestContext, final Long folderId) {
+    return userService.checkUserExist(
+        requestContext,
+        context1 ->
+            storedFilesRepo
+                .getFileIdsInFolder(context1.getUser().getId(), folderId)
+                .map(
+                    fileIds ->
                         new ServiceResponse<>(
                             new ServiceActionResponse<>(
-                                ResourceType.FILE_IDS,
-                                ActionType.GET,
-                                List.of(
-                                    ServiceError.builder()
-                                        .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
-                                        .errorMessage("User does not exist.")
-                                        .httpCode(404)
-                                        .build()))));
-              }
-
-              return storedFilesRepo
-                  .getFileIdsInFolder(user.getId(), folderId)
-                  .map(
-                      fileIds ->
-                          new ServiceResponse<>(
-                              new ServiceActionResponse<>(
-                                  ResourceType.FILE_IDS, ActionType.GET, fileIds)));
-            });
+                                ResourceType.FILE_IDS, ActionType.GET, fileIds))));
   }
 
   public Uni<ServiceResponse<PaginatedResponse<File>>> getAllFilesInFolder(
-      final UserToken userInfo,
+      final ServiceRequestContext requestContext,
       final Long folderId,
       final PaginationParameters paginationParameters) {
-    if (paginationParameters.getAfter() != null && paginationParameters.getAfter() < 0) {
-      return Uni.createFrom()
-          .item(
-              new ServiceResponse<>(
-                  new ServiceActionResponse<>(
-                      ResourceType.FILE,
-                      ActionType.GET,
-                      List.of(
-                          ServiceError.builder()
-                              .errorCode(ErrorCode.INVALID_AFTER_VALUE)
-                              .errorMessage("After value must be greater than 0.")
-                              .httpCode(400)
-                              .build()))));
-    }
+    Utils.validatePaginationParameters(requestContext, paginationParameters);
 
-    if (paginationParameters.getLimit() != null && paginationParameters.getLimit() <= 0) {
-      return Uni.createFrom()
-          .item(
-              new ServiceResponse<>(
-                  new ServiceActionResponse<>(
-                      ResourceType.FILE,
-                      ActionType.GET,
-                      List.of(
-                          ServiceError.builder()
-                              .errorCode(ErrorCode.INVALID_RESPONSE_LIMIT)
-                              .errorMessage(
-                                  "A return limit of '"
-                                      + paginationParameters.getLimit()
-                                      + "' is invalid. Must be greater than 0")
-                              .httpCode(400)
-                              .build()))));
-    }
-
-    return userService
-        .getUserFromUserToken(userInfo)
-        .chain(
-            userResponse -> {
-              User user = userResponse.getActionResponses().getFirst().getData();
-              if (user == null) {
-                return Uni.createFrom()
-                    .item(
+    return userService.checkUserExist(
+        requestContext,
+        context2 ->
+            storedFilesRepo
+                .getFilesInFolder(folderId, context2.getUser().getId(), paginationParameters)
+                .map(
+                    paginatedFiles ->
                         new ServiceResponse<>(
                             new ServiceActionResponse<>(
                                 ResourceType.FILE,
                                 ActionType.GET,
-                                List.of(
-                                    ServiceError.builder()
-                                        .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
-                                        .errorMessage("User does not exist.")
-                                        .httpCode(404)
-                                        .build()))));
-              }
-
-              return storedFilesRepo
-                  .getFilesInFolder(folderId, user.getId(), paginationParameters)
-                  .map(
-                      paginatedFiles ->
-                          new ServiceResponse<>(
-                              new ServiceActionResponse<>(
-                                  ResourceType.FILE,
-                                  ActionType.GET,
-                                  paginationMapper.toPaginatedResponse(paginatedFiles))));
-            });
+                                paginationMapper.toPaginatedResponse(paginatedFiles)))));
   }
 
   public Uni<ServiceResponse<File>> uploadFiles(

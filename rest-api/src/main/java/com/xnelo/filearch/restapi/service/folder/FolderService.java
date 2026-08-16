@@ -6,7 +6,6 @@ import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.service.context.ServiceRequestContext;
-import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.utils.Lists;
 import com.xnelo.filearch.restapi.api.contracts.FolderContract;
 import com.xnelo.filearch.restapi.api.mappers.PaginationMapper;
@@ -62,75 +61,25 @@ public class FolderService {
   }
 
   public Uni<ServiceResponse<PaginatedResponse<File>>> getAllFilesInFolder(
-      final UserToken userInfo,
+      final ServiceRequestContext requestContext,
       final Long folderId,
       final PaginationParameters paginationParameters) {
-    if (paginationParameters.getAfter() != null && paginationParameters.getAfter() < 0) {
-      return Uni.createFrom()
-          .item(
-              new ServiceResponse<>(
-                  new ServiceActionResponse<>(
-                      ResourceType.FOLDER,
-                      ActionType.GET,
-                      List.of(
-                          ServiceError.builder()
-                              .errorCode(ErrorCode.INVALID_AFTER_VALUE)
-                              .errorMessage("After value must be greater than 0.")
-                              .httpCode(400)
-                              .build()))));
-    }
 
-    if (paginationParameters.getLimit() != null && paginationParameters.getLimit() <= 0) {
-      return Uni.createFrom()
-          .item(
-              new ServiceResponse<>(
-                  new ServiceActionResponse<>(
-                      ResourceType.FILE,
-                      ActionType.GET,
-                      List.of(
-                          ServiceError.builder()
-                              .errorCode(ErrorCode.INVALID_RESPONSE_LIMIT)
-                              .errorMessage(
-                                  "A return limit of '"
-                                      + paginationParameters.getLimit()
-                                      + "' is invalid. Must be greater than 0")
-                              .httpCode(400)
-                              .build()))));
-    }
+    Utils.validatePaginationParameters(requestContext, paginationParameters);
 
-    return userService
-        .getUserFromUserToken(userInfo)
-        .chain(
-            userResponse -> {
-              User user = userResponse.getActionResponses().getFirst().getData();
-              if (user == null) {
-                return Uni.createFrom()
-                    .item(
-                        new ServiceResponse<>(
-                            new ServiceActionResponse<>(
-                                ResourceType.FOLDER,
-                                ActionType.GET,
-                                List.of(
-                                    ServiceError.builder()
-                                        .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
-                                        .errorMessage("User does not exist.")
-                                        .httpCode(404)
-                                        .build()))));
-              }
-
-              return checkFolderExist(
-                  folderId,
-                  user.getId(),
-                  ResourceType.FOLDER,
-                  ActionType.GET,
-                  folder ->
-                      fileService.getAllFilesInFolder(userInfo, folderId, paginationParameters));
-            });
+    return userService.checkUserExist(
+        requestContext,
+        context2 ->
+            checkFolderExist(
+                context2,
+                folderId,
+                context3 ->
+                    fileService.getAllFilesInFolder(context3, folderId, paginationParameters)));
   }
 
   public Uni<ServiceResponse<List<Long>>> getAllFileIdsInFolder(
-      final UserToken userInfo, final long folderId) {
-    return fileService.getAllFileIdsInFolder(userInfo, folderId);
+      final ServiceRequestContext requestContext, final long folderId) {
+    return fileService.getAllFileIdsInFolder(requestContext, folderId);
   }
 
   @Deprecated

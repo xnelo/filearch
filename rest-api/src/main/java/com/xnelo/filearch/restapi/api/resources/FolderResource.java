@@ -144,10 +144,19 @@ public class FolderResource {
   public Uni<Response> getFilesInFolder(
       @PathParam("id") long folderId, @BeanParam PaginationRequest paginationRequest) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FOLDER)
+            .actionType(ActionType.GET)
+            .userToken(userToken)
+            .build();
+
     PaginationParameters paginationParameters =
         contractMapper.toPaginationParameters(paginationRequest);
+
     return folderService
-        .getAllFilesInFolder(userToken, folderId, paginationParameters)
+        .getAllFilesInFolder(requestContext, folderId, paginationParameters)
         .map(
             paginatedServiceResponse ->
                 contractMapper.toApiResponse(
@@ -162,8 +171,16 @@ public class FolderResource {
   @Path("{id}/files/all_ids")
   public Uni<Response> getAllFileIdsInFolder(@PathParam("id") long folderId) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FOLDER)
+            .actionType(ActionType.GET)
+            .userToken(userToken)
+            .build();
+
     return folderService
-        .getAllFileIdsInFolder(userToken, folderId)
+        .getAllFileIdsInFolder(requestContext, folderId)
         .map(idResponse -> contractMapper.toApiResponse(idResponse, ids -> ids));
   }
 }
