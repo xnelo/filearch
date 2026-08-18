@@ -568,39 +568,6 @@ public class FileService {
             });
   }
 
-  @Deprecated
-  public <T> Uni<ServiceResponse<T>> checkFileExists(
-      final long fileId,
-      final long userId,
-      final ResourceType resourceType,
-      final ActionType actionType,
-      final Function<File, Uni<ServiceResponse<T>>> fileExistAction) {
-    return storedFilesRepo
-        .getStoredFile(fileId, userId)
-        .chain(
-            file -> {
-              if (file == null) {
-                return Uni.createFrom()
-                    .item(
-                        new ServiceResponse<>(
-                            new ServiceActionResponse<>(
-                                resourceType,
-                                actionType,
-                                List.of(
-                                    ServiceError.builder()
-                                        .errorCode(ErrorCode.FILE_DOES_NOT_EXIST)
-                                        .errorMessage(
-                                            "Operation could not complete because file '"
-                                                + fileId
-                                                + "' does not exist.")
-                                        .httpCode(404)
-                                        .build()))));
-              }
-
-              return fileExistAction.apply(file);
-            });
-  }
-
   public Uni<ServiceResponse<Boolean>> assignTag(
       final ServiceRequestContext requestContext, final long fileId, final long tagId) {
     return userService.checkUserExist(

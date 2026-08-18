@@ -8,7 +8,7 @@ import lombok.Getter;
 public class FolderNode {
   private final Folder data;
   FolderNode parent;
-  @Getter List<FolderNode> children = new ArrayList<>();
+  @Getter final List<FolderNode> children = new ArrayList<>();
 
   private FolderNode(final Folder data) {
     this.data = data;

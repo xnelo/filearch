@@ -1,12 +1,10 @@
 package com.xnelo.filearch.restapi.service;
 
 import com.xnelo.filearch.common.exception.ServiceResponseException;
-import com.xnelo.filearch.common.model.ActionType;
 import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.GroupMemberAllPermissions;
 import com.xnelo.filearch.common.model.GroupMemberPermission;
 import com.xnelo.filearch.common.model.GroupPermissionType;
-import com.xnelo.filearch.common.model.ResourceType;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
@@ -243,6 +241,17 @@ public class GroupPermissionsService {
                     }));
   }
 
+  /**
+   * Check if a specific user has a specific permission. This will throw a ServiceResponseException
+   * exception if the user does NOT have the required permission.
+   *
+   * @param requestContext The context of the overall request.
+   * @param groupId The group the user needs permissions on.
+   * @param permissionNeeded The specific permission needed for the action.
+   * @param hasPermissionAction The action to execute if the permission exists and is valid.
+   * @return A Uni with the ServiceResponse in it.
+   * @param <T> The specific resource type object.
+   */
   public <T> Uni<ServiceResponse<T>> userHasPermissionError(
       final ServiceRequestContext requestContext,
       final long groupId,
@@ -263,57 +272,6 @@ public class GroupPermissionsService {
                         + groupId
                         + ").",
                     403);
-              }
-
-              return hasPermissionAction.get();
-            });
-  }
-
-  /**
-   * Check if a specific user has a specific permission. This will return an error in the
-   * ServiceResponse object if the user does NOT have the required permission.
-   *
-   * @param resourceType The resource the action is being performed on.
-   * @param actionType The action that is being performed.
-   * @param userId The user who needs permission.
-   * @param groupId The group the user needs permissions on.
-   * @param permissionNeeded The specific permission needed for the action.
-   * @param hasPermissionAction The action to execute if the permission exists and is valid.
-   * @return A Uni with the ServiceResponse in it. If the user does NOT have the permission then a
-   *     ServiceResponse with an error is returned.
-   * @param <T> The specific resource type object.
-   */
-  @Deprecated
-  public <T> Uni<ServiceResponse<T>> userHasPermissionError(
-      final ResourceType resourceType,
-      final ActionType actionType,
-      final long userId,
-      final long groupId,
-      final GroupPermissionType permissionNeeded,
-      final Supplier<Uni<ServiceResponse<T>>> hasPermissionAction) {
-    return userHasPermission(userId, groupId, permissionNeeded)
-        .chain(
-            hasPermission -> {
-              if (!hasPermission) {
-                return Uni.createFrom()
-                    .item(
-                        new ServiceResponse<>(
-                            new ServiceActionResponse<>(
-                                resourceType,
-                                actionType,
-                                List.of(
-                                    ServiceError.builder()
-                                        .errorCode(ErrorCode.PERMISSION_NOT_GRANTED)
-                                        .errorMessage(
-                                            "User("
-                                                + userId
-                                                + ") does not have permission("
-                                                + permissionNeeded
-                                                + ") on group("
-                                                + groupId
-                                                + ").")
-                                        .httpCode(403)
-                                        .build()))));
               }
 
               return hasPermissionAction.get();
