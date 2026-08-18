@@ -2,7 +2,11 @@ package com.xnelo.filearch.restapi.api.resources;
 
 import static com.xnelo.filearch.common.json.JsonUtil.toJsonString;
 
+import com.xnelo.filearch.common.model.ActionType;
 import com.xnelo.filearch.common.model.PaginationParameters;
+import com.xnelo.filearch.common.model.ResourceType;
+import com.xnelo.filearch.common.service.context.ServiceRequestContext;
+import com.xnelo.filearch.common.service.context.ServiceRequestContextImpl;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.usertoken.UserTokenHandler;
 import com.xnelo.filearch.restapi.api.contracts.FolderContract;
@@ -29,10 +33,18 @@ public class FolderResource {
   @RolesAllowed("user")
   public Uni<Response> getAll(@BeanParam PaginationRequest paginationRequest) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FOLDER)
+            .actionType(ActionType.GET)
+            .userToken(userToken)
+            .build();
+
     PaginationParameters paginationParameters =
         contractMapper.toPaginationParameters(paginationRequest);
     return folderService
-        .getAllFolders(userToken, paginationParameters)
+        .getAllFolders(requestContext, paginationParameters)
         .map(
             paginatedServiceResponse ->
                 contractMapper.toApiResponse(
@@ -48,8 +60,16 @@ public class FolderResource {
     UserToken userToken = userTokenHandler.getUserInfo();
     Log.debugf(
         "Creating new Folder: input=%s token=%s", toJsonString(newFolder), toJsonString(userToken));
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FOLDER)
+            .actionType(ActionType.CREATE)
+            .userToken(userToken)
+            .build();
+
     return folderService
-        .createNewFolder(newFolder, userToken)
+        .createNewFolder(requestContext, newFolder)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toFolderContract));
@@ -60,8 +80,16 @@ public class FolderResource {
   @Path("{id}")
   public Uni<Response> getFolder(@PathParam("id") long folderId) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FOLDER)
+            .actionType(ActionType.GET)
+            .userToken(userToken)
+            .build();
+
     return folderService
-        .getFolderById(folderId, userToken)
+        .getFolderById(requestContext, folderId)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toFolderContract));
@@ -73,8 +101,16 @@ public class FolderResource {
   public Uni<Response> updateFolder(
       @PathParam("id") long folderId, final FolderContract folderData) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FOLDER)
+            .actionType(ActionType.GET)
+            .userToken(userToken)
+            .build();
+
     return folderService
-        .updateFolder(folderId, userToken, folderData)
+        .updateFolder(requestContext, folderId, folderData)
         .map(
             folderServiceResponse ->
                 contractMapper.toApiResponse(
@@ -86,8 +122,16 @@ public class FolderResource {
   @Path("{id}")
   public Uni<Response> deleteFolder(@PathParam("id") long folderId) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FOLDER)
+            .actionType(ActionType.DELETE)
+            .userToken(userToken)
+            .build();
+
     return folderService
-        .deleteFolder(folderId, userToken)
+        .deleteFolder(requestContext, folderId)
         .map(
             folderServiceDeleted ->
                 contractMapper.toApiResponse(
@@ -100,10 +144,19 @@ public class FolderResource {
   public Uni<Response> getFilesInFolder(
       @PathParam("id") long folderId, @BeanParam PaginationRequest paginationRequest) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FOLDER)
+            .actionType(ActionType.GET)
+            .userToken(userToken)
+            .build();
+
     PaginationParameters paginationParameters =
         contractMapper.toPaginationParameters(paginationRequest);
+
     return folderService
-        .getAllFilesInFolder(userToken, folderId, paginationParameters)
+        .getAllFilesInFolder(requestContext, folderId, paginationParameters)
         .map(
             paginatedServiceResponse ->
                 contractMapper.toApiResponse(
@@ -118,8 +171,16 @@ public class FolderResource {
   @Path("{id}/files/all_ids")
   public Uni<Response> getAllFileIdsInFolder(@PathParam("id") long folderId) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FOLDER)
+            .actionType(ActionType.GET)
+            .userToken(userToken)
+            .build();
+
     return folderService
-        .getAllFileIdsInFolder(userToken, folderId)
+        .getAllFileIdsInFolder(requestContext, folderId)
         .map(idResponse -> contractMapper.toApiResponse(idResponse, ids -> ids));
   }
 }

@@ -5,7 +5,7 @@ import com.xnelo.filearch.common.service.PaginatedResponse;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
-import com.xnelo.filearch.common.usertoken.UserToken;
+import com.xnelo.filearch.common.service.context.ServiceRequestContext;
 import com.xnelo.filearch.restapi.api.contracts.TagContract;
 import com.xnelo.filearch.restapi.api.contracts.TagShareBulkContract;
 import com.xnelo.filearch.restapi.api.contracts.TagShareContract;
@@ -27,6 +27,8 @@ import org.mapstruct.factory.Mappers;
 
 @RequestScoped
 public class TagService {
+  public static final String TAG_DATA_KEY = "TAG_DATA__TAG";
+
   @Inject UserService userService;
   @Inject TagRepo tagRepo;
   @Inject FileTagsRepo fileTagsRepo;
@@ -36,82 +38,34 @@ public class TagService {
   @Inject FileService fileService;
 
   public Uni<ServiceResponse<PaginatedResponse<Tag>>> getAllTags(
-      final UserToken userInfo, final PaginationParameters paginationParameters) {
-    if (paginationParameters.getAfter() != null && paginationParameters.getAfter() < 0) {
-      return Uni.createFrom()
-          .item(
-              new ServiceResponse<>(
-                  new ServiceActionResponse<>(
-                      ResourceType.TAG,
-                      ActionType.GET,
-                      List.of(
-                          ServiceError.builder()
-                              .errorCode(ErrorCode.INVALID_AFTER_VALUE)
-                              .errorMessage("After value must be greater than 0.")
-                              .httpCode(400)
-                              .build()))));
-    }
+      final ServiceRequestContext requestContext, final PaginationParameters paginationParameters) {
+    Utils.validatePaginationParameters(requestContext, paginationParameters);
 
-    if (paginationParameters.getLimit() != null && paginationParameters.getLimit() <= 0) {
-      return Uni.createFrom()
-          .item(
-              new ServiceResponse<>(
-                  new ServiceActionResponse<>(
-                      ResourceType.TAG,
-                      ActionType.GET,
-                      List.of(
-                          ServiceError.builder()
-                              .errorCode(ErrorCode.INVALID_RESPONSE_LIMIT)
-                              .errorMessage(
-                                  "A return limit of '"
-                                      + paginationParameters.getLimit()
-                                      + "' is invalid. Must be greater than 0")
-                              .httpCode(400)
-                              .build()))));
-    }
-
-    return userService
-        .getUserFromUserToken(userInfo)
-        .chain(
-            userResponse -> {
-              User user = userResponse.getActionResponses().getFirst().getData();
-              if (user == null) {
-                return Uni.createFrom()
-                    .item(
+    return userService.checkUserExist(
+        requestContext,
+        context2 ->
+            tagRepo
+                .getAll(context2.getUser().getId(), paginationParameters)
+                .map(
+                    paginatedTags ->
                         new ServiceResponse<>(
                             new ServiceActionResponse<>(
-                                ResourceType.TAG,
-                                ActionType.GET,
-                                List.of(
-                                    ServiceError.builder()
-                                        .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
-                                        .errorMessage("User does not exist.")
-                                        .httpCode(404)
-                                        .build()))));
-              }
-
-              return tagRepo
-                  .getAll(user.getId(), paginationParameters)
-                  .map(
-                      paginatedTags ->
-                          new ServiceResponse<>(
-                              new ServiceActionResponse<>(
-                                  ResourceType.TAG,
-                                  ActionType.GET,
-                                  paginationMapper.toPaginatedResponse(paginatedTags))));
-            });
+                                context2.getResourceType(),
+                                context2.getActionType(),
+                                paginationMapper.toPaginatedResponse(paginatedTags)))));
   }
 
-  public Uni<ServiceResponse<Tag>> getTagById(final long tagId, final long userId) {
+  Uni<ServiceResponse<Tag>> getTagByIdNoUserCheck(
+      final ServiceRequestContext requestContext, final long tagId) {
     return tagRepo
-        .getTagById(tagId, userId)
+        .getTagById(tagId, requestContext.getUser().getId())
         .map(
             tag -> {
               if (tag == null) {
                 return new ServiceResponse<>(
                     new ServiceActionResponse<>(
-                        ResourceType.TAG,
-                        ActionType.GET,
+                        requestContext.getResourceType(),
+                        requestContext.getActionType(),
                         List.of(
                             ServiceError.builder()
                                 .errorCode(ErrorCode.TAG_DOES_NOT_EXIST)
@@ -121,24 +75,24 @@ public class TagService {
               }
 
               return new ServiceResponse<>(
-                  new ServiceActionResponse<>(ResourceType.TAG, ActionType.GET, tag));
+                  new ServiceActionResponse<>(
+                      requestContext.getResourceType(), requestContext.getActionType(), tag));
             });
   }
 
-  public Uni<ServiceResponse<Tag>> getTagById(final long tagId, final UserToken userToken) {
+  public Uni<ServiceResponse<Tag>> getTagById(
+      final ServiceRequestContext requestContext, final long tagId) {
     return userService.checkUserExist(
-        userToken, ResourceType.TAG, ActionType.GET, user -> getTagById(tagId, user.getId()));
+        requestContext, context2 -> getTagByIdNoUserCheck(context2, tagId));
   }
 
   public Uni<ServiceResponse<Tag>> createNewTag(
-      final TagContract newTag, final UserToken userToken) {
+      final ServiceRequestContext requestContext, final TagContract newTag) {
     return userService.checkUserExist(
-        userToken,
-        ResourceType.TAG,
-        ActionType.CREATE,
-        user ->
+        requestContext,
+        context2 ->
             tagRepo
-                .tagNameExists(user.getId(), newTag.getTagName())
+                .tagNameExists(context2.getUser().getId(), newTag.getTagName())
                 .chain(
                     nameExists -> {
                       if (nameExists) {
@@ -146,8 +100,8 @@ public class TagService {
                             .item(
                                 new ServiceResponse<>(
                                     new ServiceActionResponse<>(
-                                        ResourceType.TAG,
-                                        ActionType.CREATE,
+                                        context2.getResourceType(),
+                                        context2.getActionType(),
                                         List.of(
                                             ServiceError.builder()
                                                 .httpCode(400)
@@ -161,24 +115,26 @@ public class TagService {
 
                       // All checks passed... insert new tag
                       return tagRepo
-                          .createTag(user.getId(), newTag.getTagName())
+                          .createTag(context2.getUser().getId(), newTag.getTagName())
                           .map(
                               newlyCreatedTag ->
                                   new ServiceResponse<>(
                                       new ServiceActionResponse<>(
-                                          ResourceType.TAG, ActionType.CREATE, newlyCreatedTag)));
+                                          context2.getResourceType(),
+                                          context2.getActionType(),
+                                          newlyCreatedTag)));
                     }));
   }
 
   public Uni<ServiceResponse<Tag>> updateTag(
-      final long tagId, final UserToken userInfo, final TagContract tagData) {
+      final ServiceRequestContext requestContext, final long tagId, final TagContract tagData) {
     if (tagData.getId() != null) {
       return Uni.createFrom()
           .item(
               new ServiceResponse<>(
                   new ServiceActionResponse<>(
-                      ResourceType.TAG,
-                      ActionType.UPDATE,
+                      requestContext.getResourceType(),
+                      requestContext.getActionType(),
                       List.of(
                           ServiceError.builder()
                               .errorCode(ErrorCode.TAG_ID_CANNOT_BE_UPDATED)
@@ -190,8 +146,8 @@ public class TagService {
           .item(
               new ServiceResponse<>(
                   new ServiceActionResponse<>(
-                      ResourceType.TAG,
-                      ActionType.UPDATE,
+                      requestContext.getResourceType(),
+                      requestContext.getActionType(),
                       List.of(
                           ServiceError.builder()
                               .errorCode(ErrorCode.TAG_OWNER_CANNOT_BE_UPDATED)
@@ -200,96 +156,89 @@ public class TagService {
                               .build()))));
     }
 
-    return userService
-        .getUserFromUserToken(userInfo)
-        .chain(
-            userResponse -> {
-              if (userResponse.hasError()) {
-                return updateErrorAndPassThrough(userResponse);
-              }
-              User user = userResponse.getActionResponses().getFirst().getData();
-              return tagRepo
-                  .getTagById(tagId, user.getId())
-                  .chain(
-                      existingTag -> {
-                        if (existingTag == null) {
-                          return Uni.createFrom()
-                              .item(
-                                  new ServiceResponse<>(
-                                      new ServiceActionResponse<>(
-                                          ResourceType.TAG,
-                                          ActionType.UPDATE,
-                                          List.of(
-                                              ServiceError.builder()
-                                                  .errorCode(ErrorCode.TAG_DOES_NOT_EXIST)
-                                                  .errorMessage("Tag does not exist.")
-                                                  .httpCode(404)
-                                                  .build()))));
-                        }
-                        if (tagData.getTagName() == null) {
-                          return Uni.createFrom()
-                              .item(
-                                  new ServiceResponse<>(
-                                      new ServiceActionResponse<>(
-                                          ResourceType.TAG,
-                                          ActionType.UPDATE,
-                                          List.of(
-                                              ServiceError.builder()
-                                                  .errorCode(ErrorCode.TAG_NO_UPDATES_EXECUTED)
-                                                  .errorMessage(
-                                                      "No updates to execute on this tag.")
-                                                  .httpCode(400)
-                                                  .build()))));
-                        }
-                        // check if tag name exists for user
-                        return tagRepo
-                            .tagNameExists(user.getId(), tagData.getTagName())
-                            .chain(
-                                nameExists -> {
-                                  if (nameExists) {
-                                    return Uni.createFrom()
-                                        .item(
+    return userService.checkUserExist(
+        requestContext,
+        context2 ->
+            tagRepo
+                .getTagById(tagId, context2.getUser().getId())
+                .chain(
+                    existingTag -> {
+                      if (existingTag == null) {
+                        return Uni.createFrom()
+                            .item(
+                                new ServiceResponse<>(
+                                    new ServiceActionResponse<>(
+                                        context2.getResourceType(),
+                                        context2.getActionType(),
+                                        List.of(
+                                            ServiceError.builder()
+                                                .errorCode(ErrorCode.TAG_DOES_NOT_EXIST)
+                                                .errorMessage("Tag does not exist.")
+                                                .httpCode(404)
+                                                .build()))));
+                      }
+                      if (tagData.getTagName() == null) {
+                        return Uni.createFrom()
+                            .item(
+                                new ServiceResponse<>(
+                                    new ServiceActionResponse<>(
+                                        context2.getResourceType(),
+                                        context2.getActionType(),
+                                        List.of(
+                                            ServiceError.builder()
+                                                .errorCode(ErrorCode.TAG_NO_UPDATES_EXECUTED)
+                                                .errorMessage("No updates to execute on this tag.")
+                                                .httpCode(400)
+                                                .build()))));
+                      }
+                      // check if tag name exists for user
+                      return tagRepo
+                          .tagNameExists(context2.getUser().getId(), tagData.getTagName())
+                          .chain(
+                              nameExists -> {
+                                if (nameExists) {
+                                  return Uni.createFrom()
+                                      .item(
+                                          new ServiceResponse<>(
+                                              new ServiceActionResponse<>(
+                                                  context2.getResourceType(),
+                                                  context2.getActionType(),
+                                                  List.of(
+                                                      ServiceError.builder()
+                                                          .errorCode(
+                                                              ErrorCode
+                                                                  .TAG_WITH_NAME_ALREADY_EXISTS)
+                                                          .errorMessage(
+                                                              "A tag with name '"
+                                                                  + tagData.getTagName()
+                                                                  + "' already exists.")
+                                                          .httpCode(400)
+                                                          .build()))));
+                                }
+
+                                return tagRepo
+                                    .updateName(
+                                        tagId, context2.getUser().getId(), tagData.getTagName())
+                                    .map(
+                                        updatedTag ->
                                             new ServiceResponse<>(
                                                 new ServiceActionResponse<>(
-                                                    ResourceType.TAG,
-                                                    ActionType.UPDATE,
-                                                    List.of(
-                                                        ServiceError.builder()
-                                                            .errorCode(
-                                                                ErrorCode
-                                                                    .TAG_WITH_NAME_ALREADY_EXISTS)
-                                                            .errorMessage(
-                                                                "A tag with name '"
-                                                                    + tagData.getTagName()
-                                                                    + "' already exists.")
-                                                            .httpCode(400)
-                                                            .build()))));
-                                  }
-
-                                  return tagRepo
-                                      .updateName(tagId, user.getId(), tagData.getTagName())
-                                      .map(
-                                          updatedTag ->
-                                              new ServiceResponse<>(
-                                                  new ServiceActionResponse<>(
-                                                      ResourceType.TAG,
-                                                      ActionType.UPDATE,
-                                                      updatedTag)));
-                                });
-                      });
-            });
+                                                    context2.getResourceType(),
+                                                    context2.getActionType(),
+                                                    updatedTag)));
+                              });
+                    }));
   }
 
-  public Uni<ServiceResponse<Tag>> deleteTag(final UserToken userInfo, final long tagId) {
+  public Uni<ServiceResponse<Tag>> deleteTag(
+      final ServiceRequestContext requestContext, final long tagId) {
     return userService.checkUserExist(
-        userInfo,
-        ResourceType.TAG,
-        ActionType.DELETE,
-        user -> deleteIfTagExists(user.getId(), tagId));
+        requestContext, context2 -> deleteIfTagExists(context2, tagId));
   }
 
-  public Uni<ServiceResponse<Tag>> deleteIfTagExists(final long userId, final long tagId) {
-    return getTagById(tagId, userId)
+  public Uni<ServiceResponse<Tag>> deleteIfTagExists(
+      final ServiceRequestContext requestContext, final long tagId) {
+    return getTagByIdNoUserCheck(requestContext, tagId)
         .chain(
             tagServiceResponse -> {
               if (tagServiceResponse.hasError()) {
@@ -307,8 +256,8 @@ public class TagService {
                               .item(
                                   new ServiceResponse<>(
                                       new ServiceActionResponse<>(
-                                          ResourceType.TAG,
-                                          ActionType.DELETE,
+                                          requestContext.getResourceType(),
+                                          requestContext.getActionType(),
                                           List.of(
                                               ServiceError.builder()
                                                   .errorCode(ErrorCode.DB_ERROR)
@@ -329,8 +278,8 @@ public class TagService {
                                         .item(
                                             new ServiceResponse<>(
                                                 new ServiceActionResponse<>(
-                                                    ResourceType.TAG,
-                                                    ActionType.DELETE,
+                                                    requestContext.getResourceType(),
+                                                    requestContext.getActionType(),
                                                     List.of(
                                                         ServiceError.builder()
                                                             .errorCode(
@@ -345,14 +294,14 @@ public class TagService {
                                   }
 
                                   return tagRepo
-                                      .deleteTag(userId, tagId)
+                                      .deleteTag(requestContext.getUser().getId(), tagId)
                                       .map(
                                           deleteTagSuccess -> {
                                             if (!deleteTagSuccess) {
                                               return new ServiceResponse<>(
                                                   new ServiceActionResponse<>(
-                                                      ResourceType.TAG,
-                                                      ActionType.DELETE,
+                                                      requestContext.getResourceType(),
+                                                      requestContext.getActionType(),
                                                       List.of(
                                                           ServiceError.builder()
                                                               .errorCode(
@@ -367,7 +316,9 @@ public class TagService {
                                             }
                                             return new ServiceResponse<>(
                                                 new ServiceActionResponse<>(
-                                                    ResourceType.TAG, ActionType.DELETE, tagData));
+                                                    requestContext.getResourceType(),
+                                                    requestContext.getActionType(),
+                                                    tagData));
                                           });
                                 });
                       });
@@ -375,56 +326,41 @@ public class TagService {
   }
 
   public <T> Uni<ServiceResponse<T>> checkIfTagExists(
-      final long userId,
+      final ServiceRequestContext requestContext,
       final long tagId,
-      final ResourceType resourceType,
-      final ActionType actionType,
-      final Function<Tag, Uni<ServiceResponse<T>>> tagExistAction) {
-    return getTagById(tagId, userId)
+      final Function<ServiceRequestContext, Uni<ServiceResponse<T>>> tagExistAction) {
+    return tagRepo
+        .getTagById(tagId, requestContext.getUser().getId())
         .chain(
-            tagResponse -> {
-              Tag tag = tagResponse.getActionResponses().getFirst().getData();
+            tag -> {
               if (tag == null) {
                 return Uni.createFrom()
                     .item(
-                        new ServiceResponse<>(
-                            new ServiceActionResponse<>(
-                                resourceType,
-                                actionType,
-                                List.of(
-                                    ServiceError.builder()
-                                        .errorCode(ErrorCode.TAG_DOES_NOT_EXIST)
-                                        .errorMessage(
-                                            "Cannot "
-                                                + actionType
-                                                + " "
-                                                + resourceType
-                                                + " because tag does not exist.")
-                                        .httpCode(404)
-                                        .build()))));
+                        Utils.createServiceErrorResponse(
+                            requestContext,
+                            ErrorCode.TAG_DOES_NOT_EXIST,
+                            "Tag (" + tagId + ") does not exist.",
+                            404));
               }
 
-              return tagExistAction.apply(tag);
+              requestContext.setData(TAG_DATA_KEY, tag);
+              return tagExistAction.apply(requestContext);
             });
   }
 
   public Uni<ServiceResponse<PaginatedResponse<Tag>>> getTagsAssignedToFile(
-      final UserToken userToken,
+      final ServiceRequestContext requestContext,
       final Long fileId,
       final PaginationParameters paginationParameters) {
     return userService.checkUserExist(
-        userToken,
-        ResourceType.TAG,
-        ActionType.GET,
-        user ->
+        requestContext,
+        context2 ->
             fileService.checkFileExists(
+                context2,
                 fileId,
-                user.getId(),
-                ResourceType.TAG,
-                ActionType.GET,
-                file ->
+                context3 ->
                     tagRepo
-                        .getAllTagsForFile(user.getId(), fileId, paginationParameters)
+                        .getAllTagsForFile(context3.getUser().getId(), fileId, paginationParameters)
                         .map(
                             paginatedTags ->
                                 new ServiceResponse<>(
@@ -435,37 +371,27 @@ public class TagService {
   }
 
   public Uni<ServiceResponse<List<Tag>>> searchTags(
-      final UserToken userInfo, final String searchText, final Integer limit) {
+      final ServiceRequestContext requestContext, final String searchText, final Integer limit) {
     if (limit != null && limit <= 0) {
       return Uni.createFrom()
           .item(
-              new ServiceResponse<>(
-                  new ServiceActionResponse<>(
-                      ResourceType.TAG,
-                      ActionType.SEARCH,
-                      List.of(
-                          ServiceError.builder()
-                              .errorCode(ErrorCode.INVALID_RESPONSE_LIMIT)
-                              .errorMessage(
-                                  "A return limit of '"
-                                      + limit
-                                      + "' is invalid. Must be greater than 0")
-                              .httpCode(400)
-                              .build()))));
+              Utils.createServiceErrorResponse(
+                  requestContext,
+                  ErrorCode.INVALID_RESPONSE_LIMIT,
+                  "A return limit of '" + limit + "' is invalid. Must be greater than 0",
+                  400));
     }
 
     return userService.checkUserExist(
-        userInfo,
-        ResourceType.TAG,
-        ActionType.SEARCH,
-        user ->
+        requestContext,
+        context2 ->
             tagRepo
-                .searchTags(user.getId(), searchText, limit)
+                .searchTags(context2.getUser().getId(), searchText, limit)
                 .map(
                     tagList ->
                         new ServiceResponse<>(
                             new ServiceActionResponse<>(
-                                ResourceType.TAG, ActionType.SEARCH, tagList))));
+                                context2.getResourceType(), context2.getActionType(), tagList))));
   }
 
   private Uni<ServiceResponse<Tag>> updateErrorAndPassThrough(ServiceResponse<?> response) {
@@ -479,16 +405,14 @@ public class TagService {
   }
 
   public Uni<ServiceResponse<TagShareResult>> shareTagsBulk(
-      final UserToken userInfo, final TagShareBulkContract tagsToShare) {
+      final ServiceRequestContext requestContext, final TagShareBulkContract tagsToShare) {
     return userService.checkUserExist(
-        userInfo,
-        ResourceType.TAG,
-        ActionType.SHARE_TAG,
-        user -> {
+        requestContext,
+        context2 -> {
           ArrayList<Uni<ServiceActionResponse<TagShareResult>>> actions = new ArrayList<>();
           tagsToShare
               .getTagsToShare()
-              .forEach(tagShare -> actions.add(shareTagIndividual(user, tagShare)));
+              .forEach(tagShare -> actions.add(shareTagIndividual(context2, tagShare)));
           return Uni.combine()
               .all()
               .unis(actions)
@@ -499,23 +423,23 @@ public class TagService {
   }
 
   Uni<ServiceActionResponse<TagShareResult>> shareTagIndividual(
-      final User user, final TagShareContract tagToShare) {
+      final ServiceRequestContext requestContext, final TagShareContract tagToShare) {
     return groupRepo
-        .userActiveMemberInGroup(user.getId(), tagToShare.getGroupId())
+        .userActiveMemberInGroup(requestContext.getUser().getId(), tagToShare.getGroupId())
         .chain(
             isActiveMember -> {
               if (!isActiveMember) {
                 return Uni.createFrom()
                     .item(
                         new ServiceActionResponse<>(
-                            ResourceType.TAG,
-                            ActionType.SHARE_TAG,
+                            requestContext.getResourceType(),
+                            requestContext.getActionType(),
                             List.of(
                                 ServiceError.builder()
                                     .errorCode(ErrorCode.USER_NOT_ACTIVE)
                                     .errorMessage(
                                         "User "
-                                            + user.getId()
+                                            + requestContext.getUser().getId()
                                             + " is not active member of "
                                             + tagToShare.getGroupId()
                                             + " group")
@@ -524,15 +448,15 @@ public class TagService {
               }
 
               return tagRepo
-                  .getTagById(tagToShare.getTagId(), user.getId())
+                  .getTagById(tagToShare.getTagId(), requestContext.getUser().getId())
                   .chain(
                       tagData -> {
                         if (tagData == null) {
                           return Uni.createFrom()
                               .item(
                                   new ServiceActionResponse<>(
-                                      ResourceType.TAG,
-                                      ActionType.SHARE_TAG,
+                                      requestContext.getResourceType(),
+                                      requestContext.getActionType(),
                                       List.of(
                                           ServiceError.builder()
                                               .errorCode(ErrorCode.TAG_DOES_NOT_EXIST)
@@ -552,8 +476,8 @@ public class TagService {
                                     return Uni.createFrom()
                                         .item(
                                             new ServiceActionResponse<>(
-                                                ResourceType.TAG,
-                                                ActionType.SHARE_TAG,
+                                                requestContext.getResourceType(),
+                                                requestContext.getActionType(),
                                                 List.of(
                                                     ServiceError.builder()
                                                         .errorCode(ErrorCode.TAG_SHARE_EXISTS)
@@ -571,8 +495,8 @@ public class TagService {
                                       .map(
                                           insertSuccess ->
                                               new ServiceActionResponse<>(
-                                                  ResourceType.TAG,
-                                                  ActionType.SHARE_TAG,
+                                                  requestContext.getResourceType(),
+                                                  requestContext.getActionType(),
                                                   new TagShareResult(
                                                       tagToShare.getTagId(),
                                                       tagToShare.getGroupId(),
@@ -583,16 +507,14 @@ public class TagService {
   }
 
   public Uni<ServiceResponse<TagShareResult>> unshareTagsBulk(
-      final UserToken userInfo, final TagShareBulkContract tagsToUnshare) {
+      final ServiceRequestContext requestContext, final TagShareBulkContract tagsToUnshare) {
     return userService.checkUserExist(
-        userInfo,
-        ResourceType.TAG,
-        ActionType.SHARE_TAG,
-        user -> {
+        requestContext,
+        context2 -> {
           ArrayList<Uni<ServiceActionResponse<TagShareResult>>> actions = new ArrayList<>();
           tagsToUnshare
               .getTagsToShare()
-              .forEach(tagShare -> actions.add(unshareTagIndividual(user, tagShare)));
+              .forEach(tagShare -> actions.add(unshareTagIndividual(context2, tagShare)));
           return Uni.combine()
               .all()
               .unis(actions)
@@ -603,17 +525,17 @@ public class TagService {
   }
 
   Uni<ServiceActionResponse<TagShareResult>> unshareTagIndividual(
-      final User user, final TagShareContract tagToUnshare) {
+      final ServiceRequestContext requestContext, final TagShareContract tagToUnshare) {
     return tagRepo
-        .getTagById(tagToUnshare.getTagId(), user.getId())
+        .getTagById(tagToUnshare.getTagId(), requestContext.getUser().getId())
         .chain(
             tagData -> {
               if (tagData == null) {
                 return Uni.createFrom()
                     .item(
                         new ServiceActionResponse<>(
-                            ResourceType.TAG,
-                            ActionType.SHARE_TAG,
+                            requestContext.getResourceType(),
+                            requestContext.getActionType(),
                             List.of(
                                 ServiceError.builder()
                                     .errorCode(ErrorCode.TAG_DOES_NOT_EXIST)
@@ -624,21 +546,22 @@ public class TagService {
               }
 
               return groupRepo
-                  .userActiveMemberInGroup(user.getId(), tagToUnshare.getGroupId())
+                  .userActiveMemberInGroup(
+                      requestContext.getUser().getId(), tagToUnshare.getGroupId())
                   .chain(
                       isActiveMember -> {
                         if (!isActiveMember) {
                           return Uni.createFrom()
                               .item(
                                   new ServiceActionResponse<>(
-                                      ResourceType.TAG,
-                                      ActionType.SHARE_TAG,
+                                      requestContext.getResourceType(),
+                                      requestContext.getActionType(),
                                       List.of(
                                           ServiceError.builder()
                                               .errorCode(ErrorCode.USER_NOT_ACTIVE)
                                               .errorMessage(
                                                   "User "
-                                                      + user.getId()
+                                                      + requestContext.getUser().getId()
                                                       + " is not active member of group "
                                                       + tagToUnshare.getGroupId())
                                               .httpCode(400)
@@ -650,8 +573,8 @@ public class TagService {
                             .map(
                                 dbSuccess ->
                                     new ServiceActionResponse<>(
-                                        ResourceType.TAG,
-                                        ActionType.SHARE_TAG,
+                                        requestContext.getResourceType(),
+                                        requestContext.getActionType(),
                                         new TagShareResult(
                                             tagToUnshare.getTagId(),
                                             tagToUnshare.getGroupId(),

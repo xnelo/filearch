@@ -1,5 +1,9 @@
 package com.xnelo.filearch.restapi.api.resources;
 
+import com.xnelo.filearch.common.model.ActionType;
+import com.xnelo.filearch.common.model.ResourceType;
+import com.xnelo.filearch.common.service.context.ServiceRequestContext;
+import com.xnelo.filearch.common.service.context.ServiceRequestContextImpl;
 import com.xnelo.filearch.restapi.api.mappers.ContractMapper;
 import com.xnelo.filearch.restapi.service.UserService;
 import io.smallrye.mutiny.Uni;
@@ -20,8 +24,15 @@ public class UsernameResource {
   @GET
   @Path("available")
   public Uni<Response> isUsernameAvailable(@QueryParam("username") String username) {
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.USERNAME)
+            .actionType(ActionType.GET)
+            .build();
+
     return userService
-        .isUsernameAvailable(username)
+        .isUsernameAvailable(requestContext, username)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(

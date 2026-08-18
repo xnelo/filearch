@@ -1,7 +1,11 @@
 package com.xnelo.filearch.restapi.api.resources;
 
+import com.xnelo.filearch.common.model.ActionType;
 import com.xnelo.filearch.common.model.GroupMembershipStatus;
 import com.xnelo.filearch.common.model.PaginationParameters;
+import com.xnelo.filearch.common.model.ResourceType;
+import com.xnelo.filearch.common.service.context.ServiceRequestContext;
+import com.xnelo.filearch.common.service.context.ServiceRequestContextImpl;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.usertoken.UserTokenHandler;
 import com.xnelo.filearch.restapi.api.contracts.AssignTagContract;
@@ -44,10 +48,18 @@ public class GroupResource {
   @RolesAllowed("user")
   public Uni<Response> getAll(@BeanParam PaginationRequest paginationRequest) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.GROUP)
+            .actionType(ActionType.GET)
+            .userToken(userToken)
+            .build();
+
     PaginationParameters paginationParameters =
         contractMapper.toPaginationParameters(paginationRequest);
     return groupService
-        .getAllGroups(userToken, paginationParameters)
+        .getAllGroups(requestContext, paginationParameters)
         .map(
             paginatedServiceResponse ->
                 contractMapper.toApiResponse(
@@ -61,8 +73,16 @@ public class GroupResource {
   @RolesAllowed("user")
   public Uni<Response> createNewGroup(final GroupCreateContract newGroup) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.GROUP)
+            .actionType(ActionType.CREATE)
+            .userToken(userToken)
+            .build();
+
     return groupService
-        .createNewGroup(newGroup, userToken)
+        .createNewGroup(requestContext, newGroup)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toGroupContract));
@@ -73,8 +93,16 @@ public class GroupResource {
   @Path("{id}")
   public Uni<Response> deleteGroup(@PathParam("id") long groupId) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.GROUP)
+            .actionType(ActionType.DELETE)
+            .userToken(userToken)
+            .build();
+
     return groupService
-        .deleteGroup(userToken, groupId)
+        .deleteGroup(requestContext, groupId)
         .map(
             groupServiceResponse ->
                 contractMapper.toApiResponse(
@@ -86,8 +114,16 @@ public class GroupResource {
   @Path("{id}/add_users")
   public Uni<Response> addUser(@PathParam("id") long groupId, GroupAddUsersContract usersToAdd) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.GROUP)
+            .actionType(ActionType.ADD_USER_TO_GROUP)
+            .userToken(userToken)
+            .build();
+
     return groupService
-        .addUsersToGroup(userToken, groupId, usersToAdd)
+        .addUsersToGroup(requestContext, groupId, usersToAdd)
         .map(
             serviceResponse -> contractMapper.toApiResponse(serviceResponse, username -> username));
   }
@@ -98,8 +134,16 @@ public class GroupResource {
   public Uni<Response> removeUser(
       @PathParam("id") long groupId, GroupRemoveUsersContract usersToRemove) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.GROUP)
+            .actionType(ActionType.REMOVE_USER_FROM_GROUP)
+            .userToken(userToken)
+            .build();
+
     return groupService
-        .removeUsersFromGroup(userToken, groupId, usersToRemove)
+        .removeUsersFromGroup(requestContext, groupId, usersToRemove)
         .map(
             serviceResponse -> contractMapper.toApiResponse(serviceResponse, username -> username));
   }
@@ -109,8 +153,16 @@ public class GroupResource {
   @Path("{id}/accept_invite")
   public Uni<Response> acceptInvite(@PathParam("id") long groupId) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.GROUP)
+            .actionType(ActionType.ACCEPT_GROUP_INVITE)
+            .userToken(userToken)
+            .build();
+
     return groupService
-        .acceptGroupInvitation(userToken, groupId)
+        .acceptGroupInvitation(requestContext, groupId)
         .map(serviceResponse -> contractMapper.toApiResponse(serviceResponse, success -> success));
   }
 
@@ -123,8 +175,16 @@ public class GroupResource {
     PaginationParameters paginationParameters =
         contractMapper.toPaginationParameters(paginationRequest);
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.GROUP)
+            .actionType(ActionType.GET)
+            .userToken(userToken)
+            .build();
+
     return groupService
-        .getGroupsIn(userToken, membershipStatus, paginationParameters)
+        .getGroupsIn(requestContext, membershipStatus, paginationParameters)
         .map(
             paginatedServiceResponse ->
                 contractMapper.toApiResponse(
@@ -139,8 +199,16 @@ public class GroupResource {
   @Path("{id}/add_items")
   public Uni<Response> addItems(@PathParam("id") long groupId, GroupAddItemContract itemsToAdd) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.GROUP)
+            .actionType(ActionType.ADD_ITEM_TO_GROUP)
+            .userToken(userToken)
+            .build();
+
     return groupService
-        .addItemsToGroup(userToken, groupId, itemsToAdd)
+        .addItemsToGroup(requestContext, groupId, itemsToAdd)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toGroupItemContract));
@@ -152,8 +220,16 @@ public class GroupResource {
   public Uni<Response> removeItems(
       @PathParam("id") long groupId, GroupRemoveItemContract itemsToRemove) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.GROUP)
+            .actionType(ActionType.REMOVE_ITEM_FROM_GROUP)
+            .userToken(userToken)
+            .build();
+
     return groupService
-        .removeItemsFromGroup(userToken, groupId, itemsToRemove)
+        .removeItemsFromGroup(requestContext, groupId, itemsToRemove)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toGroupItemContract));
@@ -167,8 +243,16 @@ public class GroupResource {
     PaginationParameters paginationParameters =
         contractMapper.toPaginationParameters(paginationRequest);
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.GROUP)
+            .actionType(ActionType.GET)
+            .userToken(userToken)
+            .build();
+
     return groupService
-        .getFilesInGroup(userToken, groupId, paginationParameters)
+        .getFilesInGroup(requestContext, groupId, paginationParameters)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(
@@ -186,8 +270,16 @@ public class GroupResource {
       @PathParam("file_id") long fileId,
       final AssignTagContract assignTag) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.TAG)
+            .actionType(ActionType.ASSIGN)
+            .userToken(userToken)
+            .build();
+
     return groupItemService
-        .assignTagToGroupFile(userToken, groupId, fileId, assignTag.tagId())
+        .assignTagToGroupFile(requestContext, groupId, fileId, assignTag.tagId())
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(
@@ -202,8 +294,16 @@ public class GroupResource {
       @PathParam("file_id") long fileId,
       final AssignTagContract unassignTag) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.TAG)
+            .actionType(ActionType.UNASSIGN)
+            .userToken(userToken)
+            .build();
+
     return groupItemService
-        .unassignTagFromGroupFile(userToken, groupId, fileId, unassignTag.tagId())
+        .unassignTagFromGroupFile(requestContext, groupId, fileId, unassignTag.tagId())
         .map(
             booleanServiceResponse ->
                 contractMapper.toApiResponse(
@@ -216,8 +316,16 @@ public class GroupResource {
   public Uni<Response> getPermissions(
       @PathParam("id") long groupId, @QueryParam("user_id") long userId) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.GROUP)
+            .actionType(ActionType.GET_GROUP_PERMISSIONS)
+            .userToken(userToken)
+            .build();
+
     return groupPermissionsService
-        .getUserPermissions(userToken, userId, groupId)
+        .getUserPermissions(requestContext, userId, groupId)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(
@@ -230,8 +338,16 @@ public class GroupResource {
   public Uni<Response> modifyPermissions(
       @PathParam("id") long groupId, List<GroupMemberPermissionModifyContract> permissions) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.GROUP)
+            .actionType(ActionType.MODIFY_GROUP_PERMISSIONS)
+            .userToken(userToken)
+            .build();
+
     return groupPermissionsService
-        .modifyPermissions(userToken, groupId, permissions)
+        .modifyPermissions(requestContext, groupId, permissions)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(
@@ -243,8 +359,16 @@ public class GroupResource {
   @Path("{id}/users_in_group")
   public Uni<Response> getUsersInGroup(@PathParam("id") long groupId) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.GROUP)
+            .actionType(ActionType.GET_USERS_IN_GROUP)
+            .userToken(userToken)
+            .build();
+
     return groupService
-        .getUsersInGroup(userToken, groupId)
+        .getUsersInGroup(requestContext, groupId)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(
@@ -256,8 +380,16 @@ public class GroupResource {
   @Path("{id}/all_user_permissions")
   public Uni<Response> getAllUserPermissionsInGroup(@PathParam("id") long groupId) {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.GROUP)
+            .actionType(ActionType.GET_GROUP_PERMISSIONS)
+            .userToken(userToken)
+            .build();
+
     return groupPermissionsService
-        .getAllGroupPermissionByUser(userToken, groupId)
+        .getAllGroupPermissionByUser(requestContext, groupId)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(

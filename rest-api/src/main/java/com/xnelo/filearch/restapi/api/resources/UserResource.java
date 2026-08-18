@@ -2,6 +2,10 @@ package com.xnelo.filearch.restapi.api.resources;
 
 import static com.xnelo.filearch.common.json.JsonUtil.toJsonString;
 
+import com.xnelo.filearch.common.model.ActionType;
+import com.xnelo.filearch.common.model.ResourceType;
+import com.xnelo.filearch.common.service.context.ServiceRequestContext;
+import com.xnelo.filearch.common.service.context.ServiceRequestContextImpl;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.usertoken.UserTokenHandler;
 import com.xnelo.filearch.restapi.api.contracts.UserContract;
@@ -28,8 +32,14 @@ public class UserResource {
   @RolesAllowed("user")
   @Path("{id}")
   public Uni<Response> getUser(@PathParam("id") int userId) {
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.USER)
+            .actionType(ActionType.GET)
+            .build();
+
     return userService
-        .getUserById(userId)
+        .getUserById(requestContext, userId)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toUserContract));
@@ -41,8 +51,16 @@ public class UserResource {
     UserToken userToken = userTokenHandler.getUserInfo();
     Log.infof(
         "Create User: input=%s token=%s", toJsonString(userContract), toJsonString(userToken));
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.USER)
+            .actionType(ActionType.CREATE)
+            .userToken(userToken)
+            .build();
+
     return userService
-        .createUser(userContract, userToken)
+        .createUser(requestContext, userContract)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toUserContract));
@@ -54,8 +72,16 @@ public class UserResource {
     UserToken userToken = userTokenHandler.getUserInfo();
     Log.infof(
         "Updating user: input=%s token=%s", toJsonString(userContract), toJsonString(userToken));
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.USER)
+            .actionType(ActionType.UPDATE)
+            .userToken(userToken)
+            .build();
+
     return userService
-        .updateUser(userContract, userToken)
+        .updateUser(requestContext, userContract)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toUserContract));
@@ -66,8 +92,16 @@ public class UserResource {
   public Uni<Response> deleteUser() {
     UserToken userToken = userTokenHandler.getUserInfo();
     Log.infof("Deleting user: token=%s", toJsonString(userToken));
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .userToken(userToken)
+            .resourceType(ResourceType.USER)
+            .actionType(ActionType.DELETE)
+            .build();
+
     return userService
-        .deleteUser(userToken)
+        .deleteUser(requestContext)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toUserContract));
@@ -77,8 +111,16 @@ public class UserResource {
   @RolesAllowed("user")
   public Uni<Response> getUserByExternalId() {
     UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .userToken(userToken)
+            .resourceType(ResourceType.USER)
+            .actionType(ActionType.GET)
+            .build();
+
     return userService
-        .getUserFromUserToken(userToken)
+        .getUserFromUserToken(requestContext)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toUserContract));

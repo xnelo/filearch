@@ -1,74 +1,39 @@
 package com.xnelo.filearch.restapi.service;
 
-import com.xnelo.filearch.common.model.ActionType;
+import com.xnelo.filearch.common.exception.ServiceResponseException;
 import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.PaginationParameters;
-import com.xnelo.filearch.common.model.ResourceType;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
+import com.xnelo.filearch.common.service.context.ServiceRequestContext;
 import java.util.ArrayList;
 import java.util.List;
 
 public class Utils {
   private Utils() {}
 
-  public static <T> ServiceResponse<T> validatePaginationParameters(
-      final PaginationParameters paginationParameters,
-      final ResourceType resourceType,
-      final ActionType actionType) {
-    if (paginationParameters.getAfter() != null && paginationParameters.getAfter() < 0) {
-      return new ServiceResponse<>(
-          new ServiceActionResponse<>(
-              resourceType,
-              actionType,
-              List.of(
-                  ServiceError.builder()
-                      .errorCode(ErrorCode.INVALID_AFTER_VALUE)
-                      .errorMessage("After value must be greater than 0.")
-                      .httpCode(400)
-                      .build())));
-    } else if (paginationParameters.getLimit() != null && paginationParameters.getLimit() <= 0) {
-      return new ServiceResponse<>(
-          new ServiceActionResponse<>(
-              resourceType,
-              actionType,
-              List.of(
-                  ServiceError.builder()
-                      .errorCode(ErrorCode.INVALID_RESPONSE_LIMIT)
-                      .errorMessage(
-                          "A return limit of '"
-                              + paginationParameters.getLimit()
-                              + "' is invalid. Must be greater than 0")
-                      .httpCode(400)
-                      .build())));
-    } else {
-      return null;
-    }
-  }
-
   /**
-   * Update a service response with new resource or action type.
+   * If a ServiceResponse item is returned then there was a validation issue and processing should
+   * stop. If Null is returned then there is no validation error and processing may continue.
    *
-   * @param response The original response to update.
-   * @param newResourceType If present this will be the ResourceType after updating the response
-   *     message. If null the original response's resource type is used.
-   * @param newActionType If present this will be the ActionType after updating the response
-   *     message. If null the original response's action type is used.
-   * @return The updated response.
-   * @param <T> The type of data this response represents.
+   * @param context The context of the request.
+   * @param paginationParameters The parameters to validate.
    */
-  public static <T> ServiceResponse<T> updateErrorAndPassThrough(
-      ServiceResponse<?> response, ResourceType newResourceType, ActionType newActionType) {
-    ArrayList<ServiceActionResponse<T>> actionResponses = new ArrayList<>();
-    for (ServiceActionResponse<?> actionResponse : response.getActionResponses()) {
-      actionResponses.add(
-          new ServiceActionResponse<>(
-              newResourceType == null ? actionResponse.getResourceType() : newResourceType,
-              newActionType == null ? actionResponse.getActionType() : newActionType,
-              actionResponse.getErrors()));
+  public static void validatePaginationParameters(
+      final ServiceRequestContext context, final PaginationParameters paginationParameters) {
+    if (paginationParameters.getAfter() != null && paginationParameters.getAfter() < 0) {
+      throw new ServiceResponseException(
+          context, ErrorCode.INVALID_AFTER_VALUE, "After value must be greater than 0.", 400);
+    } else if (paginationParameters.getLimit() != null && paginationParameters.getLimit() <= 0) {
+      throw new ServiceResponseException(
+          context,
+          ErrorCode.INVALID_RESPONSE_LIMIT,
+          "A return limit of '"
+              + paginationParameters.getLimit()
+              + "' is invalid. Must be greater than 0",
+          400);
     }
-    return new ServiceResponse<>(actionResponses);
   }
 
   @SuppressWarnings("unchecked")
@@ -94,20 +59,27 @@ public class Utils {
   }
 
   public static <T> ServiceResponse<T> createServiceErrorResponse(
-      final ResourceType resourceType,
-      final ActionType actionType,
+      final ServiceRequestContext serviceRequestContext,
       final ErrorCode errorCode,
       final String errorMessage,
       final int httpCode) {
     return new ServiceResponse<>(
-        new ServiceActionResponse<>(
-            resourceType,
-            actionType,
-            List.of(
-                ServiceError.builder()
-                    .errorCode(errorCode)
-                    .errorMessage(errorMessage)
-                    .httpCode(httpCode)
-                    .build())));
+        createServiceActionErrorResponse(serviceRequestContext, errorCode, errorMessage, httpCode));
+  }
+
+  public static <T> ServiceActionResponse<T> createServiceActionErrorResponse(
+      final ServiceRequestContext serviceRequestContext,
+      final ErrorCode errorCode,
+      final String errorMessage,
+      final int httpCode) {
+    return new ServiceActionResponse<>(
+        serviceRequestContext.getResourceType(),
+        serviceRequestContext.getActionType(),
+        List.of(
+            ServiceError.builder()
+                .errorCode(errorCode)
+                .errorMessage(errorMessage)
+                .httpCode(httpCode)
+                .build()));
   }
 }

@@ -7,7 +7,7 @@ import com.xnelo.filearch.common.model.User;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
 import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
-import com.xnelo.filearch.common.usertoken.UserToken;
+import com.xnelo.filearch.common.service.context.ServiceRequestContext;
 import com.xnelo.filearch.common.utils.ServiceResponseUtils;
 import com.xnelo.filearch.jooq.tables.Users;
 import com.xnelo.filearch.restapi.api.contracts.UserContract;
@@ -26,22 +26,17 @@ public class UserService {
   @Inject UserRepo userRepo;
   @Inject FolderService folderService;
 
-  private static ServiceResponse<User> toServiceResponse(
-      final ActionType actionType, final User user) {
-    return new ServiceResponse<>(
-        new ServiceActionResponse<>(User.USER_RESOURCE_TYPE, actionType, user));
-  }
-
-  public Uni<ServiceResponse<User>> getUserFromUserToken(final UserToken userToken) {
+  public Uni<ServiceResponse<User>> getUserFromUserToken(
+      final ServiceRequestContext requestContext) {
     return userRepo
-        .getUserFromExternalId(userToken.getId())
+        .getUserFromExternalId(requestContext.getUserToken().getId())
         .map(
             user -> {
               if (user == null) {
                 return new ServiceResponse<>(
                     new ServiceActionResponse<>(
-                        User.USER_RESOURCE_TYPE,
-                        ActionType.GET,
+                        requestContext.getResourceType(),
+                        requestContext.getActionType(),
                         List.of(
                             ServiceError.builder()
                                 .httpCode(404)
@@ -49,12 +44,15 @@ public class UserService {
                                 .errorMessage("User does not exist in Database.")
                                 .build())));
               } else {
-                return toServiceResponse(ActionType.GET, user);
+                return new ServiceResponse<>(
+                    new ServiceActionResponse<>(
+                        requestContext.getResourceType(), requestContext.getActionType(), user));
               }
             });
   }
 
-  public Uni<ServiceResponse<User>> getUserById(final int userId) {
+  public Uni<ServiceResponse<User>> getUserById(
+      final ServiceRequestContext requestContext, final int userId) {
     return userRepo
         .getUserFromId(userId)
         .map(
@@ -62,8 +60,8 @@ public class UserService {
               if (user == null) {
                 return new ServiceResponse<>(
                     new ServiceActionResponse<>(
-                        User.USER_RESOURCE_TYPE,
-                        ActionType.GET,
+                        requestContext.getResourceType(),
+                        requestContext.getActionType(),
                         List.of(
                             ServiceError.builder()
                                 .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
@@ -71,23 +69,30 @@ public class UserService {
                                 .httpCode(404)
                                 .build())));
               } else {
-                return toServiceResponse(ActionType.GET, user);
+                return new ServiceResponse<>(
+                    new ServiceActionResponse<>(
+                        requestContext.getResourceType(), requestContext.getActionType(), user));
               }
             });
   }
 
-  private User createUserObject(final UserContract inputData, final UserToken token) {
+  private User createUserObject(
+      final ServiceRequestContext requestContext, final UserContract inputData) {
     User.UserBuilder builder =
-        User.builder().externalId(token.getId()).username(inputData.getUsername());
+        User.builder()
+            .externalId(requestContext.getUserToken().getId())
+            .username(inputData.getUsername());
 
     if (inputData.getFirstName() == null || inputData.getLastName() == null) {
-      builder.firstName(token.getFirstName()).lastName(token.getLastName());
+      builder
+          .firstName(requestContext.getUserToken().getFirstName())
+          .lastName(requestContext.getUserToken().getLastName());
     } else {
       builder.firstName(inputData.getFirstName()).lastName(inputData.getLastName());
     }
 
     if (inputData.getEmail() == null) {
-      builder.email(token.getEmail());
+      builder.email(requestContext.getUserToken().getEmail());
     } else {
       builder.email(inputData.getEmail());
     }
@@ -96,7 +101,7 @@ public class UserService {
   }
 
   public Uni<ServiceResponse<User>> createUser(
-      final UserContract inputData, final UserToken token) {
+      final ServiceRequestContext requestContext, final UserContract inputData) {
     return userRepo
         .isUsernameUnique(inputData.getUsername())
         .chain(
@@ -106,8 +111,8 @@ public class UserService {
                     .item(
                         new ServiceResponse<>(
                             new ServiceActionResponse<>(
-                                User.USER_RESOURCE_TYPE,
-                                ActionType.CREATE,
+                                requestContext.getResourceType(),
+                                requestContext.getActionType(),
                                 List.of(
                                     ServiceError.builder()
                                         .errorCode(ErrorCode.USERNAME_MUST_BE_UNIQUE)
@@ -118,15 +123,15 @@ public class UserService {
                                         .httpCode(400)
                                         .build()))));
               } else {
-                return createUserIfNotExist(inputData, token);
+                return createUserIfNotExist(requestContext, inputData);
               }
             });
   }
 
   private Uni<ServiceResponse<User>> createUserIfNotExist(
-      final UserContract inputData, final UserToken token) {
+      final ServiceRequestContext requestContext, final UserContract inputData) {
     return userRepo
-        .getUserFromExternalId(token.getId())
+        .getUserFromExternalId(requestContext.getUserToken().getId())
         .chain(
             existingUser -> {
               if (existingUser != null) {
@@ -134,8 +139,8 @@ public class UserService {
                     .item(
                         new ServiceResponse<>(
                             new ServiceActionResponse<>(
-                                User.USER_RESOURCE_TYPE,
-                                ActionType.CREATE,
+                                requestContext.getResourceType(),
+                                requestContext.getActionType(),
                                 List.of(
                                     ServiceError.builder()
                                         .errorCode(ErrorCode.USER_ALREADY_EXISTS)
@@ -145,9 +150,15 @@ public class UserService {
                                         .build()))));
               } else {
                 return userRepo
-                    .createNewUser(createUserObject(inputData, token))
+                    .createNewUser(createUserObject(requestContext, inputData))
                     .chain(this::createRootFolder)
-                    .map(user -> toServiceResponse(ActionType.CREATE, user));
+                    .map(
+                        user ->
+                            new ServiceResponse<>(
+                                new ServiceActionResponse<>(
+                                    requestContext.getResourceType(),
+                                    requestContext.getActionType(),
+                                    user)));
               }
             });
   }
@@ -162,14 +173,14 @@ public class UserService {
   }
 
   public Uni<ServiceResponse<User>> updateUser(
-      final UserContract toUpdate, final UserToken userToken) {
+      final ServiceRequestContext requestContext, final UserContract toUpdate) {
     if (toUpdate.getUsername() != null) {
       return Uni.createFrom()
           .item(
               new ServiceResponse<>(
                   new ServiceActionResponse<>(
-                      User.USER_RESOURCE_TYPE,
-                      ActionType.UPDATE,
+                      requestContext.getResourceType(),
+                      requestContext.getActionType(),
                       List.of(
                           ServiceError.builder()
                               .errorCode(ErrorCode.USERNAME_CANNOT_BE_UPDATED)
@@ -181,8 +192,8 @@ public class UserService {
           .item(
               new ServiceResponse<>(
                   new ServiceActionResponse<>(
-                      User.USER_RESOURCE_TYPE,
-                      ActionType.UPDATE,
+                      requestContext.getResourceType(),
+                      requestContext.getActionType(),
                       List.of(
                           ServiceError.builder()
                               .errorCode(ErrorCode.USER_ID_CANNOT_BE_UPDATED)
@@ -194,8 +205,8 @@ public class UserService {
           .item(
               new ServiceResponse<>(
                   new ServiceActionResponse<>(
-                      User.USER_RESOURCE_TYPE,
-                      ActionType.UPDATE,
+                      requestContext.getResourceType(),
+                      requestContext.getActionType(),
                       List.of(
                           ServiceError.builder()
                               .errorCode(ErrorCode.USER_ROOT_FOLDER_ID_CANNOT_BE_UPDATED)
@@ -205,7 +216,7 @@ public class UserService {
     }
 
     return userRepo
-        .getUserFromExternalId(userToken.getId())
+        .getUserFromExternalId(requestContext.getUserToken().getId())
         .chain(
             user -> {
               if (user == null) {
@@ -213,8 +224,8 @@ public class UserService {
                     .item(
                         new ServiceResponse<>(
                             new ServiceActionResponse<>(
-                                User.USER_RESOURCE_TYPE,
-                                ActionType.UPDATE,
+                                requestContext.getResourceType(),
+                                requestContext.getActionType(),
                                 List.of(
                                     ServiceError.builder()
                                         .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
@@ -230,8 +241,8 @@ public class UserService {
                     .item(
                         new ServiceResponse<>(
                             new ServiceActionResponse<>(
-                                User.USER_RESOURCE_TYPE,
-                                ActionType.UPDATE,
+                                requestContext.getResourceType(),
+                                requestContext.getActionType(),
                                 List.of(
                                     ServiceError.builder()
                                         .errorCode(ErrorCode.NO_FIELDS_TO_UPDATE)
@@ -241,16 +252,20 @@ public class UserService {
               }
               return userRepo
                   .updateUser(user.getId(), userUpdateMap)
-                  .map(userReturn -> toServiceResponse(ActionType.UPDATE, userReturn));
+                  .map(
+                      userReturn ->
+                          new ServiceResponse<>(
+                              new ServiceActionResponse<>(
+                                  requestContext.getResourceType(),
+                                  requestContext.getActionType(),
+                                  userReturn)));
             });
   }
 
   public <T> Uni<ServiceResponse<T>> checkUserExist(
-      final UserToken userInfo,
-      final ResourceType resourceType,
-      final ActionType actionType,
-      final Function<User, Uni<ServiceResponse<T>>> userExistAction) {
-    return getUserFromUserToken(userInfo)
+      final ServiceRequestContext requestContext,
+      final Function<ServiceRequestContext, Uni<ServiceResponse<T>>> userExistAction) {
+    return getUserFromUserToken(requestContext)
         .chain(
             userResponse -> {
               User user = userResponse.getActionResponses().getFirst().getData();
@@ -259,80 +274,68 @@ public class UserService {
                     .item(
                         new ServiceResponse<>(
                             new ServiceActionResponse<>(
-                                resourceType,
-                                actionType,
+                                requestContext.getResourceType(),
+                                requestContext.getActionType(),
                                 List.of(
                                     ServiceError.builder()
                                         .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
                                         .errorMessage(
                                             "Cannot "
-                                                + actionType
+                                                + requestContext.getActionType()
                                                 + " "
-                                                + resourceType
+                                                + requestContext.getResourceType()
                                                 + " because user does not exist.")
                                         .httpCode(404)
                                         .build()))));
               }
 
-              return userExistAction.apply(user);
+              requestContext.setUser(user);
+
+              return userExistAction.apply(requestContext);
             });
   }
 
-  public Uni<ServiceResponse<User>> deleteUser(final UserToken userInfo) {
-    return userRepo
-        .getUserFromExternalId(userInfo.getId())
-        .chain(
-            user -> {
-              if (user == null) {
-                return Uni.createFrom()
-                    .item(
-                        new ServiceResponse<>(
-                            new ServiceActionResponse<>(
-                                ResourceType.USER,
-                                ActionType.DELETE,
-                                List.of(
-                                    ServiceError.builder()
-                                        .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
-                                        .errorMessage("User does not exist")
-                                        .httpCode(404)
-                                        .build()))));
-              }
+  public Uni<ServiceResponse<User>> deleteUser(final ServiceRequestContext requestContext) {
+    return checkUserExist(
+        requestContext,
+        context ->
+            folderService
+                .deleteRootFolder(context, context.getUser().getRootFolderId())
+                // TODO: Check if we need to delete groups, tags, permissions, etc.
+                .chain(
+                    deleteFolderResponse -> {
+                      if (deleteFolderResponse.hasError()) {
+                        return Uni.createFrom()
+                            .item(
+                                ServiceResponseUtils.updateErrorAndPassThrough(
+                                    deleteFolderResponse, ResourceType.USER));
+                      }
 
-              return folderService
-                  .deleteRootFolder(user.getRootFolderId(), user.getId())
-                  .chain(
-                      deleteFolderResponse -> {
-                        if (deleteFolderResponse.hasError()) {
-                          return Uni.createFrom()
-                              .item(
-                                  ServiceResponseUtils.updateErrorAndPassThrough(
-                                      deleteFolderResponse, ResourceType.USER));
-                        }
-
-                        return userRepo
-                            .deleteUser(user.getId())
-                            .map(
-                                deletedUser -> {
-                                  if (deletedUser == null) {
-                                    return new ServiceResponse<>(
-                                        new ServiceActionResponse<>(
-                                            ResourceType.USER,
-                                            ActionType.DELETE,
-                                            List.of(
-                                                ServiceError.builder()
-                                                    .errorCode(ErrorCode.USER_DELETE_ERROR)
-                                                    .errorMessage(
-                                                        "Error deleting user from database.")
-                                                    .httpCode(500)
-                                                    .build())));
-                                  }
-
+                      return userRepo
+                          .deleteUser(context.getUser().getId())
+                          .map(
+                              deletedUser -> {
+                                if (deletedUser == null) {
                                   return new ServiceResponse<>(
                                       new ServiceActionResponse<>(
-                                          ResourceType.USER, ActionType.DELETE, deletedUser));
-                                });
-                      });
-            });
+                                          context.getResourceType(),
+                                          context.getActionType(),
+                                          List.of(
+                                              ServiceError.builder()
+                                                  .errorCode(ErrorCode.USER_DELETE_ERROR)
+                                                  .errorMessage(
+                                                      "Error deleting user from database.")
+                                                  .httpCode(500)
+                                                  .build())));
+                                }
+
+                                return new ServiceResponse<>(
+                                    new ServiceActionResponse<>(
+                                        context.getResourceType(),
+                                        context.getActionType(),
+                                        deletedUser));
+                              });
+                    }));
   }
 
   private Map<String, Object> toUpdateMap(final UserContract toUpdate) {
@@ -353,14 +356,17 @@ public class UserService {
     return updateMap;
   }
 
-  public Uni<ServiceResponse<Boolean>> isUsernameAvailable(final String username) {
+  public Uni<ServiceResponse<Boolean>> isUsernameAvailable(
+      final ServiceRequestContext requestContext, final String username) {
     return userRepo
         .isUsernameUnique(username)
         .map(
             isUsernameUnique ->
                 new ServiceResponse<>(
                     new ServiceActionResponse<>(
-                        ResourceType.USERNAME, ActionType.GET, isUsernameUnique)));
+                        requestContext.getResourceType(),
+                        requestContext.getActionType(),
+                        isUsernameUnique)));
   }
 
   Uni<ServiceResponse<User>> getUserByUsername(final String username) {
