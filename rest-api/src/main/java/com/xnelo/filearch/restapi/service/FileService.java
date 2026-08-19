@@ -1,6 +1,7 @@
 package com.xnelo.filearch.restapi.service;
 
 import com.xnelo.filearch.common.data.ArtifactRepo;
+import com.xnelo.filearch.common.exception.ServiceResponseException;
 import com.xnelo.filearch.common.json.JsonUtil;
 import com.xnelo.filearch.common.messaging.MessagingMapper;
 import com.xnelo.filearch.common.messaging.ProcessFileRequest;
@@ -47,6 +48,8 @@ public class FileService {
   @Inject GroupItemsRepo groupItemsRepo;
   @Inject GroupItemService groupItemService;
   @Inject GroupService groupService;
+  @Inject GroupPermissionsService groupPermissionsService;
+  @Inject SharedTagsService shareDtagsService;
   final PaginationMapper paginationMapper = Mappers.getMapper(PaginationMapper.class);
   final MessagingMapper messagingMapper = Mappers.getMapper(MessagingMapper.class);
 
@@ -504,6 +507,28 @@ public class FileService {
     return Uni.combine().all().unis(fileDeleteUnis).with(FileService::combineFileActionUnis);
   }
 
+  public Uni<ServiceRequestContext> checkFileExist(
+      ServiceRequestContext requestContext, Long fileId) {
+    Utils.checkUserInRequest(requestContext);
+
+    return storedFilesRepo
+        .getStoredFile(fileId, requestContext.getUser().getId())
+        .map(
+            file -> {
+              if (file == null) {
+                throw new ServiceResponseException(
+                    requestContext,
+                    ErrorCode.FILE_DOES_NOT_EXIST,
+                    "File (" + fileId + ") does not exist.",
+                    404);
+              }
+
+              requestContext.setData(FILE_METADATA_KEY, file);
+
+              return requestContext;
+            });
+  }
+
   public <T> Uni<ServiceActionResponse<T>> checkFileExistsActionResponse(
       final ServiceRequestContext requestContext,
       final long fileId,
@@ -569,51 +594,77 @@ public class FileService {
   }
 
   public Uni<ServiceResponse<Boolean>> assignTag(
-      final ServiceRequestContext requestContext, final long fileId, final long tagId) {
-    return userService.checkUserExist(
-        requestContext,
-        context ->
-            checkFileExists(
-                requestContext,
-                fileId,
-                context2 ->
-                    tagService.checkIfTagExists(
-                        context2,
-                        tagId,
-                        context3 ->
-                            fileTagsRepo
-                                .assignFileMapping(fileId, tagId)
-                                .map(
-                                    res ->
-                                        new ServiceResponse<>(
-                                            new ServiceActionResponse<>(
-                                                context3.getResourceType(),
-                                                context3.getActionType(),
-                                                res))))));
+      ServiceRequestContext requestContext, final long fileId, final long tagId) {
+
+    Uni<Boolean> canUserAddTag;
+    Long groupIdFinal = requestContext.getGroupId();
+
+    if (requestContext.getGroupId() == null) {
+      canUserAddTag =
+          userService
+              .checkUserExist(requestContext)
+              .chain(context -> checkFileExist(context, fileId))
+              .chain(context -> tagService.checkIfTagExists(context, tagId))
+              .map(context -> true);
+    } else {
+      canUserAddTag =
+          userService
+              .checkUserExist(requestContext)
+              .chain(context -> groupService.checkUserActiveMember(requestContext))
+              .chain(
+                  context ->
+                      groupPermissionsService.userHasPermissionV2(
+                          requestContext, GroupPermissionType.TAG_ITEMS))
+              .chain(
+                  context -> groupItemService.checkItemInGroup(context, fileId, GroupItemType.FILE))
+              .chain(context -> shareDtagsService.checkTagShareExists(requestContext, tagId))
+              .map(context -> true);
+    }
+
+    return canUserAddTag
+        .chain(res -> fileTagsRepo.assignFileMapping(fileId, tagId, groupIdFinal))
+        .map(
+            res ->
+                new ServiceResponse<>(
+                    new ServiceActionResponse<>(
+                        requestContext.getResourceType(), requestContext.getActionType(), res)));
   }
 
   public Uni<ServiceResponse<Boolean>> unassignTag(
       final ServiceRequestContext requestContext, final long fileId, final long tagId) {
-    return userService.checkUserExist(
-        requestContext,
-        context2 ->
-            checkFileExists(
-                context2,
-                fileId,
-                context3 ->
-                    tagService.checkIfTagExists(
-                        context3,
-                        tagId,
-                        context4 ->
-                            fileTagsRepo
-                                .unassignFileMapping(fileId, tagId)
-                                .map(
-                                    res ->
-                                        new ServiceResponse<>(
-                                            new ServiceActionResponse<>(
-                                                context4.getResourceType(),
-                                                context4.getActionType(),
-                                                res))))));
+    Uni<Boolean> canUserUnassignTag;
+    Long groupIdFinal = requestContext.getGroupId();
+
+    if (requestContext.getGroupId() == null) {
+      canUserUnassignTag =
+          userService
+              .checkUserExist(requestContext)
+              .chain(context -> checkFileExist(context, fileId))
+              .chain(context -> tagService.checkIfTagExists(requestContext, tagId))
+              .map(context -> true);
+    } else {
+      canUserUnassignTag =
+          userService
+              .checkUserExist(requestContext)
+              .chain(context -> groupService.checkUserActiveMember(context))
+              .chain(
+                  context ->
+                      groupPermissionsService.userHasPermissionV2(
+                          context, GroupPermissionType.REMOVE_TAGS))
+              .map(context -> true);
+    }
+
+    return canUserUnassignTag.chain(
+        ignore ->
+            fileTagsRepo
+                .unassignFileMapping(fileId, tagId, groupIdFinal)
+                .map(
+                    res ->
+                        new ServiceResponse<>(
+                            new ServiceActionResponse<>(
+                                requestContext.getResourceType(),
+                                requestContext.getActionType(),
+                                res))));
   }
 
   public Uni<ServiceResponse<PaginatedResponse<File>>> searchFiles(

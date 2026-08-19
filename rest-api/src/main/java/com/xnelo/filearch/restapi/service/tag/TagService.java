@@ -1,5 +1,6 @@
 package com.xnelo.filearch.restapi.service.tag;
 
+import com.xnelo.filearch.common.exception.ServiceResponseException;
 import com.xnelo.filearch.common.model.*;
 import com.xnelo.filearch.common.service.PaginatedResponse;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
@@ -22,7 +23,6 @@ import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Function;
 import org.mapstruct.factory.Mappers;
 
 @RequestScoped
@@ -325,26 +325,25 @@ public class TagService {
             });
   }
 
-  public <T> Uni<ServiceResponse<T>> checkIfTagExists(
-      final ServiceRequestContext requestContext,
-      final long tagId,
-      final Function<ServiceRequestContext, Uni<ServiceResponse<T>>> tagExistAction) {
+  public Uni<ServiceRequestContext> checkIfTagExists(
+      ServiceRequestContext requestContext, final long tagId) {
+    Utils.checkUserInRequest(requestContext);
+
     return tagRepo
         .getTagById(tagId, requestContext.getUser().getId())
-        .chain(
+        .map(
             tag -> {
               if (tag == null) {
-                return Uni.createFrom()
-                    .item(
-                        Utils.createServiceErrorResponse(
-                            requestContext,
-                            ErrorCode.TAG_DOES_NOT_EXIST,
-                            "Tag (" + tagId + ") does not exist.",
-                            404));
+                throw new ServiceResponseException(
+                    requestContext,
+                    ErrorCode.TAG_DOES_NOT_EXIST,
+                    "Tag (" + tagId + ") does not exist.",
+                    404);
               }
 
               requestContext.setData(TAG_DATA_KEY, tag);
-              return tagExistAction.apply(requestContext);
+
+              return requestContext;
             });
   }
 

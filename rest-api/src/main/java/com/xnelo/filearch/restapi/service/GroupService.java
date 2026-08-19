@@ -1,5 +1,6 @@
 package com.xnelo.filearch.restapi.service;
 
+import com.xnelo.filearch.common.exception.ServiceResponseException;
 import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.Group;
 import com.xnelo.filearch.common.model.GroupFile;
@@ -876,6 +877,26 @@ public class GroupService {
               requestContext.setData(GROUP_EXIST_KEY, group);
 
               return groupExistAction.apply(requestContext);
+            });
+  }
+
+  Uni<ServiceRequestContext> checkUserActiveMember(ServiceRequestContext requestContext) {
+    Utils.checkUserInRequest(requestContext);
+    Utils.checkGroupInRequest(requestContext);
+
+    return groupRepo
+        .userActiveMemberInGroup(requestContext.getUser().getId(), requestContext.getGroupId())
+        .map(
+            res -> {
+              if (!res) {
+                throw new ServiceResponseException(
+                    requestContext,
+                    ErrorCode.USER_NOT_ACTIVE,
+                    "User is not an active member of group(" + requestContext.getGroupId() + ").",
+                    400);
+              }
+
+              return requestContext;
             });
   }
 }

@@ -8,7 +8,6 @@ import com.xnelo.filearch.common.service.context.ServiceRequestContext;
 import com.xnelo.filearch.common.service.context.ServiceRequestContextImpl;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.usertoken.UserTokenHandler;
-import com.xnelo.filearch.restapi.api.contracts.AssignTagContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupAddItemContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupAddUsersContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupCreateContract;
@@ -17,7 +16,6 @@ import com.xnelo.filearch.restapi.api.contracts.GroupRemoveItemContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupRemoveUsersContract;
 import com.xnelo.filearch.restapi.api.contracts.PaginationRequest;
 import com.xnelo.filearch.restapi.api.mappers.ContractMapper;
-import com.xnelo.filearch.restapi.service.GroupItemService;
 import com.xnelo.filearch.restapi.service.GroupPermissionsService;
 import com.xnelo.filearch.restapi.service.GroupService;
 import io.smallrye.mutiny.Uni;
@@ -41,7 +39,6 @@ public class GroupResource {
   @Inject UserTokenHandler userTokenHandler;
   @Inject GroupService groupService;
   @Inject GroupPermissionsService groupPermissionsService;
-  @Inject GroupItemService groupItemService;
   private final ContractMapper contractMapper = Mappers.getMapper(ContractMapper.class);
 
   @GET
@@ -260,54 +257,6 @@ public class GroupResource {
                     resp ->
                         contractMapper.toPaginationContract(
                             resp, contractMapper::toGroupFileContractList)));
-  }
-
-  @POST
-  @RolesAllowed("user")
-  @Path("{id}/{file_id}/tag_file")
-  public Uni<Response> tagFile(
-      @PathParam("id") long groupId,
-      @PathParam("file_id") long fileId,
-      final AssignTagContract assignTag) {
-    UserToken userToken = userTokenHandler.getUserInfo();
-
-    ServiceRequestContext requestContext =
-        ServiceRequestContextImpl.builder()
-            .resourceType(ResourceType.TAG)
-            .actionType(ActionType.ASSIGN)
-            .userToken(userToken)
-            .build();
-
-    return groupItemService
-        .assignTagToGroupFile(requestContext, groupId, fileId, assignTag.tagId())
-        .map(
-            serviceResponse ->
-                contractMapper.toApiResponse(
-                    serviceResponse, (Boolean isSuccessful) -> isSuccessful));
-  }
-
-  @POST
-  @RolesAllowed("user")
-  @Path("{id}/{file_id}/untag_file")
-  public Uni<Response> untagFile(
-      @PathParam("id") long groupId,
-      @PathParam("file_id") long fileId,
-      final AssignTagContract unassignTag) {
-    UserToken userToken = userTokenHandler.getUserInfo();
-
-    ServiceRequestContext requestContext =
-        ServiceRequestContextImpl.builder()
-            .resourceType(ResourceType.TAG)
-            .actionType(ActionType.UNASSIGN)
-            .userToken(userToken)
-            .build();
-
-    return groupItemService
-        .unassignTagFromGroupFile(requestContext, groupId, fileId, unassignTag.tagId())
-        .map(
-            booleanServiceResponse ->
-                contractMapper.toApiResponse(
-                    booleanServiceResponse, (Boolean isSuccessful) -> isSuccessful));
   }
 
   @GET

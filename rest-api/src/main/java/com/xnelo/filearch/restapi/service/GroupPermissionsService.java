@@ -421,4 +421,25 @@ public class GroupPermissionsService {
                   new GroupMemberPermission(userId, groupId, permissionToRemove));
             });
   }
+
+  Uni<ServiceRequestContext> userHasPermissionV2(
+      ServiceRequestContext requestContext, final GroupPermissionType permission) {
+    Utils.checkUserInRequest(requestContext);
+    Utils.checkGroupInRequest(requestContext);
+
+    return userHasPermission(
+            requestContext.getUser().getId(), requestContext.getGroupId(), permission)
+        .map(
+            res -> {
+              if (!res) {
+                throw new ServiceResponseException(
+                    requestContext,
+                    ErrorCode.PERMISSION_NOT_GRANTED,
+                    "User does not have correct permissions.",
+                    403);
+              }
+
+              return requestContext;
+            });
+  }
 }

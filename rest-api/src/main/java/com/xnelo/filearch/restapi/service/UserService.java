@@ -1,5 +1,6 @@
 package com.xnelo.filearch.restapi.service;
 
+import com.xnelo.filearch.common.exception.ServiceResponseException;
 import com.xnelo.filearch.common.model.ActionType;
 import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.ResourceType;
@@ -259,6 +260,22 @@ public class UserService {
                                   requestContext.getResourceType(),
                                   requestContext.getActionType(),
                                   userReturn)));
+            });
+  }
+
+  public Uni<ServiceRequestContext> checkUserExist(ServiceRequestContext requestContext) {
+    return userRepo
+        .getUserFromExternalId(requestContext.getUserToken().getId())
+        .map(
+            user -> {
+              if (user == null) {
+                throw new ServiceResponseException(
+                    requestContext, ErrorCode.USER_DOES_NOT_EXIST, "User does not exist", 404);
+              }
+
+              requestContext.setUser(user);
+
+              return requestContext;
             });
   }
 

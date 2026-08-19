@@ -82,4 +82,24 @@ public class Utils {
                 .httpCode(httpCode)
                 .build()));
   }
+
+  public static void checkUserInRequest(ServiceRequestContext requestContext) {
+    if (requestContext.getUser() == null) {
+      throw new ServiceResponseException(
+          requestContext,
+          ErrorCode.USER_NOT_PROVIDED_IN_REQUEST_OBJECT,
+          "User not provided in request object. Contact support.",
+          500);
+    }
+  }
+
+  public static void checkGroupInRequest(ServiceRequestContext requestContext) {
+    if (requestContext.getGroupId() == null) {
+      throw new ServiceResponseException(
+          requestContext,
+          ErrorCode.GROUP_NOT_PROVIDED_IN_REQUEST_OBJECT,
+          "Group id not provided in request object. Contact support.",
+          500);
+    }
+  }
 }
