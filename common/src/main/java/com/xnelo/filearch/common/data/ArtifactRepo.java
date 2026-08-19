@@ -1,6 +1,8 @@
 package com.xnelo.filearch.common.data;
 
+import com.xnelo.filearch.common.exception.RepoException;
 import com.xnelo.filearch.common.model.Artifact;
+import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.jooq.tables.Artifacts;
 import io.agroal.api.AgroalDataSource;
 import io.smallrye.mutiny.Uni;
@@ -68,7 +70,11 @@ public class ArtifactRepo {
                 .execute())
         .map(i -> true)
         .onFailure()
-        .recoverWithItem(false);
+        .transform(
+            ex ->
+                new RepoException(
+                    ErrorCode.UNABLE_TO_DELETE_ARTIFACTS,
+                    "Error deleting artifact records from DB."));
   }
 
   Artifact toArtifactModel(final Record toConvert) {

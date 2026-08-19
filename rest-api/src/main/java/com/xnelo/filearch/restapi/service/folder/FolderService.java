@@ -34,6 +34,8 @@ public class FolderService {
   @Inject FilearchConfig config;
   final PaginationMapper paginationMapper = Mappers.getMapper(PaginationMapper.class);
 
+  public static final String FOLDER_INFO_KEY = "FOLDER_INFO__FOLDER";
+
   public Uni<Folder> createRootFolderForUser(final long userId) {
     return folderRepo.createRootFolder(userId);
   }
@@ -81,6 +83,28 @@ public class FolderService {
   public Uni<ServiceResponse<List<Long>>> getAllFileIdsInFolder(
       final ServiceRequestContext requestContext, final long folderId) {
     return fileService.getAllFileIdsInFolder(requestContext, folderId);
+  }
+
+  public Uni<ServiceRequestContext> checkFolderExist(
+      ServiceRequestContext context, final long folderId) {
+    Utils.checkUserInRequest(context);
+
+    return folderRepo
+        .getFolderById(folderId, context.getUser().getId())
+        .map(
+            folderInfo -> {
+              if (folderInfo == null) {
+                throw new ServiceResponseException(
+                    context,
+                    ErrorCode.FOLDER_DOES_NOT_EXIST,
+                    "Folder (" + folderId + ") does not exist.",
+                    404);
+              }
+
+              context.setData(FOLDER_INFO_KEY, folderInfo);
+
+              return context;
+            });
   }
 
   public <T> Uni<ServiceResponse<T>> checkFolderExist(

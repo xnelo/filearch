@@ -3,6 +3,8 @@ package com.xnelo.filearch.restapi.data;
 import static com.xnelo.filearch.common.encryption.JooqFields.decryptField;
 import static com.xnelo.filearch.common.encryption.JooqFields.encryptField;
 
+import com.xnelo.filearch.common.exception.RepoException;
+import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.File;
 import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.common.model.SearchParameters;
@@ -139,7 +141,10 @@ public class StoredFilesRepo {
                         .eq(fileId)
                         .and(StoredFiles.STORED_FILES.OWNER_USER_ID.eq(userId)))
                 .execute())
-        .map(recordsDeleted -> recordsDeleted == 1);
+        .map(recordsDeleted -> recordsDeleted == 1)
+        .onFailure()
+        .transform(
+            ex -> new RepoException(ErrorCode.UNABLE_TO_DELETE_FILE, "Unable to delete file."));
   }
 
   public Uni<List<File>> getFilesInFolders(final List<Long> folderIds, final long userId) {

@@ -1,5 +1,7 @@
 package com.xnelo.filearch.restapi.data;
 
+import com.xnelo.filearch.common.exception.RepoException;
+import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.jooq.tables.FileTags;
 import com.xnelo.filearch.jooq.tables.records.FileTagsRecord;
 import io.agroal.api.AgroalDataSource;
@@ -49,7 +51,11 @@ public class FileTagsRepo {
         .onFailure()
         .invoke(ex -> log.error("Error deleting file mappings '{}'", fileId, ex))
         .onFailure()
-        .recoverWithItem(Boolean.FALSE);
+        .transform(
+            ex ->
+                new RepoException(
+                    ErrorCode.FILE_TAG_MAPPING_UNABLE_TO_DELETE,
+                    "Unable to delete Tile Tag Mapping '" + fileId + "'."));
   }
 
   public Uni<Boolean> assignFileMapping(final long fileId, final long tagId) {

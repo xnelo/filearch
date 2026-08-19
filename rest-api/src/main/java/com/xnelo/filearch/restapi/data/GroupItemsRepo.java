@@ -1,5 +1,7 @@
 package com.xnelo.filearch.restapi.data;
 
+import com.xnelo.filearch.common.exception.RepoException;
+import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.GroupItem;
 import com.xnelo.filearch.common.model.GroupItemType;
 import com.xnelo.filearch.jooq.tables.GroupItems;
@@ -87,7 +89,11 @@ public class GroupItemsRepo {
         .onFailure()
         .invoke(ex -> log.error("Error deleting group item from all groups.", ex))
         .onFailure()
-        .recoverWithItem(Boolean.FALSE);
+        .transform(
+            ex ->
+                new RepoException(
+                    ErrorCode.UNABLE_TO_REMOVE_ITEM_FROM_GROUP,
+                    "Error while deleting item from all Groups"));
   }
 
   GroupItem toGroupItemModel(final Record toConvert) {

@@ -6,11 +6,12 @@ import com.xnelo.filearch.common.service.ServiceError;
 import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.service.context.ServiceRequestContext;
 import java.util.List;
+import lombok.Getter;
 
 public class ServiceResponseException extends RuntimeException {
   private final ServiceRequestContext requestContext;
-  private final ErrorCode errorCode;
-  private final int httpStatus;
+  @Getter private final ErrorCode errorCode;
+  @Getter private final int httpStatus;
 
   public ServiceResponseException(
       final ServiceRequestContext requestContext,
