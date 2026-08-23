@@ -880,7 +880,7 @@ public class GroupService {
             });
   }
 
-  Uni<ServiceRequestContext> checkUserActiveMember(ServiceRequestContext requestContext) {
+  public Uni<ServiceRequestContext> checkUserActiveMember(ServiceRequestContext requestContext) {
     Utils.checkUserInRequest(requestContext);
     Utils.checkGroupInRequest(requestContext);
 

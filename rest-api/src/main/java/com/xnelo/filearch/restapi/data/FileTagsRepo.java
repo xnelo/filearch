@@ -37,7 +37,11 @@ public class FileTagsRepo {
         .onFailure()
         .invoke(ex -> log.error("Error deleting tag usages '{}'", tagId, ex))
         .onFailure()
-        .recoverWithItem(Boolean.FALSE);
+        .transform(
+            ex ->
+                new RepoException(
+                    ErrorCode.TAG_USES_COULD_NOT_BE_DELETED,
+                    "Tag(" + tagId + ") uses could not be deleted."));
   }
 
   public Uni<Boolean> deleteAllFileMappings(final long fileId) {
@@ -58,10 +62,6 @@ public class FileTagsRepo {
                     "Unable to delete Tile Tag Mapping '" + fileId + "'."));
   }
 
-  public Uni<Boolean> assignFileMapping(final long fileId, final long tagId) {
-    return assignFileMapping(fileId, tagId, null);
-  }
-
   public Uni<Boolean> assignFileMapping(final long fileId, final long tagId, final Long groupId) {
     InsertSetMoreStep<FileTagsRecord> insertStatement =
         context
@@ -80,10 +80,6 @@ public class FileTagsRepo {
         .invoke(ex -> log.error("Error inserting file tag mapping", ex))
         .onFailure()
         .recoverWithItem(Boolean.FALSE);
-  }
-
-  public Uni<Boolean> unassignFileMapping(final long fileId, final long tagId) {
-    return unassignFileMapping(fileId, tagId, null);
   }
 
   public Uni<Boolean> unassignFileMapping(final long fileId, final long tagId, final Long groupId) {

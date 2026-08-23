@@ -12,7 +12,7 @@ import jakarta.inject.Inject;
 public class SharedTagsService {
   @Inject SharedTagsRepo sharedTagsRepo;
 
-  Uni<ServiceRequestContext> checkTagShareExists(
+  public Uni<ServiceRequestContext> checkTagShareExists(
       ServiceRequestContext requestContext, final long tagId) {
     Utils.checkGroupInRequest(requestContext);
 

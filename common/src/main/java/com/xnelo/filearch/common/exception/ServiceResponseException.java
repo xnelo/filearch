@@ -36,4 +36,16 @@ public class ServiceResponseException extends RuntimeException {
                     .httpCode(httpStatus)
                     .build())));
   }
+
+  public <T> ServiceActionResponse<T> toServiceActionResponse() {
+    return new ServiceActionResponse<>(
+        requestContext.getResourceType(),
+        requestContext.getActionType(),
+        List.of(
+            ServiceError.builder()
+                .errorCode(errorCode)
+                .errorMessage(this.getMessage())
+                .httpCode(httpStatus)
+                .build()));
+  }
 }

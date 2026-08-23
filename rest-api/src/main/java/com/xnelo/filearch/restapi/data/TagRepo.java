@@ -3,6 +3,8 @@ package com.xnelo.filearch.restapi.data;
 import static com.xnelo.filearch.common.encryption.JooqFields.decryptField;
 import static com.xnelo.filearch.common.encryption.JooqFields.encryptField;
 
+import com.xnelo.filearch.common.exception.RepoException;
+import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.common.model.Tag;
 import com.xnelo.filearch.jooq.tables.FileTags;
@@ -152,7 +154,11 @@ public class TagRepo {
         .onFailure()
         .invoke(ex -> log.error("Error deleting tag {}", tagId, ex))
         .onFailure()
-        .recoverWithItem(Boolean.FALSE);
+        .transform(
+            ex ->
+                new RepoException(
+                    ErrorCode.TAG_COULD_NOT_BE_DELETED,
+                    "Tag(" + tagId + ") could not be deleted."));
   }
 
   public Uni<List<Tag>> searchTags(
