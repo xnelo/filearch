@@ -3,7 +3,6 @@ package com.xnelo.filearch.restapi.service;
 import com.xnelo.filearch.common.exception.ServiceResponseException;
 import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.GroupItemType;
-import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.service.context.ServiceRequestContext;
 import com.xnelo.filearch.restapi.data.FolderRepo;
 import com.xnelo.filearch.restapi.data.GroupItemsRepo;
@@ -12,7 +11,6 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import java.util.Objects;
-import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -21,6 +19,23 @@ public class GroupItemService {
   @Inject StoredFilesRepo storedFilesRepo;
   @Inject FolderRepo folderRepo;
   @Inject GroupItemsRepo groupItemsRepo;
+
+  public Uni<ServiceRequestContext> checkItemExistsThrowError(
+      final ServiceRequestContext requestContext, final GroupItemType itemType, final long itemId) {
+    return checkItemExists(requestContext, itemType, itemId)
+        .map(
+            itemExists -> {
+              if (!itemExists) {
+                throw new ServiceResponseException(
+                    requestContext,
+                    ErrorCode.ITEM_NOT_IN_GROUP,
+                    "Item ([" + itemType + "] " + itemId + " does not exist.",
+                    404);
+              }
+
+              return requestContext;
+            });
+  }
 
   public Uni<Boolean> checkItemExists(
       final ServiceRequestContext requestContext, final GroupItemType itemType, final long itemId) {
@@ -68,32 +83,29 @@ public class GroupItemService {
         .recoverWithItem(Boolean.FALSE);
   }
 
-  <T> Uni<ServiceResponse<T>> checkItemInGroup(
-      final ServiceRequestContext requestContext,
-      final long itemId,
-      final GroupItemType itemType,
-      final Function<ServiceRequestContext, Uni<ServiceResponse<T>>> itemInGroupAction) {
+  Uni<ServiceRequestContext> checkItemNotInGroup(
+      final ServiceRequestContext requestContext, final long itemId, final GroupItemType itemType) {
+    Utils.checkGroupInRequest(requestContext);
+
     return groupItemsRepo
         .isItemInGroup(itemId, itemType, requestContext.getGroupId())
-        .chain(
-            isItemInGroup -> {
-              if (!isItemInGroup) {
-                return Uni.createFrom()
-                    .item(
-                        Utils.createServiceErrorResponse(
-                            requestContext,
-                            ErrorCode.ITEM_NOT_IN_GROUP,
-                            "Item ("
-                                + itemId
-                                + " - "
-                                + itemType
-                                + ") is not in the group ("
-                                + requestContext.getGroupId()
-                                + ").",
-                            403));
+        .map(
+            res -> {
+              if (res) {
+                throw new ServiceResponseException(
+                    requestContext,
+                    ErrorCode.ITEM_ALREADY_IN_GROUP,
+                    "Item ("
+                        + itemId
+                        + " - "
+                        + itemType
+                        + ") is already in the group ("
+                        + requestContext.getGroupId()
+                        + ").",
+                    400);
               }
 
-              return itemInGroupAction.apply(requestContext);
+              return requestContext;
             });
   }
 
@@ -107,7 +119,16 @@ public class GroupItemService {
             res -> {
               if (!res) {
                 throw new ServiceResponseException(
-                    requestContext, ErrorCode.ITEM_NOT_IN_GROUP, "Group Item does not exist.", 404);
+                    requestContext,
+                    ErrorCode.ITEM_NOT_IN_GROUP,
+                    "Item ("
+                        + itemId
+                        + " - "
+                        + itemType
+                        + ") is not in the group ("
+                        + requestContext.getGroupId()
+                        + ").",
+                    404);
               }
 
               return requestContext;

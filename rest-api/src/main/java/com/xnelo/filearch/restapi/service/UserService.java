@@ -386,6 +386,21 @@ public class UserService {
                         isUsernameUnique)));
   }
 
+  Uni<User> getUserByUsername(final ServiceRequestContext requestContext, final String username) {
+    return userRepo
+        .getUserFromUsername(username)
+        .invoke(
+            user -> {
+              if (user == null) {
+                throw new ServiceResponseException(
+                    requestContext,
+                    ErrorCode.USER_DOES_NOT_EXIST,
+                    "User with username '" + username + "' does not exist",
+                    404);
+              }
+            });
+  }
+
   Uni<ServiceResponse<User>> getUserByUsername(final String username) {
     return userRepo
         .getUserFromUsername(username)

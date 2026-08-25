@@ -559,7 +559,7 @@ public class FileService {
       canUserAddTag =
           userService
               .checkUserExist(requestContext)
-              .chain(context -> groupService.checkUserActiveMember(requestContext))
+              .chain(context -> groupService.checkUserActiveMember(context))
               .chain(
                   context ->
                       groupPermissionsService.userHasPermissionV2(

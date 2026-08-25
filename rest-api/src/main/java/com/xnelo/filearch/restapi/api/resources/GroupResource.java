@@ -96,10 +96,11 @@ public class GroupResource {
             .resourceType(ResourceType.GROUP)
             .actionType(ActionType.DELETE)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return groupService
-        .deleteGroup(requestContext, groupId)
+        .deleteGroup(requestContext)
         .map(
             groupServiceResponse ->
                 contractMapper.toApiResponse(
@@ -117,10 +118,11 @@ public class GroupResource {
             .resourceType(ResourceType.GROUP)
             .actionType(ActionType.ADD_USER_TO_GROUP)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return groupService
-        .addUsersToGroup(requestContext, groupId, usersToAdd)
+        .addUsersToGroup(requestContext, usersToAdd)
         .map(
             serviceResponse -> contractMapper.toApiResponse(serviceResponse, username -> username));
   }
@@ -137,10 +139,11 @@ public class GroupResource {
             .resourceType(ResourceType.GROUP)
             .actionType(ActionType.REMOVE_USER_FROM_GROUP)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return groupService
-        .removeUsersFromGroup(requestContext, groupId, usersToRemove)
+        .removeUsersFromGroup(requestContext, usersToRemove)
         .map(
             serviceResponse -> contractMapper.toApiResponse(serviceResponse, username -> username));
   }
@@ -202,10 +205,11 @@ public class GroupResource {
             .resourceType(ResourceType.GROUP)
             .actionType(ActionType.ADD_ITEM_TO_GROUP)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return groupService
-        .addItemsToGroup(requestContext, groupId, itemsToAdd)
+        .addItemsToGroup(requestContext, itemsToAdd)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toGroupItemContract));
@@ -223,10 +227,11 @@ public class GroupResource {
             .resourceType(ResourceType.GROUP)
             .actionType(ActionType.REMOVE_ITEM_FROM_GROUP)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return groupService
-        .removeItemsFromGroup(requestContext, groupId, itemsToRemove)
+        .removeItemsFromGroup(requestContext, itemsToRemove)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toGroupItemContract));
@@ -246,10 +251,11 @@ public class GroupResource {
             .resourceType(ResourceType.GROUP)
             .actionType(ActionType.GET)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return groupService
-        .getFilesInGroup(requestContext, groupId, paginationParameters)
+        .getFilesInGroup(requestContext, paginationParameters)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(
@@ -271,10 +277,11 @@ public class GroupResource {
             .resourceType(ResourceType.GROUP)
             .actionType(ActionType.GET_GROUP_PERMISSIONS)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return groupPermissionsService
-        .getUserPermissions(requestContext, userId, groupId)
+        .getUserPermissions(requestContext, userId)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(
@@ -314,10 +321,11 @@ public class GroupResource {
             .resourceType(ResourceType.GROUP)
             .actionType(ActionType.GET_USERS_IN_GROUP)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return groupService
-        .getUsersInGroup(requestContext, groupId)
+        .getUsersInGroup(requestContext)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(
@@ -335,10 +343,11 @@ public class GroupResource {
             .resourceType(ResourceType.GROUP)
             .actionType(ActionType.GET_GROUP_PERMISSIONS)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return groupPermissionsService
-        .getAllGroupPermissionByUser(requestContext, groupId)
+        .getAllGroupPermissionByUser(requestContext)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(

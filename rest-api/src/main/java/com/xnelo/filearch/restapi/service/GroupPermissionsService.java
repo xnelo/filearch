@@ -23,222 +23,114 @@ import java.util.function.Supplier;
 public class GroupPermissionsService {
   @Inject UserService userService;
   @Inject GroupRepo groupRepo;
+  @Inject GroupService groupService;
   @Inject GroupMemberPermissionsRepo groupMemberPermissionsRepo;
 
   public Uni<ServiceResponse<List<GroupMemberAllPermissions>>> getAllGroupPermissionByUser(
-      final ServiceRequestContext requestContext, final long groupId) {
-    return userService.checkUserExist(
-        requestContext,
-        context2 ->
-            groupRepo
-                .userActiveMemberInGroup(context2.getUser().getId(), groupId)
-                .chain(
-                    isActiveMember -> {
-                      if (!isActiveMember) {
-                        return Uni.createFrom()
-                            .item(
-                                new ServiceResponse<>(
-                                    new ServiceActionResponse<>(
-                                        context2.getResourceType(),
-                                        context2.getActionType(),
-                                        List.of(
-                                            ServiceError.builder()
-                                                .errorCode(ErrorCode.USER_NOT_ACTIVE)
-                                                .errorMessage(
-                                                    "User is not an active member of group("
-                                                        + groupId
-                                                        + ")")
-                                                .httpCode(404)
-                                                .build()))));
-                      }
-                      return canUserViewPermissions(context2.getUser().getId(), null, groupId)
-                          .chain(
-                              canUserView -> {
-                                if (!canUserView) {
-                                  return Uni.createFrom()
-                                      .item(
-                                          new ServiceResponse<>(
-                                              new ServiceActionResponse<>(
-                                                  context2.getResourceType(),
-                                                  context2.getActionType(),
-                                                  List.of(
-                                                      ServiceError.builder()
-                                                          .errorCode(
-                                                              ErrorCode.PERMISSION_NOT_GRANTED)
-                                                          .errorMessage(
-                                                              "You do not have permission to view user permission in this group("
-                                                                  + groupId
-                                                                  + ")")
-                                                          .httpCode(403)
-                                                          .build()))));
-                                }
+      final ServiceRequestContext requestContext) {
+    Utils.checkGroupInRequest(requestContext);
 
-                                return groupMemberPermissionsRepo
-                                    .getAllGroupPermissionsByUser(groupId)
-                                    .map(
-                                        res -> {
-                                          List<GroupMemberAllPermissions> finalOutput =
-                                              res.entrySet().stream()
-                                                  .map(
-                                                      (e) ->
-                                                          new GroupMemberAllPermissions(
-                                                              e.getKey(),
-                                                              groupId,
-                                                              e.getValue().stream()
-                                                                  .map(
-                                                                      GroupMemberPermission
-                                                                          ::getPermission)
-                                                                  .toList()))
-                                                  .toList();
-                                          return new ServiceResponse<>(
-                                              new ServiceActionResponse<>(
-                                                  context2.getResourceType(),
-                                                  context2.getActionType(),
-                                                  finalOutput));
-                                        });
-                              });
-                    }));
+    return userService
+        .checkUserExist(requestContext)
+        .chain(context -> groupService.checkUserActiveMember(context))
+        .chain(context -> canUserViewPermissions(context, context.getUser().getId(), null))
+        .chain(
+            context ->
+                groupMemberPermissionsRepo.getAllGroupPermissionsByUser(context.getGroupId()))
+        .map(
+            res -> {
+              List<GroupMemberAllPermissions> finalOutput =
+                  res.entrySet().stream()
+                      .map(
+                          (e) ->
+                              new GroupMemberAllPermissions(
+                                  e.getKey(),
+                                  requestContext.getGroupId(),
+                                  e.getValue().stream()
+                                      .map(GroupMemberPermission::getPermission)
+                                      .toList()))
+                      .toList();
+              return new ServiceResponse<>(
+                  new ServiceActionResponse<>(
+                      requestContext.getResourceType(),
+                      requestContext.getActionType(),
+                      finalOutput));
+            });
   }
 
   public Uni<ServiceResponse<List<GroupMemberPermission>>> getUserPermissions(
-      final ServiceRequestContext requestContext, final long userToViewId, final long groupId) {
-    return userService.checkUserExist(
-        requestContext,
-        context2 ->
-            groupRepo
-                .userActiveMemberInGroup(context2.getUser().getId(), groupId)
-                .chain(
-                    isActiveMember -> {
-                      if (!isActiveMember) {
-                        return Uni.createFrom()
-                            .item(
-                                new ServiceResponse<>(
-                                    new ServiceActionResponse<>(
-                                        context2.getResourceType(),
-                                        context2.getActionType(),
-                                        List.of(
-                                            ServiceError.builder()
-                                                .errorCode(ErrorCode.GROUP_DOES_NOT_EXIST)
-                                                .errorMessage(
-                                                    "Group ("
-                                                        + groupId
-                                                        + ") does not exits or user is not a member of group.")
-                                                .httpCode(404)
-                                                .build()))));
-                      }
+      final ServiceRequestContext requestContext, final long userToViewId) {
+    Utils.checkGroupInRequest(requestContext);
 
-                      return canUserViewPermissions(
-                              context2.getUser().getId(), userToViewId, groupId)
-                          .chain(
-                              canView -> {
-                                if (!canView) {
-                                  return Uni.createFrom()
-                                      .item(
-                                          new ServiceResponse<>(
-                                              new ServiceActionResponse<>(
-                                                  context2.getResourceType(),
-                                                  context2.getActionType(),
-                                                  List.of(
-                                                      ServiceError.builder()
-                                                          .errorCode(
-                                                              ErrorCode.PERMISSION_NOT_GRANTED)
-                                                          .errorMessage(
-                                                              "You do not have permission to view other users permissions.")
-                                                          .httpCode(403)
-                                                          .build()))));
-                                }
-
-                                return groupMemberPermissionsRepo
-                                    .getPermissions(userToViewId, groupId)
-                                    .map(
-                                        permissions ->
-                                            new ServiceResponse<>(
-                                                new ServiceActionResponse<>(
-                                                    context2.getResourceType(),
-                                                    context2.getActionType(),
-                                                    permissions)));
-                              });
-                    }));
+    return userService
+        .checkUserExist(requestContext)
+        .chain(context -> groupService.checkUserActiveMember(requestContext))
+        .chain(context -> canUserViewPermissions(context, context.getUser().getId(), userToViewId))
+        .chain(
+            context ->
+                groupMemberPermissionsRepo.getPermissions(userToViewId, context.getGroupId()))
+        .map(
+            permissions ->
+                new ServiceResponse<>(
+                    new ServiceActionResponse<>(
+                        requestContext.getResourceType(),
+                        requestContext.getActionType(),
+                        permissions)));
   }
 
-  Uni<Boolean> canUserViewPermissions(
-      final long userRequestingView, final Long userToView, final long groupId) {
+  Uni<ServiceRequestContext> canUserViewPermissions(
+      final ServiceRequestContext context, final long userRequestingView, final Long userToView) {
+    Utils.checkGroupInRequest(context);
+
     if (userToView != null && userRequestingView == userToView) {
-      return Uni.createFrom().item(true);
+      // We can view... don't throw exception
+      return Uni.createFrom().item(context);
     }
 
     return userHasPermission(
-        userRequestingView, groupId, GroupPermissionType.EDIT_MEMBER_PERMISSIONS);
+            userRequestingView, context.getGroupId(), GroupPermissionType.EDIT_MEMBER_PERMISSIONS)
+        .map(
+            hasPermission -> {
+              if (!hasPermission) {
+                throw new ServiceResponseException(
+                    context,
+                    ErrorCode.PERMISSION_NOT_GRANTED,
+                    "You do not have permission to view user permission in this group("
+                        + context.getGroupId()
+                        + ")",
+                    403);
+              }
+
+              return context;
+            });
   }
 
   public Uni<ServiceResponse<GroupMemberPermission>> modifyPermissions(
       final ServiceRequestContext requestContext,
       final long groupId,
       final List<GroupMemberPermissionModifyContract> permissionModifications) {
-    return userService.checkUserExist(
-        requestContext,
-        context2 ->
-            groupRepo
-                .userActiveMemberInGroup(context2.getUser().getId(), groupId)
-                .chain(
-                    isActiveMember -> {
-                      if (!isActiveMember) {
-                        return Uni.createFrom()
-                            .item(
-                                new ServiceResponse<>(
-                                    new ServiceActionResponse<>(
-                                        context2.getResourceType(),
-                                        context2.getActionType(),
-                                        List.of(
-                                            ServiceError.builder()
-                                                .errorCode(ErrorCode.USER_NOT_ACTIVE)
-                                                .errorMessage(
-                                                    "User is not an active member of the group")
-                                                .httpCode(403)
-                                                .build()))));
-                      }
+    return userService
+        .checkUserExist(requestContext)
+        .chain(context -> groupService.checkUserActiveMember(context))
+        .chain(context -> userHasPermissionV2(context, GroupPermissionType.EDIT_MEMBER_PERMISSIONS))
+        .chain(
+            context -> {
+              ArrayList<Uni<ServiceActionResponse<GroupMemberPermission>>>
+                  individualPermissionModifications = new ArrayList<>();
+              for (GroupMemberPermissionModifyContract permissionModifyContract :
+                  permissionModifications) {
+                individualPermissionModifications.add(
+                    individualModifyPermission(context, groupId, permissionModifyContract));
+              }
 
-                      return userHasPermission(
-                              context2.getUser().getId(),
-                              groupId,
-                              GroupPermissionType.EDIT_MEMBER_PERMISSIONS)
-                          .chain(
-                              canModify -> {
-                                if (!canModify) {
-                                  return Uni.createFrom()
-                                      .item(
-                                          new ServiceResponse<>(
-                                              new ServiceActionResponse<>(
-                                                  context2.getResourceType(),
-                                                  context2.getActionType(),
-                                                  List.of(
-                                                      ServiceError.builder()
-                                                          .errorCode(
-                                                              ErrorCode.PERMISSION_NOT_GRANTED)
-                                                          .errorMessage(
-                                                              "User does not have permission to modify user permissions.")
-                                                          .httpCode(403)
-                                                          .build()))));
-                                }
-
-                                ArrayList<Uni<ServiceActionResponse<GroupMemberPermission>>>
-                                    individualPermissionModifications = new ArrayList<>();
-                                for (GroupMemberPermissionModifyContract permissionModifyContract :
-                                    permissionModifications) {
-                                  individualPermissionModifications.add(
-                                      individualModifyPermission(
-                                          context2, groupId, permissionModifyContract));
-                                }
-
-                                return Uni.combine()
-                                    .all()
-                                    .unis(individualPermissionModifications)
-                                    .with(
-                                        toCombine ->
-                                            Utils.combineServiceActionResponses(
-                                                toCombine, GroupMemberPermission.class));
-                              });
-                    }));
+              return Uni.combine()
+                  .all()
+                  .unis(individualPermissionModifications)
+                  .with(
+                      toCombine ->
+                          Utils.combineServiceActionResponses(
+                              toCombine, GroupMemberPermission.class));
+            });
   }
 
   /**
@@ -252,6 +144,7 @@ public class GroupPermissionsService {
    * @return A Uni with the ServiceResponse in it.
    * @param <T> The specific resource type object.
    */
+  @Deprecated
   public <T> Uni<ServiceResponse<T>> userHasPermissionError(
       final ServiceRequestContext requestContext,
       final long groupId,
@@ -336,56 +229,43 @@ public class GroupPermissionsService {
       final GroupPermissionType permissionToAdd) {
     return groupMemberPermissionsRepo
         .permissionExists(userId, groupId, permissionToAdd)
-        .chain(
+        .invoke(
             hasPermission -> {
-              if (hasPermission) {
-                return Uni.createFrom()
-                    .item(
-                        new ServiceActionResponse<>(
-                            requestContext.getResourceType(),
-                            requestContext.getActionType(),
-                            List.of(
-                                ServiceError.builder()
-                                    .errorCode(ErrorCode.PERMISSION_ALREADY_GRANTED)
-                                    .errorMessage(
-                                        "User already has permission, userId="
-                                            + userId
-                                            + ", groupId="
-                                            + groupId
-                                            + ", permission="
-                                            + permissionToAdd)
-                                    .httpCode(400)
-                                    .build())));
+              if (!hasPermission) {
+                throw new ServiceResponseException(
+                    requestContext,
+                    ErrorCode.PERMISSION_ALREADY_GRANTED,
+                    "User already has permission, userId="
+                        + userId
+                        + ", groupId="
+                        + groupId
+                        + ", permission="
+                        + permissionToAdd,
+                    400);
+              }
+            })
+        .chain(
+            _ignore -> groupMemberPermissionsRepo.addPermission(userId, groupId, permissionToAdd))
+        .map(
+            addData -> {
+              if (addData == null) {
+                throw new ServiceResponseException(
+                    requestContext,
+                    ErrorCode.ERROR_CREATING_PERMISSION,
+                    "Error giving userId="
+                        + userId
+                        + ", groupId="
+                        + groupId
+                        + " permission="
+                        + permissionToAdd,
+                    500);
               }
 
-              return groupMemberPermissionsRepo
-                  .addPermission(userId, groupId, permissionToAdd)
-                  .map(
-                      addData -> {
-                        if (addData == null) {
-                          return new ServiceActionResponse<>(
-                              requestContext.getResourceType(),
-                              requestContext.getActionType(),
-                              List.of(
-                                  ServiceError.builder()
-                                      .errorCode(ErrorCode.ERROR_CREATING_PERMISSION)
-                                      .errorMessage(
-                                          "Error giving userId="
-                                              + userId
-                                              + ", groupId="
-                                              + groupId
-                                              + " permission="
-                                              + permissionToAdd)
-                                      .httpCode(500)
-                                      .build()));
-                        }
-
-                        return new ServiceActionResponse<>(
-                            requestContext.getResourceType(),
-                            requestContext.getActionType(),
-                            addData);
-                      });
-            });
+              return new ServiceActionResponse<>(
+                  requestContext.getResourceType(), requestContext.getActionType(), addData);
+            })
+        .onFailure(ServiceResponseException.class)
+        .recoverWithItem(ServiceResponseException::toServiceActionResponse);
   }
 
   Uni<ServiceActionResponse<GroupMemberPermission>> removeIndividualPermission(
@@ -426,7 +306,6 @@ public class GroupPermissionsService {
       ServiceRequestContext requestContext, final GroupPermissionType permission) {
     Utils.checkUserInRequest(requestContext);
     Utils.checkGroupInRequest(requestContext);
-
     return userHasPermission(
             requestContext.getUser().getId(), requestContext.getGroupId(), permission)
         .map(
