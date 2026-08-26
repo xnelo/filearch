@@ -308,8 +308,9 @@ public class FolderService {
 
   public Uni<ServiceResponse<Folder>> deleteFolder(
       final ServiceRequestContext requestContext, final long folderId) {
-    return userService.checkUserExist(
-        requestContext, context -> deleteIfFolderExists(context, folderId, true));
+    return userService
+        .checkUserExist(requestContext)
+        .chain(context -> deleteIfFolderExists(context, folderId, true));
   }
 
   private Uni<ServiceResponse<Folder>> deleteIfFolderExists(

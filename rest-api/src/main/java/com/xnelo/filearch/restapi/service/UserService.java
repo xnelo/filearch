@@ -1,7 +1,6 @@
 package com.xnelo.filearch.restapi.service;
 
 import com.xnelo.filearch.common.exception.ServiceResponseException;
-import com.xnelo.filearch.common.model.ActionType;
 import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.ResourceType;
 import com.xnelo.filearch.common.model.User;
@@ -20,7 +19,6 @@ import jakarta.inject.Inject;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 
 @RequestScoped
 public class UserService {
@@ -279,80 +277,47 @@ public class UserService {
             });
   }
 
-  public <T> Uni<ServiceResponse<T>> checkUserExist(
-      final ServiceRequestContext requestContext,
-      final Function<ServiceRequestContext, Uni<ServiceResponse<T>>> userExistAction) {
-    return getUserFromUserToken(requestContext)
-        .chain(
-            userResponse -> {
-              User user = userResponse.getActionResponses().getFirst().getData();
-              if (user == null) {
-                return Uni.createFrom()
-                    .item(
-                        new ServiceResponse<>(
-                            new ServiceActionResponse<>(
-                                requestContext.getResourceType(),
-                                requestContext.getActionType(),
-                                List.of(
-                                    ServiceError.builder()
-                                        .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
-                                        .errorMessage(
-                                            "Cannot "
-                                                + requestContext.getActionType()
-                                                + " "
-                                                + requestContext.getResourceType()
-                                                + " because user does not exist.")
-                                        .httpCode(404)
-                                        .build()))));
-              }
-
-              requestContext.setUser(user);
-
-              return userExistAction.apply(requestContext);
-            });
-  }
-
   public Uni<ServiceResponse<User>> deleteUser(final ServiceRequestContext requestContext) {
-    return checkUserExist(
-        requestContext,
-        context ->
-            folderService
-                .deleteRootFolder(context, context.getUser().getRootFolderId())
-                // TODO: Check if we need to delete groups, tags, permissions, etc.
-                .chain(
-                    deleteFolderResponse -> {
-                      if (deleteFolderResponse.hasError()) {
-                        return Uni.createFrom()
-                            .item(
-                                ServiceResponseUtils.updateErrorAndPassThrough(
-                                    deleteFolderResponse, ResourceType.USER));
-                      }
+    return checkUserExist(requestContext)
+        .chain(
+            context ->
+                folderService
+                    .deleteRootFolder(context, context.getUser().getRootFolderId())
+                    // TODO: Check if we need to delete groups, tags, permissions, etc.
+                    .chain(
+                        deleteFolderResponse -> {
+                          if (deleteFolderResponse.hasError()) {
+                            return Uni.createFrom()
+                                .item(
+                                    ServiceResponseUtils.updateErrorAndPassThrough(
+                                        deleteFolderResponse, ResourceType.USER));
+                          }
 
-                      return userRepo
-                          .deleteUser(context.getUser().getId())
-                          .map(
-                              deletedUser -> {
-                                if (deletedUser == null) {
-                                  return new ServiceResponse<>(
-                                      new ServiceActionResponse<>(
-                                          context.getResourceType(),
-                                          context.getActionType(),
-                                          List.of(
-                                              ServiceError.builder()
-                                                  .errorCode(ErrorCode.USER_DELETE_ERROR)
-                                                  .errorMessage(
-                                                      "Error deleting user from database.")
-                                                  .httpCode(500)
-                                                  .build())));
-                                }
+                          return userRepo
+                              .deleteUser(context.getUser().getId())
+                              .map(
+                                  deletedUser -> {
+                                    if (deletedUser == null) {
+                                      return new ServiceResponse<>(
+                                          new ServiceActionResponse<>(
+                                              context.getResourceType(),
+                                              context.getActionType(),
+                                              List.of(
+                                                  ServiceError.builder()
+                                                      .errorCode(ErrorCode.USER_DELETE_ERROR)
+                                                      .errorMessage(
+                                                          "Error deleting user from database.")
+                                                      .httpCode(500)
+                                                      .build())));
+                                    }
 
-                                return new ServiceResponse<>(
-                                    new ServiceActionResponse<>(
-                                        context.getResourceType(),
-                                        context.getActionType(),
-                                        deletedUser));
-                              });
-                    }));
+                                    return new ServiceResponse<>(
+                                        new ServiceActionResponse<>(
+                                            context.getResourceType(),
+                                            context.getActionType(),
+                                            deletedUser));
+                                  });
+                        }));
   }
 
   private Map<String, Object> toUpdateMap(final UserContract toUpdate) {
@@ -398,30 +363,6 @@ public class UserService {
                     "User with username '" + username + "' does not exist",
                     404);
               }
-            });
-  }
-
-  Uni<ServiceResponse<User>> getUserByUsername(final String username) {
-    return userRepo
-        .getUserFromUsername(username)
-        .map(
-            user -> {
-              if (user == null) {
-                return new ServiceResponse<>(
-                    new ServiceActionResponse<>(
-                        ResourceType.USER,
-                        ActionType.GET,
-                        List.of(
-                            ServiceError.builder()
-                                .errorCode(ErrorCode.USER_DOES_NOT_EXIST)
-                                .errorMessage(
-                                    "User with username '" + username + "' does not exist")
-                                .httpCode(404)
-                                .build())));
-              }
-
-              return new ServiceResponse<>(
-                  new ServiceActionResponse<>(ResourceType.USER, ActionType.GET, user));
             });
   }
 }
