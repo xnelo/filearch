@@ -8,7 +8,6 @@ import com.xnelo.filearch.common.service.context.ServiceRequestContext;
 import com.xnelo.filearch.common.service.context.ServiceRequestContextImpl;
 import com.xnelo.filearch.common.usertoken.UserToken;
 import com.xnelo.filearch.common.usertoken.UserTokenHandler;
-import com.xnelo.filearch.restapi.api.contracts.AssignTagContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupAddItemContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupAddUsersContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupCreateContract;
@@ -17,7 +16,6 @@ import com.xnelo.filearch.restapi.api.contracts.GroupRemoveItemContract;
 import com.xnelo.filearch.restapi.api.contracts.GroupRemoveUsersContract;
 import com.xnelo.filearch.restapi.api.contracts.PaginationRequest;
 import com.xnelo.filearch.restapi.api.mappers.ContractMapper;
-import com.xnelo.filearch.restapi.service.GroupItemService;
 import com.xnelo.filearch.restapi.service.GroupPermissionsService;
 import com.xnelo.filearch.restapi.service.GroupService;
 import io.smallrye.mutiny.Uni;
@@ -41,7 +39,6 @@ public class GroupResource {
   @Inject UserTokenHandler userTokenHandler;
   @Inject GroupService groupService;
   @Inject GroupPermissionsService groupPermissionsService;
-  @Inject GroupItemService groupItemService;
   private final ContractMapper contractMapper = Mappers.getMapper(ContractMapper.class);
 
   @GET
@@ -99,10 +96,11 @@ public class GroupResource {
             .resourceType(ResourceType.GROUP)
             .actionType(ActionType.DELETE)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return groupService
-        .deleteGroup(requestContext, groupId)
+        .deleteGroup(requestContext)
         .map(
             groupServiceResponse ->
                 contractMapper.toApiResponse(
@@ -120,10 +118,11 @@ public class GroupResource {
             .resourceType(ResourceType.GROUP)
             .actionType(ActionType.ADD_USER_TO_GROUP)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return groupService
-        .addUsersToGroup(requestContext, groupId, usersToAdd)
+        .addUsersToGroup(requestContext, usersToAdd)
         .map(
             serviceResponse -> contractMapper.toApiResponse(serviceResponse, username -> username));
   }
@@ -140,10 +139,11 @@ public class GroupResource {
             .resourceType(ResourceType.GROUP)
             .actionType(ActionType.REMOVE_USER_FROM_GROUP)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return groupService
-        .removeUsersFromGroup(requestContext, groupId, usersToRemove)
+        .removeUsersFromGroup(requestContext, usersToRemove)
         .map(
             serviceResponse -> contractMapper.toApiResponse(serviceResponse, username -> username));
   }
@@ -205,10 +205,11 @@ public class GroupResource {
             .resourceType(ResourceType.GROUP)
             .actionType(ActionType.ADD_ITEM_TO_GROUP)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return groupService
-        .addItemsToGroup(requestContext, groupId, itemsToAdd)
+        .addItemsToGroup(requestContext, itemsToAdd)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toGroupItemContract));
@@ -226,10 +227,11 @@ public class GroupResource {
             .resourceType(ResourceType.GROUP)
             .actionType(ActionType.REMOVE_ITEM_FROM_GROUP)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return groupService
-        .removeItemsFromGroup(requestContext, groupId, itemsToRemove)
+        .removeItemsFromGroup(requestContext, itemsToRemove)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(serviceResponse, contractMapper::toGroupItemContract));
@@ -249,10 +251,11 @@ public class GroupResource {
             .resourceType(ResourceType.GROUP)
             .actionType(ActionType.GET)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return groupService
-        .getFilesInGroup(requestContext, groupId, paginationParameters)
+        .getFilesInGroup(requestContext, paginationParameters)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(
@@ -260,54 +263,6 @@ public class GroupResource {
                     resp ->
                         contractMapper.toPaginationContract(
                             resp, contractMapper::toGroupFileContractList)));
-  }
-
-  @POST
-  @RolesAllowed("user")
-  @Path("{id}/{file_id}/tag_file")
-  public Uni<Response> tagFile(
-      @PathParam("id") long groupId,
-      @PathParam("file_id") long fileId,
-      final AssignTagContract assignTag) {
-    UserToken userToken = userTokenHandler.getUserInfo();
-
-    ServiceRequestContext requestContext =
-        ServiceRequestContextImpl.builder()
-            .resourceType(ResourceType.TAG)
-            .actionType(ActionType.ASSIGN)
-            .userToken(userToken)
-            .build();
-
-    return groupItemService
-        .assignTagToGroupFile(requestContext, groupId, fileId, assignTag.tagId())
-        .map(
-            serviceResponse ->
-                contractMapper.toApiResponse(
-                    serviceResponse, (Boolean isSuccessful) -> isSuccessful));
-  }
-
-  @POST
-  @RolesAllowed("user")
-  @Path("{id}/{file_id}/untag_file")
-  public Uni<Response> untagFile(
-      @PathParam("id") long groupId,
-      @PathParam("file_id") long fileId,
-      final AssignTagContract unassignTag) {
-    UserToken userToken = userTokenHandler.getUserInfo();
-
-    ServiceRequestContext requestContext =
-        ServiceRequestContextImpl.builder()
-            .resourceType(ResourceType.TAG)
-            .actionType(ActionType.UNASSIGN)
-            .userToken(userToken)
-            .build();
-
-    return groupItemService
-        .unassignTagFromGroupFile(requestContext, groupId, fileId, unassignTag.tagId())
-        .map(
-            booleanServiceResponse ->
-                contractMapper.toApiResponse(
-                    booleanServiceResponse, (Boolean isSuccessful) -> isSuccessful));
   }
 
   @GET
@@ -322,10 +277,11 @@ public class GroupResource {
             .resourceType(ResourceType.GROUP)
             .actionType(ActionType.GET_GROUP_PERMISSIONS)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return groupPermissionsService
-        .getUserPermissions(requestContext, userId, groupId)
+        .getUserPermissions(requestContext, userId)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(
@@ -365,10 +321,11 @@ public class GroupResource {
             .resourceType(ResourceType.GROUP)
             .actionType(ActionType.GET_USERS_IN_GROUP)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return groupService
-        .getUsersInGroup(requestContext, groupId)
+        .getUsersInGroup(requestContext)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(
@@ -386,10 +343,11 @@ public class GroupResource {
             .resourceType(ResourceType.GROUP)
             .actionType(ActionType.GET_GROUP_PERMISSIONS)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return groupPermissionsService
-        .getAllGroupPermissionByUser(requestContext, groupId)
+        .getAllGroupPermissionByUser(requestContext)
         .map(
             serviceResponse ->
                 contractMapper.toApiResponse(

@@ -3,21 +3,14 @@ package com.xnelo.filearch.restapi.service;
 import com.xnelo.filearch.common.exception.ServiceResponseException;
 import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.GroupItemType;
-import com.xnelo.filearch.common.model.GroupPermissionType;
-import com.xnelo.filearch.common.service.ServiceActionResponse;
-import com.xnelo.filearch.common.service.ServiceResponse;
 import com.xnelo.filearch.common.service.context.ServiceRequestContext;
-import com.xnelo.filearch.restapi.data.FileTagsRepo;
 import com.xnelo.filearch.restapi.data.FolderRepo;
 import com.xnelo.filearch.restapi.data.GroupItemsRepo;
-import com.xnelo.filearch.restapi.data.GroupRepo;
-import com.xnelo.filearch.restapi.data.SharedTagsRepo;
 import com.xnelo.filearch.restapi.data.StoredFilesRepo;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import java.util.Objects;
-import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -25,12 +18,24 @@ import lombok.extern.slf4j.Slf4j;
 public class GroupItemService {
   @Inject StoredFilesRepo storedFilesRepo;
   @Inject FolderRepo folderRepo;
-  @Inject UserService userService;
-  @Inject GroupRepo groupRepo;
   @Inject GroupItemsRepo groupItemsRepo;
-  @Inject SharedTagsRepo sharedTagsRepo;
-  @Inject FileTagsRepo fileTagsRepo;
-  @Inject GroupPermissionsService groupPermissionsService;
+
+  public Uni<ServiceRequestContext> checkItemExistsThrowError(
+      final ServiceRequestContext requestContext, final GroupItemType itemType, final long itemId) {
+    return checkItemExists(requestContext, itemType, itemId)
+        .map(
+            itemExists -> {
+              if (!itemExists) {
+                throw new ServiceResponseException(
+                    requestContext,
+                    ErrorCode.ITEM_NOT_IN_GROUP,
+                    "Item ([" + itemType + "] " + itemId + " does not exist.",
+                    404);
+              }
+
+              return requestContext;
+            });
+  }
 
   public Uni<Boolean> checkItemExists(
       final ServiceRequestContext requestContext, final GroupItemType itemType, final long itemId) {
@@ -78,159 +83,55 @@ public class GroupItemService {
         .recoverWithItem(Boolean.FALSE);
   }
 
-  public Uni<ServiceResponse<Boolean>> assignTagToGroupFile(
-      final ServiceRequestContext requestContext,
-      final long groupId,
-      final long fileId,
-      final long tagId) {
-    return userService.checkUserExist(
-        requestContext,
-        context2 ->
-            groupRepo
-                .userActiveMemberInGroup(context2.getUser().getId(), groupId)
-                .chain(
-                    isActiveMember -> {
-                      if (!isActiveMember) {
-                        return Uni.createFrom()
-                            .item(
-                                Utils.createServiceErrorResponse(
-                                    context2,
-                                    ErrorCode.USER_NOT_ACTIVE,
-                                    "User is not an active member of group(" + groupId + ").",
-                                    400));
-                      }
+  Uni<ServiceRequestContext> checkItemNotInGroup(
+      final ServiceRequestContext requestContext, final long itemId, final GroupItemType itemType) {
+    Utils.checkGroupInRequest(requestContext);
 
-                      return groupPermissionsService.userHasPermissionError(
-                          context2,
-                          groupId,
-                          GroupPermissionType.TAG_ITEMS,
-                          () ->
-                              groupItemsRepo
-                                  .isItemInGroup(fileId, GroupItemType.FILE, groupId)
-                                  .chain(
-                                      itemInGroup -> {
-                                        if (!itemInGroup) {
-                                          return Uni.createFrom()
-                                              .item(
-                                                  Utils.createServiceErrorResponse(
-                                                      context2,
-                                                      ErrorCode.ITEM_NOT_IN_GROUP,
-                                                      "File("
-                                                          + fileId
-                                                          + ") not in group("
-                                                          + groupId
-                                                          + ").",
-                                                      404));
-                                        }
-
-                                        return sharedTagsRepo
-                                            .tagShareExists(tagId, groupId)
-                                            .chain(
-                                                tagShareExists -> {
-                                                  if (!tagShareExists) {
-                                                    return Uni.createFrom()
-                                                        .item(
-                                                            Utils.createServiceErrorResponse(
-                                                                context2,
-                                                                ErrorCode.TAG_SHARE_DOES_NOT_EXIST,
-                                                                "Tag("
-                                                                    + tagId
-                                                                    + ") is not shared with group("
-                                                                    + groupId
-                                                                    + ").",
-                                                                400));
-                                                  }
-
-                                                  return fileTagsRepo
-                                                      .assignFileMapping(fileId, tagId, groupId)
-                                                      .map(
-                                                          success ->
-                                                              new ServiceResponse<>(
-                                                                  new ServiceActionResponse<>(
-                                                                      context2.getResourceType(),
-                                                                      context2.getActionType(),
-                                                                      success)));
-                                                });
-                                      }));
-                    }));
-  }
-
-  public Uni<ServiceResponse<Boolean>> unassignTagFromGroupFile(
-      final ServiceRequestContext requestContext,
-      final long groupId,
-      final long fileId,
-      final long tagId) {
-    return userService.checkUserExist(
-        requestContext,
-        context2 ->
-            groupRepo
-                .userActiveMemberInGroup(context2.getUser().getId(), groupId)
-                .chain(
-                    isActiveMember -> {
-                      if (!isActiveMember) {
-                        return Uni.createFrom()
-                            .item(
-                                Utils.createServiceErrorResponse(
-                                    context2,
-                                    ErrorCode.USER_NOT_ACTIVE,
-                                    "User is not an active member of group(" + groupId + ").",
-                                    400));
-                      }
-
-                      return groupPermissionsService
-                          .userHasPermission(
-                              context2.getUser().getId(), groupId, GroupPermissionType.REMOVE_TAGS)
-                          .chain(
-                              hasPermission -> {
-                                if (!hasPermission) {
-                                  return Uni.createFrom()
-                                      .item(
-                                          Utils.createServiceErrorResponse(
-                                              context2,
-                                              ErrorCode.PERMISSION_NOT_GRANTED,
-                                              "User does not have permission to remove tags.",
-                                              403));
-                                }
-
-                                return fileTagsRepo
-                                    .unassignFileMapping(fileId, tagId, groupId)
-                                    .map(
-                                        success ->
-                                            new ServiceResponse<>(
-                                                new ServiceActionResponse<>(
-                                                    context2.getResourceType(),
-                                                    context2.getActionType(),
-                                                    success)));
-                              });
-                    }));
-  }
-
-  <T> Uni<ServiceResponse<T>> checkItemInGroup(
-      final ServiceRequestContext requestContext,
-      final long itemId,
-      final GroupItemType itemType,
-      final Function<ServiceRequestContext, Uni<ServiceResponse<T>>> itemInGroupAction) {
     return groupItemsRepo
         .isItemInGroup(itemId, itemType, requestContext.getGroupId())
-        .chain(
-            isItemInGroup -> {
-              if (!isItemInGroup) {
-                return Uni.createFrom()
-                    .item(
-                        Utils.createServiceErrorResponse(
-                            requestContext,
-                            ErrorCode.ITEM_NOT_IN_GROUP,
-                            "Item ("
-                                + itemId
-                                + " - "
-                                + itemType
-                                + ") is not in the group ("
-                                + requestContext.getGroupId()
-                                + ").",
-                            403));
+        .map(
+            res -> {
+              if (res) {
+                throw new ServiceResponseException(
+                    requestContext,
+                    ErrorCode.ITEM_ALREADY_IN_GROUP,
+                    "Item ("
+                        + itemId
+                        + " - "
+                        + itemType
+                        + ") is already in the group ("
+                        + requestContext.getGroupId()
+                        + ").",
+                    400);
               }
 
-              return itemInGroupAction.apply(requestContext);
+              return requestContext;
+            });
+  }
+
+  Uni<ServiceRequestContext> checkItemInGroup(
+      ServiceRequestContext requestContext, final long itemId, final GroupItemType itemType) {
+    Utils.checkGroupInRequest(requestContext);
+
+    return groupItemsRepo
+        .isItemInGroup(itemId, itemType, requestContext.getGroupId())
+        .map(
+            res -> {
+              if (!res) {
+                throw new ServiceResponseException(
+                    requestContext,
+                    ErrorCode.ITEM_NOT_IN_GROUP,
+                    "Item ("
+                        + itemId
+                        + " - "
+                        + itemType
+                        + ") is not in the group ("
+                        + requestContext.getGroupId()
+                        + ").",
+                    404);
+              }
+
+              return requestContext;
             });
   }
 }

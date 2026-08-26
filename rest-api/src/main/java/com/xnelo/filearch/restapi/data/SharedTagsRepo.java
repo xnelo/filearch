@@ -1,5 +1,7 @@
 package com.xnelo.filearch.restapi.data;
 
+import com.xnelo.filearch.common.exception.RepoException;
+import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.jooq.tables.SharedTags;
 import com.xnelo.filearch.jooq.tables.records.SharedTagsRecord;
 import io.agroal.api.AgroalDataSource;
@@ -61,7 +63,8 @@ public class SharedTagsRepo {
         .onFailure()
         .invoke(ex -> log.error("Error deleting shared tagid:{}", tagId, ex))
         .onFailure()
-        .recoverWithItem(Boolean.FALSE);
+        .transform(
+            ex -> new RepoException(ErrorCode.DB_ERROR, "Error deleting shared tagid:" + tagId));
   }
 
   public Uni<Boolean> unshareTag(final Long tagId, final Long groupId) {

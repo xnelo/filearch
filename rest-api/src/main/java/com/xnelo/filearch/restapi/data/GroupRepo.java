@@ -3,6 +3,8 @@ package com.xnelo.filearch.restapi.data;
 import static com.xnelo.filearch.common.encryption.JooqFields.decryptField;
 import static com.xnelo.filearch.common.encryption.JooqFields.encryptField;
 
+import com.xnelo.filearch.common.exception.RepoException;
+import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.Group;
 import com.xnelo.filearch.common.model.GroupFile;
 import com.xnelo.filearch.common.model.GroupItemType;
@@ -209,7 +211,10 @@ public class GroupRepo {
         .onFailure()
         .invoke(ex -> log.error("Error deleting group {}", groupId, ex))
         .onFailure()
-        .recoverWithItem(Boolean.FALSE);
+        .transform(
+            ex ->
+                new RepoException(
+                    ErrorCode.UNABLE_TO_DELETE_GROUP, "Error occurred while deleting group."));
   }
 
   public Uni<Boolean> addUserToGroup(
@@ -235,7 +240,11 @@ public class GroupRepo {
         .onFailure()
         .invoke(ex -> log.error("Error deleting group members from group {}", groupId, ex))
         .onFailure()
-        .recoverWithItem(Boolean.FALSE);
+        .transform(
+            ex ->
+                new RepoException(
+                    ErrorCode.UNABLE_TO_DELETE_GROUP,
+                    "Error occurred while deleting group users."));
   }
 
   public Uni<Boolean> deleteAllItemsFromGroup(final long groupId) {
@@ -249,7 +258,11 @@ public class GroupRepo {
         .onFailure()
         .invoke(ex -> log.error("Error deleting group items from group {}", groupId, ex))
         .onFailure()
-        .recoverWithItem(Boolean.FALSE);
+        .transform(
+            ex ->
+                new RepoException(
+                    ErrorCode.UNABLE_TO_DELETE_GROUP,
+                    "Error occurred while deleting group items."));
   }
 
   public Uni<Boolean> userInGroup(final long userId, final long groupId) {

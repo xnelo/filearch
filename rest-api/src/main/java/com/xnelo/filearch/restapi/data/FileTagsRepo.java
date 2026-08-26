@@ -1,5 +1,7 @@
 package com.xnelo.filearch.restapi.data;
 
+import com.xnelo.filearch.common.exception.RepoException;
+import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.jooq.tables.FileTags;
 import com.xnelo.filearch.jooq.tables.records.FileTagsRecord;
 import io.agroal.api.AgroalDataSource;
@@ -35,7 +37,11 @@ public class FileTagsRepo {
         .onFailure()
         .invoke(ex -> log.error("Error deleting tag usages '{}'", tagId, ex))
         .onFailure()
-        .recoverWithItem(Boolean.FALSE);
+        .transform(
+            ex ->
+                new RepoException(
+                    ErrorCode.TAG_USES_COULD_NOT_BE_DELETED,
+                    "Tag(" + tagId + ") uses could not be deleted."));
   }
 
   public Uni<Boolean> deleteAllFileMappings(final long fileId) {
@@ -49,11 +55,11 @@ public class FileTagsRepo {
         .onFailure()
         .invoke(ex -> log.error("Error deleting file mappings '{}'", fileId, ex))
         .onFailure()
-        .recoverWithItem(Boolean.FALSE);
-  }
-
-  public Uni<Boolean> assignFileMapping(final long fileId, final long tagId) {
-    return assignFileMapping(fileId, tagId, null);
+        .transform(
+            ex ->
+                new RepoException(
+                    ErrorCode.FILE_TAG_MAPPING_UNABLE_TO_DELETE,
+                    "Unable to delete Tile Tag Mapping '" + fileId + "'."));
   }
 
   public Uni<Boolean> assignFileMapping(final long fileId, final long tagId, final Long groupId) {
@@ -74,10 +80,6 @@ public class FileTagsRepo {
         .invoke(ex -> log.error("Error inserting file tag mapping", ex))
         .onFailure()
         .recoverWithItem(Boolean.FALSE);
-  }
-
-  public Uni<Boolean> unassignFileMapping(final long fileId, final long tagId) {
-    return unassignFileMapping(fileId, tagId, null);
   }
 
   public Uni<Boolean> unassignFileMapping(final long fileId, final long tagId, final Long groupId) {

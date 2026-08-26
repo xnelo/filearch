@@ -1,5 +1,7 @@
 package com.xnelo.filearch.restapi.data;
 
+import com.xnelo.filearch.common.exception.RepoException;
+import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.GroupMemberPermission;
 import com.xnelo.filearch.common.model.GroupPermissionType;
 import com.xnelo.filearch.jooq.tables.GroupMemberPermissions;
@@ -92,7 +94,11 @@ public class GroupMemberPermissionsRepo {
         .onFailure()
         .invoke(ex -> log.error("Error deleting all group permissions", ex))
         .onFailure()
-        .recoverWithItem(Boolean.FALSE);
+        .transform(
+            ex ->
+                new RepoException(
+                    ErrorCode.UNABLE_TO_DELETE_GROUP_USER_PERMISSIONS,
+                    "Error while deleting group user permissions."));
   }
 
   public Uni<GroupMemberPermission> addPermission(

@@ -228,7 +228,10 @@ public class FileResource {
   @POST
   @RolesAllowed("user")
   @Path("{id}/assign_tag")
-  public Uni<Response> assignTag(@PathParam("id") long fileId, final AssignTagContract assignTag) {
+  public Uni<Response> assignTag(
+      @PathParam("id") long fileId,
+      @QueryParam("group_id") Long groupId,
+      final AssignTagContract assignTag) {
     UserToken userToken = userTokenHandler.getUserInfo();
 
     ServiceRequestContext requestContext =
@@ -236,6 +239,7 @@ public class FileResource {
             .resourceType(ResourceType.TAG)
             .actionType(ActionType.ASSIGN)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return fileService
@@ -250,7 +254,9 @@ public class FileResource {
   @RolesAllowed("user")
   @Path("{id}/unassign_tag")
   public Uni<Response> unassignTag(
-      @PathParam("id") final long fileId, final AssignTagContract unassignTag) {
+      @PathParam("id") final long fileId,
+      @QueryParam("group_id") Long groupId,
+      final AssignTagContract unassignTag) {
     UserToken userToken = userTokenHandler.getUserInfo();
 
     ServiceRequestContext requestContext =
@@ -258,6 +264,7 @@ public class FileResource {
             .resourceType(ResourceType.TAG)
             .actionType(ActionType.UNASSIGN)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return fileService
