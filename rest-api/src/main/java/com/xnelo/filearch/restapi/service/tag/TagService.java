@@ -33,15 +33,35 @@ import org.mapstruct.factory.Mappers;
 public class TagService {
   public static final String TAG_DATA_KEY = "TAG_DATA__TAG";
 
-  @Inject UserService userService;
-  @Inject TagRepo tagRepo;
-  @Inject FileTagsRepo fileTagsRepo;
-  @Inject GroupService groupService;
-  @Inject GroupItemService groupItemService;
-  @Inject SharedTagsRepo sharedTagsRepo;
-  @Inject SharedTagsService sharedTagsService;
-  @Inject FileService fileService;
-  final PaginationMapper paginationMapper = Mappers.getMapper(PaginationMapper.class);
+  private final FileService fileService;
+  private final GroupService groupService;
+  private final GroupItemService groupItemService;
+  private final SharedTagsService sharedTagsService;
+  private final UserService userService;
+  private final FileTagsRepo fileTagsRepo;
+  private final SharedTagsRepo sharedTagsRepo;
+  private final TagRepo tagRepo;
+  private final PaginationMapper paginationMapper = Mappers.getMapper(PaginationMapper.class);
+
+  @Inject
+  public TagService(
+      final FileService fileService,
+      final GroupService groupService,
+      final GroupItemService groupItemService,
+      final SharedTagsService sharedTagsService,
+      final UserService userService,
+      final FileTagsRepo fileTagsRepo,
+      final SharedTagsRepo sharedTagsRepo,
+      final TagRepo tagRepo) {
+    this.fileService = fileService;
+    this.groupService = groupService;
+    this.groupItemService = groupItemService;
+    this.sharedTagsService = sharedTagsService;
+    this.userService = userService;
+    this.fileTagsRepo = fileTagsRepo;
+    this.sharedTagsRepo = sharedTagsRepo;
+    this.tagRepo = tagRepo;
+  }
 
   public Uni<ServiceResponse<PaginatedResponse<Tag>>> getAllTags(
       final ServiceRequestContext requestContext, final PaginationParameters paginationParameters) {
@@ -218,6 +238,7 @@ public class TagService {
       final ServiceRequestContext requestContext,
       final Long fileId,
       final PaginationParameters paginationParameters) {
+    Utils.validatePaginationParameters(requestContext, paginationParameters);
 
     Uni<PaginatedData<Tag>> getTags;
 
@@ -225,7 +246,7 @@ public class TagService {
       getTags =
           userService
               .checkUserExist(requestContext)
-              .chain(context -> groupService.checkUserActiveMember(context))
+              .chain(groupService::checkUserActiveMember)
               .chain(
                   context -> groupItemService.checkItemInGroup(context, fileId, GroupItemType.FILE))
               .chain(
@@ -334,7 +355,7 @@ public class TagService {
   Uni<ServiceActionResponse<TagShareResult>> unshareTagIndividual(
       final ServiceRequestContext requestContext, final TagShareContract tagToUnshare) {
     return checkIfTagExists(requestContext, tagToUnshare.getTagId())
-        .chain(context -> groupService.checkUserActiveMember(context))
+        .chain(groupService::checkUserActiveMember)
         .chain(
             context ->
                 sharedTagsRepo.unshareTag(tagToUnshare.getTagId(), tagToUnshare.getGroupId()))
