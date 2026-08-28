@@ -16,10 +16,32 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequestScoped
 public class GroupItemService {
-  @Inject StoredFilesRepo storedFilesRepo;
-  @Inject FolderRepo folderRepo;
-  @Inject GroupItemsRepo groupItemsRepo;
+  private final FolderRepo folderRepo;
+  private final GroupItemsRepo groupItemsRepo;
+  private final StoredFilesRepo storedFilesRepo;
 
+  @Inject
+  public GroupItemService(
+      final FolderRepo folderRepo,
+      final GroupItemsRepo groupItemsRepo,
+      final StoredFilesRepo storedFilesRepo) {
+    this.folderRepo = folderRepo;
+    this.groupItemsRepo = groupItemsRepo;
+    this.storedFilesRepo = storedFilesRepo;
+  }
+
+  /**
+   * Check that an item exists based on the item ID and the Item type. If it doesn't exist then an
+   * exception is thrown.
+   *
+   * @param requestContext The context for the call. It must contain group ID information.
+   * @param itemType The type of the item to search for.
+   * @param itemId The id of the item to search for.
+   * @return The request context for chaining unis.
+   * @throws ServiceResponseException If the item does not exist or the input is invalid.
+   * @apiNote Do not use this to check if an item is in a group use {@link
+   *     #checkItemInGroup(ServiceRequestContext, long, GroupItemType)} method.
+   */
   public Uni<ServiceRequestContext> checkItemExistsThrowError(
       final ServiceRequestContext requestContext, final GroupItemType itemType, final long itemId) {
     return checkItemExists(requestContext, itemType, itemId)
@@ -28,8 +50,8 @@ public class GroupItemService {
               if (!itemExists) {
                 throw new ServiceResponseException(
                     requestContext,
-                    ErrorCode.ITEM_NOT_IN_GROUP,
-                    "Item ([" + itemType + "] " + itemId + " does not exist.",
+                    ErrorCode.ITEM_DOES_NOT_EXIST,
+                    "Item ([" + itemType + "] " + itemId + ") does not exist.",
                     404);
               }
 
@@ -37,20 +59,30 @@ public class GroupItemService {
             });
   }
 
+  /**
+   * Check that an item exists based on the item ID and the Item type.
+   *
+   * @param requestContext The context for the call. It must contain group ID information.
+   * @param itemType The type of the item to search for.
+   * @param itemId The id of the item to search for.
+   * @return True if the item exists. False if it doesn't.
+   * @throws ServiceResponseException If the input is invalid.
+   * @apiNote Do not use this to check if an item is in a group use {@link
+   *     #checkItemInGroup(ServiceRequestContext, long, GroupItemType)} method.
+   */
   public Uni<Boolean> checkItemExists(
       final ServiceRequestContext requestContext, final GroupItemType itemType, final long itemId) {
     if (itemType == null) {
       log.warn("Invalid input: item type is null.");
       throw new ServiceResponseException(
-          requestContext,
-          ErrorCode.INVALID_INPUT_VALUE,
-          "Item type cannot be null",
-          400); // "Item ([" + itemType + "] " + itemId + ") does not exist.", 404);
+          requestContext, ErrorCode.INVALID_INPUT_VALUE, "Item type cannot be null", 400);
     } else if (itemId < 0) {
       log.warn("Invalid input: itemId is negative.");
       throw new ServiceResponseException(
           requestContext, ErrorCode.INVALID_INPUT_VALUE, "Item ID cannot be negative", 400);
     }
+
+    Utils.checkUserInRequest(requestContext);
 
     return switch (itemType) {
       case FILE -> fileItemExists(itemId, requestContext.getUser().getId());
@@ -83,7 +115,7 @@ public class GroupItemService {
         .recoverWithItem(Boolean.FALSE);
   }
 
-  Uni<ServiceRequestContext> checkItemNotInGroup(
+  public Uni<ServiceRequestContext> checkItemNotInGroup(
       final ServiceRequestContext requestContext, final long itemId, final GroupItemType itemType) {
     Utils.checkGroupInRequest(requestContext);
 
@@ -109,7 +141,19 @@ public class GroupItemService {
             });
   }
 
-  Uni<ServiceRequestContext> checkItemInGroup(
+  /**
+   * Checks if an item is part of the group specified in the request context. If it is not then an
+   * exception is thrown.
+   *
+   * @param requestContext The request context with data. The request context must have group
+   *     information.
+   * @param itemId The item id number.
+   * @param itemType The item type
+   * @return the request context for chaining unis
+   * @throws ServiceResponseException If the item is not part of the group specified in the request
+   *     context.
+   */
+  public Uni<ServiceRequestContext> checkItemInGroup(
       ServiceRequestContext requestContext, final long itemId, final GroupItemType itemType) {
     Utils.checkGroupInRequest(requestContext);
 

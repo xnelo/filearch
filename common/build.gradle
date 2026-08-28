@@ -2,6 +2,7 @@ plugins {
     id 'io.quarkus'
     id("org.kordamp.gradle.jandex") version "2.1.0"
     id 'jvm-test-suite'
+    id 'java-test-fixtures'
 }
 
 dependencies {
@@ -21,6 +22,10 @@ dependencies {
 
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+
+    testFixturesImplementation ('com.github.javafaker:javafaker:1.0.2') {
+        exclude group: 'org.yaml', module: 'snakeyaml'
+    }
 }
 
 compileJava {

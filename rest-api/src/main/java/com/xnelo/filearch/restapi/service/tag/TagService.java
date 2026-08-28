@@ -13,9 +13,11 @@ import com.xnelo.filearch.restapi.api.contracts.TagShareBulkContract;
 import com.xnelo.filearch.restapi.api.contracts.TagShareContract;
 import com.xnelo.filearch.restapi.api.mappers.PaginationMapper;
 import com.xnelo.filearch.restapi.data.FileTagsRepo;
+import com.xnelo.filearch.restapi.data.PaginatedData;
 import com.xnelo.filearch.restapi.data.SharedTagsRepo;
 import com.xnelo.filearch.restapi.data.TagRepo;
 import com.xnelo.filearch.restapi.service.FileService;
+import com.xnelo.filearch.restapi.service.GroupItemService;
 import com.xnelo.filearch.restapi.service.GroupService;
 import com.xnelo.filearch.restapi.service.SharedTagsService;
 import com.xnelo.filearch.restapi.service.UserService;
@@ -35,6 +37,7 @@ public class TagService {
   @Inject TagRepo tagRepo;
   @Inject FileTagsRepo fileTagsRepo;
   @Inject GroupService groupService;
+  @Inject GroupItemService groupItemService;
   @Inject SharedTagsRepo sharedTagsRepo;
   @Inject SharedTagsService sharedTagsService;
   @Inject FileService fileService;
@@ -215,19 +218,38 @@ public class TagService {
       final ServiceRequestContext requestContext,
       final Long fileId,
       final PaginationParameters paginationParameters) {
-    return userService
-        .checkUserExist(requestContext)
-        .chain(context2 -> fileService.checkFileExist(context2, fileId))
-        .chain(
-            context ->
-                tagRepo.getAllTagsForFile(context.getUser().getId(), fileId, paginationParameters))
-        .map(
-            paginatedTags ->
-                new ServiceResponse<>(
-                    new ServiceActionResponse<>(
-                        ResourceType.TAG,
-                        ActionType.GET,
-                        paginationMapper.toPaginatedResponse(paginatedTags))));
+
+    Uni<PaginatedData<Tag>> getTags;
+
+    if (requestContext.getGroupId() != null) {
+      getTags =
+          userService
+              .checkUserExist(requestContext)
+              .chain(context -> groupService.checkUserActiveMember(context))
+              .chain(
+                  context -> groupItemService.checkItemInGroup(context, fileId, GroupItemType.FILE))
+              .chain(
+                  context ->
+                      tagRepo.getAllTagsInGroupForFile(
+                          fileId, requestContext.getGroupId(), paginationParameters));
+    } else {
+      getTags =
+          userService
+              .checkUserExist(requestContext)
+              .chain(context2 -> fileService.checkFileExist(context2, fileId))
+              .chain(
+                  context ->
+                      tagRepo.getAllTagsForFile(
+                          context.getUser().getId(), fileId, paginationParameters));
+    }
+
+    return getTags.map(
+        paginatedTags ->
+            new ServiceResponse<>(
+                new ServiceActionResponse<>(
+                    requestContext.getResourceType(),
+                    requestContext.getActionType(),
+                    paginationMapper.toPaginatedResponse(paginatedTags))));
   }
 
   public Uni<ServiceResponse<List<Tag>>> searchTags(

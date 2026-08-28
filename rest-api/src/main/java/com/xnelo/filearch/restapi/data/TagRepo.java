@@ -64,6 +64,26 @@ public class TagRepo {
             });
   }
 
+  public Uni<PaginatedData<Tag>> getAllTagsInGroupForFile(
+      final long fileId, final long groupId, final PaginationParameters paginationParameters) {
+    SelectConditionStep<?> selectStatement =
+        context
+            .select(allFields)
+            .from(FileTags.FILE_TAGS)
+            .join(Tags.TAGS)
+            .on(FileTags.FILE_TAGS.TAG_ID.eq(Tags.TAGS.ID))
+            .where(FileTags.FILE_TAGS.GROUP_ID.eq(groupId))
+            .and(FileTags.FILE_TAGS.FILE_ID.eq(fileId));
+
+    SelectLimitPercentStep<?> finalQuery =
+        RepoUtils.addPagination(selectStatement, Tags.TAGS.ID, paginationParameters);
+
+    return Uni.createFrom()
+        .item(
+            RepoUtils.toPaginatedData(
+                finalQuery.fetch().map(this::toTagModel), paginationParameters));
+  }
+
   public Uni<PaginatedData<Tag>> getAllTagsForFile(
       final long userId, final Long fileId, final PaginationParameters paginationParameters) {
     SelectConditionStep<?> selectStatement =
