@@ -23,7 +23,13 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
 
-    testFixturesImplementation ('com.github.javafaker:javafaker:1.0.2') {
+    testFixturesImplementation("io.quarkus:quarkus-test-common:3.2.11.Final")
+    testFixturesImplementation("org.testcontainers:postgresql:1.21.4")
+    testFixturesImplementation("org.flywaydb:flyway-core:11.4.0")
+    testFixturesImplementation("org.eclipse.microprofile.jwt:microprofile-jwt-auth-api:2.1")
+    testFixturesImplementation("org.jooq:jooq:${JOOQ_VERSION}")
+    testFixturesImplementation(project(":jooq"))
+    testFixturesImplementation('com.github.javafaker:javafaker:1.0.2') {
         exclude group: 'org.yaml', module: 'snakeyaml'
     }
 }
