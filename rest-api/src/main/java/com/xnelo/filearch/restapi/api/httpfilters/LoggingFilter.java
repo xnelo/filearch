@@ -30,14 +30,20 @@ public class LoggingFilter {
   @ServerResponseFilter(priority = 10000)
   public void postFilter(
       ContainerRequestContext requestContext, ContainerResponseContext responseContext) {
-    long startTime = (long) requestContext.getProperty(TIMER_PROPERTY_KEY);
-    long endTime = System.nanoTime();
-    long diff = endTime - startTime;
-    double diffMS = (double) diff / 1_000_000.0;
+    if (!requestContext.hasProperty(TIMER_PROPERTY_KEY)) {
+      logger.infof(
+          "End request. URI:[%s] STATUS_CODE:[%d] DURATION:NULL",
+          requestContext.getUriInfo().getAbsolutePath(), responseContext.getStatus());
+    } else {
+      long startTime = (long) requestContext.getProperty(TIMER_PROPERTY_KEY);
+      long endTime = System.nanoTime();
+      long diff = endTime - startTime;
+      double diffMS = (double) diff / 1_000_000.0;
 
-    logger.infof(
-        "End request. URI:[%s] STATUS_CODE:[%d] DURATION:[%f ms]",
-        requestContext.getUriInfo().getAbsolutePath(), responseContext.getStatus(), diffMS);
+      logger.infof(
+          "End request. URI:[%s] STATUS_CODE:[%d] DURATION:[%f ms]",
+          requestContext.getUriInfo().getAbsolutePath(), responseContext.getStatus(), diffMS);
+    }
 
     MDC.remove(MDC_CORRELATION_ID_KEY);
   }

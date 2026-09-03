@@ -1,7 +1,8 @@
 plugins {
-    id 'io.quarkus'
+    id 'io.quarkus' version "${quarkusPluginVersion}"
     id("org.kordamp.gradle.jandex") version "2.1.0"
     id 'jvm-test-suite'
+    id 'java-test-fixtures'
 }
 
 dependencies {
@@ -21,6 +22,16 @@ dependencies {
 
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+
+    testFixturesImplementation("io.quarkus:quarkus-test-common:3.2.11.Final")
+    testFixturesImplementation("org.testcontainers:postgresql:1.21.4")
+    testFixturesImplementation("org.flywaydb:flyway-core:11.4.0")
+    testFixturesImplementation("org.eclipse.microprofile.jwt:microprofile-jwt-auth-api:2.1")
+    testFixturesImplementation("org.jooq:jooq:${JOOQ_VERSION}")
+    testFixturesImplementation(project(":jooq"))
+    testFixturesImplementation('com.github.javafaker:javafaker:1.0.2') {
+        exclude group: 'org.yaml', module: 'snakeyaml'
+    }
 }
 
 compileJava {

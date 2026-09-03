@@ -279,7 +279,9 @@ public class FileResource {
   @RolesAllowed("user")
   @Path("{id}/tags")
   public Uni<Response> getFileTags(
-      @PathParam("id") long fileId, @BeanParam PaginationRequest paginationRequest) {
+      @PathParam("id") long fileId,
+      @QueryParam("group_id") Long groupId,
+      @BeanParam PaginationRequest paginationRequest) {
     UserToken userToken = userTokenHandler.getUserInfo();
     PaginationParameters paginationParameters =
         contractMapper.toPaginationParameters(paginationRequest);
@@ -289,6 +291,7 @@ public class FileResource {
             .resourceType(ResourceType.TAG)
             .actionType(ActionType.GET)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return tagService

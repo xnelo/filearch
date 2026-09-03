@@ -6,6 +6,8 @@ import io.smallrye.config.ConfigMapping;
 public interface FilearchConfig {
   String dbHost();
 
+  boolean encryptionEnabled();
+
   String encryptionKey();
 
   BulkActionsConfig bulkActions();
