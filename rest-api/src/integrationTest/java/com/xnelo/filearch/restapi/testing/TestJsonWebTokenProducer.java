@@ -2,6 +2,7 @@ package com.xnelo.filearch.restapi.testing;
 
 import io.quarkus.test.Mock;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.RequestScoped;
 import jakarta.enterprise.inject.Produces;
 import java.util.Map;
 import java.util.Set;
@@ -19,7 +20,7 @@ public class TestJsonWebTokenProducer {
 
   @Produces
   @Mock
-  @ApplicationScoped
+  @RequestScoped
   public JsonWebToken mockJsonWebToken() {
 
     final String userIdToUseFinal =
