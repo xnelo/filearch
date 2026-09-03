@@ -1,5 +1,5 @@
 plugins {
-    id 'io.quarkus'
+    id 'io.quarkus' version "${quarkusPluginVersion}"
     id("org.kordamp.gradle.jandex") version "2.1.0"
     id 'jvm-test-suite'
     id 'java-test-fixtures'
