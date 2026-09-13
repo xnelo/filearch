@@ -300,6 +300,7 @@ public class GroupResource {
             .resourceType(ResourceType.GROUP)
             .actionType(ActionType.MODIFY_GROUP_PERMISSIONS)
             .userToken(userToken)
+            .groupId(groupId)
             .build();
 
     return groupPermissionsService
