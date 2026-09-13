@@ -583,19 +583,31 @@ public class GroupService {
             });
   }
 
+  public Uni<ServiceRequestContext> checkUserActiveMember(
+      ServiceRequestContext requestContext, final long groupId) {
+    Utils.checkUserInRequest(requestContext);
+
+    return internalCheckUserActiveMember(requestContext, groupId);
+  }
+
   public Uni<ServiceRequestContext> checkUserActiveMember(ServiceRequestContext requestContext) {
     Utils.checkUserInRequest(requestContext);
     Utils.checkGroupInRequest(requestContext);
 
+    return internalCheckUserActiveMember(requestContext, requestContext.getGroupId());
+  }
+
+  private Uni<ServiceRequestContext> internalCheckUserActiveMember(
+      final ServiceRequestContext requestContext, final Long groupId) {
     return groupRepo
-        .userActiveMemberInGroup(requestContext.getUser().getId(), requestContext.getGroupId())
+        .userActiveMemberInGroup(requestContext.getUser().getId(), groupId)
         .map(
             res -> {
               if (!res) {
                 throw new ServiceResponseException(
                     requestContext,
                     ErrorCode.USER_NOT_ACTIVE,
-                    "User is not an active member of group(" + requestContext.getGroupId() + ").",
+                    "User is not an active member of group(" + groupId + ").",
                     400);
               }
 

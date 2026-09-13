@@ -2,12 +2,14 @@ package com.xnelo.filearch.restapi.data;
 
 import com.xnelo.filearch.common.exception.RepoException;
 import com.xnelo.filearch.common.model.ErrorCode;
+import com.xnelo.filearch.jooq.tables.GroupMembers;
 import com.xnelo.filearch.jooq.tables.SharedTags;
 import com.xnelo.filearch.jooq.tables.records.SharedTagsRecord;
 import io.agroal.api.AgroalDataSource;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
+import java.util.List;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.DSLContext;
@@ -80,5 +82,24 @@ public class SharedTagsRepo {
         .invoke(ex -> log.error("Error unshare tagid:{}", tagId, ex))
         .onFailure()
         .recoverWithItem(Boolean.FALSE);
+  }
+
+  public Uni<List<Long>> groupsTagIsIn(final long userId, final long tagId) {
+    return Uni.createFrom()
+        .item(
+            context
+                .select(SharedTags.SHARED_TAGS.GROUP_ID)
+                .from(SharedTags.SHARED_TAGS)
+                .join(GroupMembers.GROUP_MEMBERS)
+                .on(SharedTags.SHARED_TAGS.GROUP_ID.eq(GroupMembers.GROUP_MEMBERS.GROUP_ID))
+                .where(GroupMembers.GROUP_MEMBERS.USER_ID.eq(userId))
+                .and(GroupMembers.GROUP_MEMBERS.ACCEPTED.isTrue())
+                .and(SharedTags.SHARED_TAGS.TAG_ID.eq(tagId))
+                .fetchInto(Long.class))
+        .onFailure()
+        .invoke(ex -> log.error("Error getting groups tags are in. tagId:{}", tagId, ex))
+        .onFailure()
+        .transform(
+            ex -> new RepoException(ErrorCode.DB_ERROR, "Error getting groups tags are in."));
   }
 }
