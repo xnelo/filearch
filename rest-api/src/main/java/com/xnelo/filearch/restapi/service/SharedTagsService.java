@@ -12,12 +12,40 @@ import jakarta.inject.Inject;
 public class SharedTagsService {
   @Inject SharedTagsRepo sharedTagsRepo;
 
+  public Uni<ServiceRequestContext> checkTagShareNotExists(
+      ServiceRequestContext requestContext, final long tagId, final long groupId) {
+    return sharedTagsRepo
+        .tagShareExists(tagId, groupId)
+        .map(
+            res -> {
+              if (res) {
+                throw new ServiceResponseException(
+                    requestContext,
+                    ErrorCode.TAG_SHARE_DOES_NOT_EXIST,
+                    "Shared tag (" + tagId + ") exists.",
+                    400);
+              }
+
+              return requestContext;
+            });
+  }
+
   public Uni<ServiceRequestContext> checkTagShareExists(
       ServiceRequestContext requestContext, final long tagId) {
     Utils.checkGroupInRequest(requestContext);
 
+    return checkTagShareExists(requestContext, tagId, requestContext.getGroupId());
+  }
+
+  public Uni<ServiceRequestContext> checkTagShareExists(
+      ServiceRequestContext requestContext, final long tagId, final long groupId) {
+    return internalCheckTagShareExists(requestContext, tagId, groupId);
+  }
+
+  private Uni<ServiceRequestContext> internalCheckTagShareExists(
+      ServiceRequestContext requestContext, final long tagId, final long groupId) {
     return sharedTagsRepo
-        .tagShareExists(tagId, requestContext.getGroupId())
+        .tagShareExists(tagId, groupId)
         .map(
             res -> {
               if (!res) {

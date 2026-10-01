@@ -20,8 +20,10 @@ public class LoggingFilter {
     MDC.put(MDC_CORRELATION_ID_KEY, UUID.randomUUID().toString());
 
     logger.infof(
-        "Begin request. URI:[%s] METHOD:[%s]",
-        requestContext.getUriInfo().getAbsolutePath(), requestContext.getMethod());
+        "Begin request. URI:[%s] METHOD:[%s] PARAMS:[%s]",
+        requestContext.getUriInfo().getAbsolutePath(),
+        requestContext.getMethod(),
+        requestContext.getUriInfo().getQueryParameters());
 
     long startTime = System.nanoTime();
     requestContext.setProperty(TIMER_PROPERTY_KEY, startTime);

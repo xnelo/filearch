@@ -21,6 +21,7 @@ import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.mapstruct.factory.Mappers;
 
 @RequestScoped
@@ -196,5 +197,29 @@ public class TagResource {
         .map(
             tagServiceResponse ->
                 contractMapper.toApiResponse(tagServiceResponse, contractMapper::toTagContract));
+  }
+
+  @GET
+  @RolesAllowed("user")
+  @Path("{id}/groups_in")
+  @Operation(
+      summary = "Get the Group Ids of Groups the Tag is in",
+      description =
+          "Get a list of Group Ids that corresponds to the groups a tag has been shared with.")
+  public Uni<Response> groupsIn(@PathParam("id") long tagId) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.TAG)
+            .actionType(ActionType.GET)
+            .userToken(userToken)
+            .build();
+
+    return tagService
+        .getGroupsTagIsIn(requestContext, tagId)
+        .map(
+            tagServiceResponse ->
+                contractMapper.toApiResponse(tagServiceResponse, respList -> respList));
   }
 }

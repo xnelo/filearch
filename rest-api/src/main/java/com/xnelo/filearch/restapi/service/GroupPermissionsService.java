@@ -231,7 +231,7 @@ public class GroupPermissionsService {
         .permissionExists(userId, groupId, permissionToAdd)
         .invoke(
             hasPermission -> {
-              if (!hasPermission) {
+              if (hasPermission) {
                 throw new ServiceResponseException(
                     requestContext,
                     ErrorCode.PERMISSION_ALREADY_GRANTED,

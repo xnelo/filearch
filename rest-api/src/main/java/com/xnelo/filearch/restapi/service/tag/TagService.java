@@ -27,8 +27,10 @@ import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 import org.mapstruct.factory.Mappers;
 
+@Slf4j
 @RequestScoped
 public class TagService {
   public static final String TAG_DATA_KEY = "TAG_DATA__TAG";
@@ -317,9 +319,12 @@ public class TagService {
   Uni<ServiceActionResponse<TagShareResult>> shareTagIndividual(
       final ServiceRequestContext requestContext, final TagShareContract tagToShare) {
     return groupService
-        .checkUserActiveMember(requestContext)
+        .checkUserActiveMember(requestContext, tagToShare.getGroupId())
         .chain(context -> checkIfTagExists(context, tagToShare.getTagId()))
-        .chain(context -> sharedTagsService.checkTagShareExists(context, tagToShare.getTagId()))
+        .chain(
+            context ->
+                sharedTagsService.checkTagShareNotExists(
+                    context, tagToShare.getTagId(), tagToShare.getGroupId()))
         .chain(
             context -> sharedTagsRepo.addSharedTag(tagToShare.getTagId(), tagToShare.getGroupId()))
         .map(
@@ -329,6 +334,8 @@ public class TagService {
                     requestContext.getActionType(),
                     new TagShareResult(
                         tagToShare.getTagId(), tagToShare.getGroupId(), insertSuccess)))
+        .onFailure(ServiceResponseException.class)
+        .invoke(ex -> log.error(ex.getMessage(), ex))
         .onFailure(ServiceResponseException.class)
         .recoverWithItem(ServiceResponseException::toServiceActionResponse);
   }
@@ -355,7 +362,7 @@ public class TagService {
   Uni<ServiceActionResponse<TagShareResult>> unshareTagIndividual(
       final ServiceRequestContext requestContext, final TagShareContract tagToUnshare) {
     return checkIfTagExists(requestContext, tagToUnshare.getTagId())
-        .chain(groupService::checkUserActiveMember)
+        .chain(context -> groupService.checkUserActiveMember(context, tagToUnshare.getGroupId()))
         .chain(
             context ->
                 sharedTagsRepo.unshareTag(tagToUnshare.getTagId(), tagToUnshare.getGroupId()))
@@ -368,5 +375,25 @@ public class TagService {
                         tagToUnshare.getTagId(), tagToUnshare.getGroupId(), dbSuccess)))
         .onFailure(ServiceResponseException.class)
         .recoverWithItem(ServiceResponseException::toServiceActionResponse);
+  }
+
+  public Uni<ServiceResponse<List<Long>>> getGroupsTagIsIn(
+      ServiceRequestContext requestContext, final long tagId) {
+
+    return userService
+        .checkUserExist(requestContext)
+        .chain(context -> sharedTagsRepo.groupsTagIsIn(requestContext.getUser().getId(), tagId))
+        .map(
+            response ->
+                new ServiceResponse<>(
+                    new ServiceActionResponse<>(
+                        requestContext.getResourceType(),
+                        requestContext.getActionType(),
+                        response)))
+        .onFailure(RepoException.class)
+        .transform(
+            ex ->
+                new ServiceResponseException(
+                    requestContext, ErrorCode.DB_ERROR, ex.getMessage(), 500));
   }
 }
