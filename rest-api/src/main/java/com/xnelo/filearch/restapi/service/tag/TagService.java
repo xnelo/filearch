@@ -34,6 +34,7 @@ import org.mapstruct.factory.Mappers;
 @RequestScoped
 public class TagService {
   public static final String TAG_DATA_KEY = "TAG_DATA__TAG";
+  public static final String INCLUDE_TAG_STATS_KEY = "INCLUDE_TAG_STATS__BOOLEAN";
 
   private final FileService fileService;
   private final GroupService groupService;
@@ -69,12 +70,14 @@ public class TagService {
       final ServiceRequestContext requestContext, final PaginationParameters paginationParameters) {
     Utils.validatePaginationParameters(requestContext, paginationParameters);
 
+    boolean getStats = requestContext.getBooleanData(INCLUDE_TAG_STATS_KEY, false);
+
     return userService
         .checkUserExist(requestContext)
         .chain(
             context2 ->
                 tagRepo
-                    .getAll(context2.getUser().getId(), paginationParameters)
+                    .getAll(context2.getUser().getId(), paginationParameters, getStats)
                     .map(
                         paginatedTags ->
                             new ServiceResponse<>(

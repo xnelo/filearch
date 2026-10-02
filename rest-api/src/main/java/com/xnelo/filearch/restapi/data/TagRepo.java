@@ -7,7 +7,9 @@ import com.xnelo.filearch.common.exception.RepoException;
 import com.xnelo.filearch.common.model.ErrorCode;
 import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.common.model.Tag;
+import com.xnelo.filearch.common.model.TagStats;
 import com.xnelo.filearch.jooq.tables.FileTags;
+import com.xnelo.filearch.jooq.tables.SharedTags;
 import com.xnelo.filearch.jooq.tables.Tags;
 import io.agroal.api.AgroalDataSource;
 import io.smallrye.mutiny.Uni;
@@ -20,12 +22,18 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jooq.*;
 import org.jooq.Record;
 import org.jooq.impl.DSL;
+import org.jooq.impl.SQLDataType;
 
 @Slf4j
 @RequestScoped
 public class TagRepo {
   private final int DEFAULT_SEARCH_LIMIT = 50;
   public static final String DECRYPTED_TAG_NAME = "DECRYPT_TAG_NAME";
+
+  private static final String STAT_USE_COUNT = "use_count";
+  private static final String STAT_GROUP_IN_COUNT = "groups_in_count";
+  private static final String STAT_TAG_USAGE_SUBQUERY = "tag_usage_subquery";
+  private static final String STAT_GROUP_IN_SUBQUERY = "groups_in_subquery";
 
   private final DSLContext context;
   private final String encryptionKey;
@@ -48,10 +56,59 @@ public class TagRepo {
             decryptField(Tags.TAGS.TAG_NAME, encryptionKey).as(DECRYPTED_TAG_NAME));
   }
 
+  private Table<?> usageCountSubQuery() {
+    return context
+        .select(FileTags.FILE_TAGS.TAG_ID, DSL.count().as(STAT_USE_COUNT))
+        .from(FileTags.FILE_TAGS)
+        .groupBy(FileTags.FILE_TAGS.TAG_ID)
+        .asTable(STAT_TAG_USAGE_SUBQUERY);
+  }
+
+  private Table<?> groupsInSubQuery() {
+    return context
+        .select(SharedTags.SHARED_TAGS.TAG_ID, DSL.count().as(STAT_GROUP_IN_COUNT))
+        .from(SharedTags.SHARED_TAGS)
+        .groupBy(SharedTags.SHARED_TAGS.TAG_ID)
+        .asTable(STAT_GROUP_IN_SUBQUERY);
+  }
+
+  private List<? extends SelectField<?>> getTagStatsFields() {
+    return List.of(
+        Tags.TAGS.ID,
+        Tags.TAGS.OWNER_USER_ID,
+        decryptField(Tags.TAGS.TAG_NAME, encryptionKey).as(DECRYPTED_TAG_NAME),
+        DSL.coalesce(DSL.field(STAT_USE_COUNT, SQLDataType.INTEGER), 0).as(STAT_USE_COUNT),
+        DSL.coalesce(DSL.field(STAT_GROUP_IN_COUNT, SQLDataType.INTEGER), 0)
+            .as(STAT_GROUP_IN_COUNT));
+  }
+
+  private SelectOnConditionStep<?> getTagWithStats() {
+    Table<?> usageCountSubQuery = usageCountSubQuery();
+
+    Table<?> groupsInSubQuery = groupsInSubQuery();
+
+    List<? extends SelectField<?>> tagStatsFields = getTagStatsFields();
+
+    return context
+        .select(tagStatsFields)
+        .from(Tags.TAGS)
+        .leftJoin(usageCountSubQuery)
+        .on(Tags.TAGS.ID.eq(usageCountSubQuery.field(FileTags.FILE_TAGS.TAG_ID)))
+        .leftJoin(groupsInSubQuery)
+        .on(Tags.TAGS.ID.eq(groupsInSubQuery.field(SharedTags.SHARED_TAGS.TAG_ID)));
+  }
+
   public Uni<PaginatedData<Tag>> getAll(
-      final long userId, final PaginationParameters paginationParameters) {
-    SelectConditionStep<?> selectStatement =
-        context.select(allFields).from(Tags.TAGS).where(Tags.TAGS.OWNER_USER_ID.eq(userId));
+      final long userId,
+      final PaginationParameters paginationParameters,
+      final boolean includeStats) {
+    SelectConditionStep<?> selectStatement;
+    if (includeStats) {
+      selectStatement = getTagWithStats().where(Tags.TAGS.OWNER_USER_ID.eq(userId));
+    } else {
+      selectStatement =
+          context.select(allFields).from(Tags.TAGS).where(Tags.TAGS.OWNER_USER_ID.eq(userId));
+    }
 
     SelectLimitPercentStep<?> finalQuery =
         RepoUtils.addPagination(selectStatement, Tags.TAGS.ID, paginationParameters);
@@ -206,10 +263,21 @@ public class TagRepo {
       return null;
     }
 
-    return Tag.builder()
-        .id(toConvert.get(Tags.TAGS.ID))
-        .ownerId(toConvert.get(Tags.TAGS.OWNER_USER_ID))
-        .tagName(toConvert.get(DECRYPTED_TAG_NAME, String.class))
-        .build();
+    Tag.TagBuilder builder =
+        Tag.builder()
+            .id(toConvert.get(Tags.TAGS.ID))
+            .ownerId(toConvert.get(Tags.TAGS.OWNER_USER_ID))
+            .tagName(toConvert.get(DECRYPTED_TAG_NAME, String.class));
+
+    if (toConvert.field(STAT_USE_COUNT) != null) {
+      TagStats stats =
+          TagStats.builder()
+              .usageCount(toConvert.get(STAT_USE_COUNT, Integer.class))
+              .groupsInCount(toConvert.get(STAT_GROUP_IN_COUNT, Integer.class))
+              .build();
+      builder.tagStats(stats);
+    }
+
+    return builder.build();
   }
 }

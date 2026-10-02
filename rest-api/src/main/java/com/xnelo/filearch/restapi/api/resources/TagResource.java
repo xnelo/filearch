@@ -33,7 +33,8 @@ public class TagResource {
 
   @GET
   @RolesAllowed("user")
-  public Uni<Response> getAll(@BeanParam PaginationRequest paginationRequest) {
+  public Uni<Response> getAll(
+      @BeanParam PaginationRequest paginationRequest, @QueryParam("stats") Boolean stats) {
     UserToken userToken = userTokenHandler.getUserInfo();
     PaginationParameters paginationParameters =
         contractMapper.toPaginationParameters(paginationRequest);
@@ -43,6 +44,7 @@ public class TagResource {
             .resourceType(ResourceType.TAG)
             .actionType(ActionType.GET)
             .userToken(userToken)
+            .addData(TagService.INCLUDE_TAG_STATS_KEY, stats != null && stats)
             .build();
 
     return tagService

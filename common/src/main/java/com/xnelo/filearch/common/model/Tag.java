@@ -13,4 +13,5 @@ public class Tag {
   private long id;
   private long ownerId;
   private String tagName;
+  private TagStats tagStats;
 }
