@@ -62,7 +62,9 @@ public class TagResource {
   @RolesAllowed("user")
   @Path("/search")
   public Uni<Response> search(
-      @QueryParam("search_text") String searchText, @QueryParam("limit") Integer limit) {
+      @QueryParam("search_text") String searchText,
+      @QueryParam("limit") Integer limit,
+      @QueryParam("stats") Boolean stats) {
     UserToken userToken = userTokenHandler.getUserInfo();
 
     ServiceRequestContext requestContext =
@@ -70,6 +72,7 @@ public class TagResource {
             .resourceType(ResourceType.TAG)
             .actionType(ActionType.SEARCH)
             .userToken(userToken)
+            .addData(TagService.INCLUDE_TAG_STATS_KEY, stats != null && stats)
             .build();
 
     return tagService
@@ -164,7 +167,7 @@ public class TagResource {
   @GET
   @RolesAllowed("user")
   @Path("{id}")
-  public Uni<Response> getTagById(@PathParam("id") long tagId) {
+  public Uni<Response> getTagById(@PathParam("id") long tagId, @QueryParam("stats") Boolean stats) {
     UserToken userToken = userTokenHandler.getUserInfo();
 
     ServiceRequestContext requestContext =
@@ -172,6 +175,7 @@ public class TagResource {
             .resourceType(ResourceType.TAG)
             .actionType(ActionType.GET)
             .userToken(userToken)
+            .addData(TagService.INCLUDE_TAG_STATS_KEY, stats != null && stats)
             .build();
 
     return tagService

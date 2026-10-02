@@ -89,9 +89,11 @@ public class TagService {
 
   public Uni<ServiceResponse<Tag>> getTagById(
       final ServiceRequestContext requestContext, final long tagId) {
+    boolean getStats = requestContext.getBooleanData(INCLUDE_TAG_STATS_KEY, false);
+
     return userService
         .checkUserExist(requestContext)
-        .chain(context2 -> tagRepo.getTagById(tagId, requestContext.getUser().getId()))
+        .chain(context2 -> tagRepo.getTagById(tagId, requestContext.getUser().getId(), getStats))
         .map(
             tag -> {
               if (tag == null) {
@@ -288,9 +290,12 @@ public class TagService {
           400);
     }
 
+    boolean getStats = requestContext.getBooleanData(INCLUDE_TAG_STATS_KEY, false);
+
     return userService
         .checkUserExist(requestContext)
-        .chain(context2 -> tagRepo.searchTags(context2.getUser().getId(), searchText, limit))
+        .chain(
+            context2 -> tagRepo.searchTags(context2.getUser().getId(), searchText, limit, getStats))
         .map(
             tagList ->
                 new ServiceResponse<>(

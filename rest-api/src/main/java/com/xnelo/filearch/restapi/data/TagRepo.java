@@ -194,11 +194,21 @@ public class TagRepo {
   }
 
   public Uni<Tag> getTagById(final long tagId, final long userId) {
+    return getTagById(tagId, userId, false);
+  }
+
+  public Uni<Tag> getTagById(final long tagId, final long userId, boolean includeStats) {
+
+    SelectJoinStep<?> selectTag;
+    if (includeStats) {
+      selectTag = getTagWithStats();
+    } else {
+      selectTag = context.select(allFields).from(Tags.TAGS);
+    }
+
     return Uni.createFrom()
         .item(
-            context
-                .select(allFields)
-                .from(Tags.TAGS)
+            selectTag
                 .where(Tags.TAGS.ID.eq(tagId).and(Tags.TAGS.OWNER_USER_ID.eq(userId)))
                 .fetchOne())
         .map(this::toTagModel);
@@ -239,12 +249,18 @@ public class TagRepo {
   }
 
   public Uni<List<Tag>> searchTags(
-      final long userId, final String searchText, final Integer limit) {
+      final long userId, final String searchText, final Integer limit, final boolean includeStats) {
+
+    SelectJoinStep<?> selectTag;
+    if (includeStats) {
+      selectTag = getTagWithStats();
+    } else {
+      selectTag = context.select(allFields).from(Tags.TAGS);
+    }
+
     return Uni.createFrom()
         .item(
-            context
-                .select(allFields)
-                .from(Tags.TAGS)
+            selectTag
                 .where(Tags.TAGS.OWNER_USER_ID.eq(userId))
                 .and(
                     decryptField(Tags.TAGS.TAG_NAME, encryptionKey)
