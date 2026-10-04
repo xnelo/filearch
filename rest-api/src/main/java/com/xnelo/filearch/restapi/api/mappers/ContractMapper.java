@@ -11,6 +11,7 @@ import com.xnelo.filearch.common.model.GroupMemberPermission;
 import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.common.model.SearchParameters;
 import com.xnelo.filearch.common.model.Tag;
+import com.xnelo.filearch.common.model.TagStats;
 import com.xnelo.filearch.common.model.User;
 import com.xnelo.filearch.common.service.PaginatedResponse;
 import com.xnelo.filearch.common.service.ServiceActionResponse;
@@ -36,6 +37,8 @@ public interface ContractMapper {
   FolderContract toFolderContract(Folder folder);
 
   List<FolderContract> toFolderContractList(List<Folder> folders);
+
+  TagStatsContract toTagStatsContract(TagStats tagStats);
 
   TagContract toTagContract(Tag tag);
 

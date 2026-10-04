@@ -1,0 +1,13 @@
+package com.xnelo.filearch.common.model;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+
+@Builder
+@AllArgsConstructor
+@Getter
+public class TagStats {
+  private long usageCount;
+  private long groupsInCount;
+}
