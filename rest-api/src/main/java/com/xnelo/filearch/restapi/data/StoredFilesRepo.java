@@ -10,6 +10,7 @@ import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.common.model.SearchParameters;
 import com.xnelo.filearch.common.model.StorageType;
 import com.xnelo.filearch.jooq.tables.FileTags;
+import com.xnelo.filearch.jooq.tables.GroupMembers;
 import com.xnelo.filearch.jooq.tables.StoredFiles;
 import com.xnelo.filearch.jooq.tables.Tags;
 import io.agroal.api.AgroalDataSource;
@@ -219,6 +220,39 @@ public class StoredFilesRepo {
             () -> {
               List<File> data = finalQuery.fetch().map(this::toFileModel);
               return RepoUtils.toPaginatedData(data, searchParameters);
+            });
+  }
+
+  public Uni<PaginatedData<File>> getFilesTagAssignedTo(
+      final long userId, final long tagId, final PaginationParameters paginationParameters) {
+    SelectConditionStep<Record1<Long>> groupsInSubquery =
+        context
+            .select(GroupMembers.GROUP_MEMBERS.GROUP_ID)
+            .from(GroupMembers.GROUP_MEMBERS)
+            .where(GroupMembers.GROUP_MEMBERS.USER_ID.eq(userId))
+            .and(GroupMembers.GROUP_MEMBERS.ACCEPTED.isTrue());
+
+    SelectConditionStep<?> selectStatement =
+        context
+            .select(allFields)
+            .from(StoredFiles.STORED_FILES)
+            .join(FileTags.FILE_TAGS)
+            .on(FileTags.FILE_TAGS.FILE_ID.eq(StoredFiles.STORED_FILES.ID))
+            .where(FileTags.FILE_TAGS.TAG_ID.eq(tagId))
+            .and(
+                StoredFiles.STORED_FILES
+                    .OWNER_USER_ID
+                    .eq(userId)
+                    .or(FileTags.FILE_TAGS.GROUP_ID.in(groupsInSubquery)));
+
+    SelectLimitPercentStep<?> finalQuery =
+        RepoUtils.addPagination(selectStatement, StoredFiles.STORED_FILES.ID, paginationParameters);
+
+    return Uni.createFrom()
+        .item(
+            () -> {
+              List<File> data = finalQuery.fetch().map(this::toFileModel);
+              return RepoUtils.toPaginatedData(data, paginationParameters);
             });
   }
 

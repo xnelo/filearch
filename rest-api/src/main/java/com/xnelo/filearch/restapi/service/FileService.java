@@ -639,4 +639,26 @@ public class FileService {
                         requestContext.getActionType(),
                         paginationMapper.toPaginatedResponse(paginatedFileData))));
   }
+
+  public Uni<ServiceResponse<PaginatedResponse<File>>> getFilesTagIsAssignedTo(
+      ServiceRequestContext requestContext,
+      final long tagId,
+      final PaginationParameters paginationParameters) {
+    Utils.validatePaginationParameters(requestContext, paginationParameters);
+
+    return userService
+        .checkUserExist(requestContext)
+        .chain(context -> tagService.checkIfTagVisibleToUser(context, tagId))
+        .chain(
+            context ->
+                storedFilesRepo.getFilesTagAssignedTo(
+                    requestContext.getUser().getId(), tagId, paginationParameters))
+        .map(
+            paginatedFileData ->
+                new ServiceResponse<>(
+                    new ServiceActionResponse<>(
+                        requestContext.getResourceType(),
+                        requestContext.getActionType(),
+                        paginationMapper.toPaginatedResponse(paginatedFileData))));
+  }
 }

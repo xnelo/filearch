@@ -7,7 +7,7 @@ import org.jooq.DSLContext;
 
 public class GroupMembersTestData {
   public static final Set<GroupMembersRecord> groupMembers =
-      Set.of(new GroupMembersRecord(1L, 1L, true));
+      Set.of(new GroupMembersRecord(1L, 1L, true), new GroupMembersRecord(2L, 1L, true));
 
   public static void clearDatabaseTable(DSLContext context) {
     context.truncate(GroupMembers.GROUP_MEMBERS).execute();

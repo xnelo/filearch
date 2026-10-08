@@ -241,6 +241,26 @@ public class TagService {
             });
   }
 
+  public Uni<ServiceRequestContext> checkIfTagVisibleToUser(
+      ServiceRequestContext requestContext, final long tagId) {
+    Utils.checkUserInRequest(requestContext);
+
+    return tagRepo
+        .tagVisibleToUser(requestContext.getUser().getId(), tagId)
+        .map(
+            isTagVisible -> {
+              if (!isTagVisible) {
+                throw new ServiceResponseException(
+                    requestContext,
+                    ErrorCode.TAG_DOES_NOT_EXIST,
+                    "Tag (" + tagId + ") does not exist.",
+                    404);
+              }
+
+              return requestContext;
+            });
+  }
+
   public Uni<ServiceResponse<PaginatedResponse<Tag>>> getTagsAssignedToFile(
       final ServiceRequestContext requestContext,
       final Long fileId,
