@@ -36,30 +36,62 @@ import org.mapstruct.factory.Mappers;
 
 @RequestScoped
 public class FileService {
-  @Inject UserService userService;
-  @Inject SequenceRepo sequenceRepo;
-  @Inject StorageService storageService;
-  @Inject StoredFilesRepo storedFilesRepo;
-  @Inject FileService fileService;
-  @Inject ArtifactRepo artifactRepo;
-  @Inject FolderService folderService;
-  @Inject FileTagsRepo fileTagsRepo;
-  @Inject FilearchConfig config;
-  @Inject TagService tagService;
-  @Inject GroupItemsRepo groupItemsRepo;
-  @Inject GroupItemService groupItemService;
-  @Inject GroupService groupService;
-  @Inject GroupPermissionsService groupPermissionsService;
-  @Inject SharedTagsService shareDtagsService;
+  final UserService userService;
+  final SequenceRepo sequenceRepo;
+  final StorageService storageService;
+  final StoredFilesRepo storedFilesRepo;
+  final ArtifactRepo artifactRepo;
+  final FolderService folderService;
+  final FileTagsRepo fileTagsRepo;
+  final FilearchConfig config;
+  final TagService tagService;
+  final GroupItemsRepo groupItemsRepo;
+  final GroupItemService groupItemService;
+  final GroupService groupService;
+  final GroupPermissionsService groupPermissionsService;
+  final SharedTagsService shareDtagsService;
   final PaginationMapper paginationMapper = Mappers.getMapper(PaginationMapper.class);
   final MessagingMapper messagingMapper = Mappers.getMapper(MessagingMapper.class);
 
-  @Channel("file-proc-requests")
-  Emitter<String> fileProcRequestEmitter;
+  final Emitter<String> fileProcRequestEmitter;
 
   public static final String GET_THUMBNAIL_KEY = "GET_THUMBNAIL__BOOLEAN";
   public static final String FILE_ID_KEY = "FILE_ID__LONG";
   public static final String FILE_METADATA_KEY = "FILE_METADATA__FILE";
+
+  @Inject
+  public FileService(
+      final UserService userService,
+      final SequenceRepo sequenceRepo,
+      final StorageService storageService,
+      final StoredFilesRepo storedFilesRepo,
+      final ArtifactRepo artifactRepo,
+      final FolderService folderService,
+      final FileTagsRepo fileTagsRepo,
+      final FilearchConfig config,
+      final TagService tagService,
+      final GroupItemsRepo groupItemsRepo,
+      final GroupItemService groupItemService,
+      final GroupService groupService,
+      final GroupPermissionsService groupPermissionsService,
+      final SharedTagsService shareDtagsService,
+      @Channel("file-proc-requests") Emitter<String> fileProcRequestEmitter) {
+    this.userService = userService;
+    this.sequenceRepo = sequenceRepo;
+    this.storageService = storageService;
+    this.storedFilesRepo = storedFilesRepo;
+    this.artifactRepo = artifactRepo;
+    this.folderService = folderService;
+    this.fileTagsRepo = fileTagsRepo;
+    this.config = config;
+    this.tagService = tagService;
+    this.groupItemsRepo = groupItemsRepo;
+    this.groupItemService = groupItemService;
+    this.groupService = groupService;
+    this.groupPermissionsService = groupPermissionsService;
+    this.shareDtagsService = shareDtagsService;
+    this.fileProcRequestEmitter = fileProcRequestEmitter;
+  }
 
   public Uni<ServiceResponse<PaginatedResponse<File>>> getAllFiles(
       final ServiceRequestContext requestContext, final PaginationParameters paginationParameters) {
@@ -281,8 +313,7 @@ public class FileService {
 
   private Uni<ServiceActionResponse<File>> deleteIndividualFile(
       final ServiceRequestContext requestContext, final long fileId) {
-    return fileService
-        .checkFileExist(requestContext, fileId)
+    return checkFileExist(requestContext, fileId)
         .chain(_ignored -> fileTagsRepo.deleteAllFileMappings(fileId))
         .chain(_ignored -> groupItemsRepo.removeItemFromAllGroups(fileId, GroupItemType.FILE))
         .chain(_ignored -> gatherAllRelatedFiles(requestContext, fileId))
@@ -395,7 +426,7 @@ public class FileService {
     } catch (Exception e) {
       Log.errorf(
           e,
-          "Exception encountered while opening file inputstream. fileId:%d fileStorageKey:%s",
+          "Exception encountered while opening file input stream. fileId:%d fileStorageKey:%s",
           fileMetadata.getId(),
           fileMetadata.getStorageKey());
       return Uni.createFrom()
@@ -559,7 +590,7 @@ public class FileService {
       canUserAddTag =
           userService
               .checkUserExist(requestContext)
-              .chain(context -> groupService.checkUserActiveMember(context))
+              .chain(groupService::checkUserActiveMember)
               .chain(
                   context ->
                       groupPermissionsService.userHasPermissionV2(
@@ -595,7 +626,7 @@ public class FileService {
       canUserUnassignTag =
           userService
               .checkUserExist(requestContext)
-              .chain(context -> groupService.checkUserActiveMember(context))
+              .chain(groupService::checkUserActiveMember)
               .chain(
                   context ->
                       groupPermissionsService.userHasPermissionV2(
