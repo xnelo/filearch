@@ -13,6 +13,10 @@ public class SharedTagsTestData {
   }
 
   public static void loadTestData(DSLContext context) {
+    // Ensure the data is "dirty" so it
+    // will be inserted correctly
+    sharedTags.forEach(st -> st.touched(true));
+
     context.batchInsert(sharedTags).execute();
   }
 }

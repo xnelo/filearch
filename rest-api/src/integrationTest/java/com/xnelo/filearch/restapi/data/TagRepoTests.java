@@ -25,6 +25,7 @@ public class TagRepoTests {
   static void setupClass() {
     dataSource = Arc.container().instance(AgroalDataSource.class).get();
     DatabaseTestData testData = new DatabaseTestData(dataSource, "FILEARCH");
+    testData.cleanDatabase();
     testData.loadDataIntoDatabase();
   }
 

@@ -29,6 +29,7 @@ public class FileResourceTests {
   static void setupClass() {
     AgroalDataSource dataSource = Arc.container().instance(AgroalDataSource.class).get();
     DatabaseTestData testData = new DatabaseTestData(dataSource, "FILEARCH");
+    testData.cleanDatabase();
     testData.loadDataIntoDatabase();
   }
 
@@ -73,9 +74,11 @@ public class FileResourceTests {
     @Test
     @TestSecurity(authorizationEnabled = false)
     void getFileTagsUserNotInGroup() {
-      jwtProducer.setUserIdToUse("50eebbc5-96e2-4e6d-8bd8-35c76778743e");
+      final long TAG_ID_TO_USE = 2L;
 
-      Response tagsResponse = given().when().get("/file/2/tags?group_id=1");
+      jwtProducer.setUserIdToUse("2b7eb045-ca38-4a4b-82fb-8151b7079ced");
+
+      Response tagsResponse = given().when().get("/file/" + TAG_ID_TO_USE + "/tags?group_id=1");
 
       JsonPath jsonPath = tagsResponse.jsonPath();
 

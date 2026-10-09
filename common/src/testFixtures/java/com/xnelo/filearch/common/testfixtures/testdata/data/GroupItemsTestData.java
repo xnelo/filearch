@@ -14,6 +14,10 @@ public class GroupItemsTestData {
   }
 
   public static void loadTestData(DSLContext context) {
+    // Ensure the data is "dirty" so it
+    // will be inserted correctly
+    groupItems.forEach(gi -> gi.touched(true));
+
     context.batchInsert(groupItems).execute();
   }
 }
