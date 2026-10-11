@@ -14,6 +14,10 @@ public class ArtifactsTestData {
   }
 
   public static void loadTestData(DSLContext context) {
+    // Ensure the data is "dirty" so it
+    // will be inserted correctly
+    artifacts.forEach(a -> a.touched(true));
+
     context.batchInsert(artifacts).execute();
   }
 }

@@ -14,6 +14,10 @@ public class FileTagsTestData {
   }
 
   public static void loadTestData(DSLContext context) {
+    // Ensure the data is "dirty" so it
+    // will be inserted correctly
+    fileTags.forEach(ft -> ft.touched(true));
+
     context.batchInsert(fileTags).execute();
   }
 }

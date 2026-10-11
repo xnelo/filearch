@@ -13,6 +13,7 @@ import com.xnelo.filearch.restapi.api.contracts.PaginationRequest;
 import com.xnelo.filearch.restapi.api.contracts.TagContract;
 import com.xnelo.filearch.restapi.api.contracts.TagShareBulkContract;
 import com.xnelo.filearch.restapi.api.mappers.ContractMapper;
+import com.xnelo.filearch.restapi.service.FileService;
 import com.xnelo.filearch.restapi.service.tag.TagService;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
@@ -29,6 +30,7 @@ import org.mapstruct.factory.Mappers;
 public class TagResource {
   @Inject UserTokenHandler userTokenHandler;
   @Inject TagService tagService;
+  @Inject FileService fileService;
   private final ContractMapper contractMapper = Mappers.getMapper(ContractMapper.class);
 
   @GET
@@ -227,5 +229,33 @@ public class TagResource {
         .map(
             tagServiceResponse ->
                 contractMapper.toApiResponse(tagServiceResponse, respList -> respList));
+  }
+
+  @GET
+  @RolesAllowed("user")
+  @Path("{id}/assigned_files")
+  @Operation(summary = "Get the files a certain tag has been assigned to")
+  public Uni<Response> assignedFiles(
+      @PathParam("id") long tagId, @BeanParam PaginationRequest paginationRequest) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+    PaginationParameters paginationParameters =
+        contractMapper.toPaginationParameters(paginationRequest);
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FILE)
+            .actionType(ActionType.GET)
+            .userToken(userToken)
+            .build();
+
+    return fileService
+        .getFilesTagIsAssignedTo(requestContext, tagId, paginationParameters)
+        .map(
+            filesResponse ->
+                contractMapper.toApiResponse(
+                    filesResponse,
+                    resp ->
+                        contractMapper.toPaginationContract(
+                            resp, contractMapper::toFileContractList)));
   }
 }

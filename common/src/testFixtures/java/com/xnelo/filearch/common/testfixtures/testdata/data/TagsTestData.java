@@ -17,6 +17,10 @@ public class TagsTestData {
   }
 
   public static void loadTestData(DSLContext context) {
+    // Ensure the data is "dirty" so it
+    // will be inserted correctly
+    tags.forEach(t -> t.touched(true));
+
     context.batchInsert(tags).execute();
   }
 }

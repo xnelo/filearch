@@ -19,6 +19,10 @@ public class StoredFilesTestData {
   }
 
   public static void loadTestData(DSLContext context) {
+    // Ensure the data is "dirty" so it
+    // will be inserted correctly
+    storedFiles.forEach(s -> s.touched(true));
+
     context.batchInsert(storedFiles).execute();
   }
 }

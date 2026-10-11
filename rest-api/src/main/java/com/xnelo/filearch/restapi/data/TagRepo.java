@@ -9,6 +9,7 @@ import com.xnelo.filearch.common.model.PaginationParameters;
 import com.xnelo.filearch.common.model.Tag;
 import com.xnelo.filearch.common.model.TagStats;
 import com.xnelo.filearch.jooq.tables.FileTags;
+import com.xnelo.filearch.jooq.tables.GroupMembers;
 import com.xnelo.filearch.jooq.tables.SharedTags;
 import com.xnelo.filearch.jooq.tables.Tags;
 import io.agroal.api.AgroalDataSource;
@@ -272,6 +273,52 @@ public class TagRepo {
         .invoke(ex -> log.error("Error searching tags {}", searchText, ex))
         .onFailure()
         .recoverWithItem(List.of());
+  }
+
+  public Uni<Boolean> tagVisibleToUser(final long userId, final long tagId) {
+    /*
+    SELECT EXISTS(
+        SELECT 1
+        FROM tags t
+        WHERE t.id = 32
+          AND t.owner_user_id = 7)
+    OR EXISTS(
+        SELECT 1
+        FROM shared_tags st
+        WHERE st.tag_id = 32
+          AND st.group_id IN (
+              SELECT gm.group_id
+              FROM group_members gm
+              WHERE gm.user_id = 7
+                AND gm.accepted IS TRUE))
+     AS "tag_visible_to_user";
+     */
+    SelectConditionStep<Record1<Integer>> tagExistsForUser =
+        context
+            .select(DSL.one())
+            .from(Tags.TAGS)
+            .where(Tags.TAGS.ID.eq(tagId))
+            .and(Tags.TAGS.OWNER_USER_ID.eq(userId));
+
+    SelectConditionStep<Record1<Long>> groupsUserIn =
+        context
+            .select(GroupMembers.GROUP_MEMBERS.GROUP_ID)
+            .from(GroupMembers.GROUP_MEMBERS)
+            .where(GroupMembers.GROUP_MEMBERS.USER_ID.eq(userId))
+            .and(GroupMembers.GROUP_MEMBERS.ACCEPTED.isTrue());
+
+    SelectConditionStep<Record1<Integer>> tagSharedWithUser =
+        context
+            .select(DSL.one())
+            .from(SharedTags.SHARED_TAGS)
+            .where(SharedTags.SHARED_TAGS.TAG_ID.eq(tagId))
+            .and(SharedTags.SHARED_TAGS.GROUP_ID.in(groupsUserIn));
+
+    return Uni.createFrom()
+        .item(
+            context
+                .select(DSL.exists(tagExistsForUser).or(DSL.exists(tagSharedWithUser)))
+                .fetchOneInto(Boolean.class));
   }
 
   Tag toTagModel(final Record toConvert) {

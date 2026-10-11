@@ -15,6 +15,10 @@ public class GroupsTestData {
   }
 
   public static void loadTestData(DSLContext context) {
+    // Ensure the data is "dirty" so it
+    // will be inserted correctly
+    groups.forEach(g -> g.touched(true));
+
     context.batchInsert(groups).execute();
   }
 }

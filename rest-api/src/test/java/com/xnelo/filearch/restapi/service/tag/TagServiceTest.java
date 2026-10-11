@@ -120,4 +120,61 @@ public class TagServiceTest {
       assertEquals(originalTagData.getId(), tagData.getId());
     }
   }
+
+  @Nested
+  class CheckIfTagVisibleToUser {
+    @Test
+    void userNotInRequest_ThrowsException() {
+      ServiceRequestContext serviceRequestContext =
+          ServiceRequestContextFaker.generateInstance(null, null, null);
+
+      ServiceResponseException ex =
+          assertThrows(
+              ServiceResponseException.class,
+              () ->
+                  tagService
+                      .checkIfTagVisibleToUser(serviceRequestContext, 1L)
+                      .await()
+                      .indefinitely());
+
+      assertEquals(ErrorCode.USER_NOT_PROVIDED_IN_REQUEST_OBJECT, ex.getErrorCode());
+    }
+
+    @Test
+    void tagNotVisible_ThrowsException() {
+      ServiceRequestContext serviceRequestContext = ServiceRequestContextFaker.generateInstance();
+
+      when(tagRepoMock.tagVisibleToUser(anyLong(), anyLong()))
+          .thenReturn(Uni.createFrom().item(false));
+
+      ServiceResponseException ex =
+          assertThrows(
+              ServiceResponseException.class,
+              () ->
+                  tagService
+                      .checkIfTagVisibleToUser(serviceRequestContext, 1L)
+                      .await()
+                      .indefinitely());
+
+      assertEquals(ErrorCode.TAG_DOES_NOT_EXIST, ex.getErrorCode());
+    }
+
+    @Test
+    void tagVisible_success() {
+      ServiceRequestContext serviceRequestContext = ServiceRequestContextFaker.generateInstance();
+
+      when(tagRepoMock.tagVisibleToUser(anyLong(), anyLong()))
+          .thenReturn(Uni.createFrom().item(true));
+
+      ServiceRequestContext returnedContext =
+          assertDoesNotThrow(
+              () ->
+                  tagService
+                      .checkIfTagVisibleToUser(serviceRequestContext, 1L)
+                      .await()
+                      .indefinitely());
+
+      assertNotNull(returnedContext);
+    }
+  }
 }

@@ -24,13 +24,24 @@ public class UserTestData {
               "Cooper".getBytes(StandardCharsets.UTF_8),
               "cc@garbage.com".getBytes(StandardCharsets.UTF_8),
               "50eebbc5-96e2-4e6d-8bd8-35c76778743e",
-              2L));
+              2L),
+          new UsersRecord(
+              3L,
+              "Dave".getBytes(StandardCharsets.UTF_8),
+              "David".getBytes(StandardCharsets.UTF_8),
+              "Bowie".getBytes(StandardCharsets.UTF_8),
+              "Dave@garbage.com".getBytes(StandardCharsets.UTF_8),
+              "2b7eb045-ca38-4a4b-82fb-8151b7079ced",
+              3L));
 
   public static void clearDatabaseTable(DSLContext context) {
     context.truncate(Users.USERS).execute();
   }
 
   public static void loadTestData(DSLContext context) {
+    // Ensure the data is "dirty" so it
+    // will be inserted correctly
+    users.forEach(u -> u.touched(true));
     context.batchInsert(users).execute();
   }
 }
