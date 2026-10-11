@@ -22,8 +22,14 @@ import java.util.Map;
 
 @RequestScoped
 public class UserService {
-  @Inject UserRepo userRepo;
-  @Inject FolderService folderService;
+  private final UserRepo userRepo;
+  private final FolderService folderService;
+
+  @Inject
+  public UserService(final UserRepo userRepo, final FolderService folderService) {
+    this.userRepo = userRepo;
+    this.folderService = folderService;
+  }
 
   public Uni<ServiceResponse<User>> getUserFromUserToken(
       final ServiceRequestContext requestContext) {
