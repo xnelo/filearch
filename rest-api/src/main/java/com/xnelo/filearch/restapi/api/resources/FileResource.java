@@ -329,4 +329,25 @@ public class FileResource {
                         contractMapper.toPaginationContract(
                             resp, contractMapper::toFileContractList)));
   }
+
+  @GET
+  @RolesAllowed("user")
+  @Path("{id}/folder_path")
+  public Uni<Response> getFolderPath(@PathParam("id") long fileId) {
+    UserToken userToken = userTokenHandler.getUserInfo();
+
+    ServiceRequestContext requestContext =
+        ServiceRequestContextImpl.builder()
+            .resourceType(ResourceType.FOLDER)
+            .actionType(ActionType.GET)
+            .userToken(userToken)
+            .build();
+
+    return fileService
+        .getFolderPath(requestContext, fileId)
+        .map(
+            serviceResponse ->
+                contractMapper.toApiResponse(
+                    serviceResponse, contractMapper::toFolderContractList));
+  }
 }

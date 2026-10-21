@@ -20,6 +20,7 @@ import com.xnelo.filearch.restapi.data.FileTagsRepo;
 import com.xnelo.filearch.restapi.data.GroupItemsRepo;
 import com.xnelo.filearch.restapi.data.SequenceRepo;
 import com.xnelo.filearch.restapi.data.StoredFilesRepo;
+import com.xnelo.filearch.restapi.service.folder.FolderNode;
 import com.xnelo.filearch.restapi.service.folder.FolderService;
 import com.xnelo.filearch.restapi.service.tag.TagService;
 import io.quarkus.logging.Log;
@@ -691,5 +692,33 @@ public class FileService {
                         requestContext.getResourceType(),
                         requestContext.getActionType(),
                         paginationMapper.toPaginatedResponse(paginatedFileData))));
+  }
+
+  public Uni<ServiceResponse<List<Folder>>> getFolderPath(
+      ServiceRequestContext requestContext, final long fileId) {
+    return userService
+        .checkUserExist(requestContext)
+        .chain(context -> checkFileExist(context, fileId))
+        .chain(folderService::getFolderHierarchy)
+        .map(
+            folderHierarchy -> {
+              File fileMetadata =
+                  requestContext.getDataAs(FileService.FILE_METADATA_KEY, File.class);
+
+              FolderNode folderNode = folderHierarchy.getNodeFromId(fileMetadata.getFolderId());
+
+              List<Folder> folderPath = new ArrayList<>();
+
+              do {
+                folderPath.add(folderNode.getData());
+                folderNode = folderNode.getParent();
+              } while (folderNode != null);
+
+              return new ServiceResponse<>(
+                  new ServiceActionResponse<>(
+                      requestContext.getResourceType(),
+                      requestContext.getActionType(),
+                      folderPath.reversed()));
+            });
   }
 }

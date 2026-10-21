@@ -438,6 +438,12 @@ public class FolderService {
     return idsToDelete;
   }
 
+  public Uni<FolderHierarchy> getFolderHierarchy(ServiceRequestContext requestContext) {
+    Utils.checkUserInRequest(requestContext);
+
+    return getFolderHierarchy(requestContext.getUser().getId());
+  }
+
   Uni<FolderHierarchy> getFolderHierarchy(final long userId) {
     return folderRepo.getAllUserFolders(userId).map(FolderHierarchy::of);
   }
